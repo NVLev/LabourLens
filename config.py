@@ -55,7 +55,7 @@ class Settings(BaseSettings):
 
     run: RunConfig = Field(default_factory=RunConfig)
     db: DatabaseConfig = Field(default_factory=DatabaseConfig)
-    bot: Annotated[BotConfig, Field()]
+    # bot: Annotated[BotConfig, Field()]
     parser: ParserConfig = Field(default_factory=ParserConfig)
     pagination: PaginationConfig = Field(default_factory=PaginationConfig)
 
