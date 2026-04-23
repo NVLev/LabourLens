@@ -29,6 +29,7 @@ class Act(Base):
     # "2001/55"
     url: Mapped[str] = mapped_column(String(500), nullable=False)
     last_parsed_at: Mapped[Optional[datetime]] = mapped_column()
+    version_date: Mapped[Optional[date]] = mapped_column()
 
     chapters: Mapped[list["Chapter"]] = relationship(
         back_populates="act", cascade="all, delete-orphan"
