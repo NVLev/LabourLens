@@ -3,7 +3,7 @@ import hashlib
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, date
 
 import httpx
 from lxml import etree
@@ -91,6 +91,7 @@ class ParsedAct:
     url: str
     parsed_at: datetime
     chapters: list[ParsedChapter] = field(default_factory=list)
+    version_date: date | None = None
 
 
 # Парсер
@@ -113,6 +114,7 @@ class FinlexParser:
 
         xml_bytes = await self._fetch(config["api_url"])
         root = etree.fromstring(xml_bytes)
+        version_date = self._parse_version_date(root)
 
         act = ParsedAct(
             key=act_key,
@@ -130,6 +132,15 @@ class FinlexParser:
             sum(len(ch.sections) for ch in act.chapters),
         )
         return act
+
+    def _parse_version_date(self, root: etree._Element) -> date | None:
+        for fd in root.findall(f".//{akn('FRBRdate')}"):
+            if fd.get("name") == "dateProduced":
+                try:
+                    return date.fromisoformat(fd.get("date", ""))
+                except ValueError:
+                    return None
+        return None
 
     async def parse_all(self) -> list[ParsedAct]:
         results = []
