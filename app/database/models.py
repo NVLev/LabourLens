@@ -69,7 +69,7 @@ class Section(Base):
     anchor: Mapped[str] = mapped_column(String(100), nullable=False)
     # "chp_1__sec_3"
     url: Mapped[str] = mapped_column(String(500), nullable=False)
-
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     act: Mapped["Act"] = relationship()
     chapter: Mapped["Chapter"] = relationship(back_populates="sections")
     paragraphs: Mapped[list["SectionParagraph"]] = relationship(

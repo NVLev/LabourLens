@@ -1,0 +1,74 @@
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.database.db_helper import db_helper
+from app.parsing.finlex import FinlexParser, ACTS_CONFIG
+from app.services.law_service import LawService
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/parse", tags=["parse"])
+
+
+@router.post("/finlex", summary="Parse all acts from Finlex Open Data API")
+async def parse_finlex(
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    """
+    Запускает парсинг всех законов из ACTS_CONFIG,
+    сохраняет в БД через upsert.
+    Безопасно запускать повторно.
+    """
+    parser = FinlexParser()
+    service = LawService(session)
+    results = []
+
+    for act_key in ACTS_CONFIG:
+        try:
+            parsed = await parser.parse_act(act_key)
+            act = await service.upsert_act(parsed)
+            results.append({
+                "act": act_key,
+                "status": "ok",
+                "chapters": len(parsed.chapters),
+                "sections": sum(len(ch.sections) for ch in parsed.chapters),
+            })
+        except Exception as e:
+            logger.error("Failed to parse %s: %s", act_key, e)
+            results.append({
+                "act": act_key,
+                "status": "error",
+                "detail": str(e),
+            })
+
+    return {"parsed": results}
+
+
+@router.post("/finlex/{act_key}", summary="Parse single act")
+async def parse_finlex_act(
+    act_key: str,
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    """Парсит один конкретный закон по ключу."""
+    if act_key not in ACTS_CONFIG:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown act key: {act_key}. "
+                   f"Available: {list(ACTS_CONFIG.keys())}",
+        )
+
+    parser = FinlexParser()
+    service = LawService(session)
+
+    parsed = await parser.parse_act(act_key)
+    act = await service.upsert_act(parsed)
+
+    return {
+        "act": act_key,
+        "status": "ok",
+        "chapters": len(parsed.chapters),
+        "sections": sum(len(ch.sections) for ch in parsed.chapters),
+        "version_date": str(act.version_date) if act.version_date else None,
+    }

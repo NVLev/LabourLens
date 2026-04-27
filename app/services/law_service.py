@@ -129,7 +129,7 @@ class LawService:
             await self._create_paragraphs(parsed, section.id)
             logger.debug("Created section %d §%d", chapter_id, parsed.number)
 
-        elif parsed.content_hash != section.content_hash:
+        elif section.content_hash is None or parsed.content_hash != section.content_hash:
             # Текст изменился — обновляем секцию и перезаписываем параграфы
             section.title_fi = parsed.title_fi
             section.anchor = parsed.anchor
