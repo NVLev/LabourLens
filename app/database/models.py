@@ -89,6 +89,8 @@ class SectionParagraph(Base):
     text_fi: Mapped[str] = mapped_column(Text, nullable=False)
     text_en: Mapped[Optional[str]] = mapped_column(Text)
     translated_at: Mapped[Optional[datetime]] = mapped_column()
+    text_ru: Mapped[Optional[str]] = mapped_column(Text)
+    translated_ru_at: Mapped[Optional[datetime]] = mapped_column()
 
     section: Mapped["Section"] = relationship(back_populates="paragraphs")
 
