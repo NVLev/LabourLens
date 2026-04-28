@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.db_helper import db_helper
 from app.parsing.finlex import FinlexParser, ACTS_CONFIG
 from app.services.law_service import LawService
+from app.services.topic_service import TopicService
 
 logger = logging.getLogger(__name__)
 
@@ -72,3 +73,16 @@ async def parse_finlex_act(
         "sections": sum(len(ch.sections) for ch in parsed.chapters),
         "version_date": str(act.version_date) if act.version_date else None,
     }
+
+@router.post("/topics/seed", summary="Load topics from topic_map into DB")
+async def seed_topics(
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    """
+    Загружает темы и их связи с параграфами из topic_map.py.
+    Требует чтобы законы уже были распарсены.
+    Безопасно запускать повторно.
+    """
+    service = TopicService(session)
+    result = await service.seed_topics()
+    return result
