@@ -1,11 +1,12 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import Act, Chapter, Section, SectionParagraph
 from app.parsing.finlex import ParsedAct, ParsedChapter, ParsedSection
+from app.repositories.laws import LawRepository
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,7 @@ class LawService:
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+        self.repo = LawRepository(session)
 
     # Публичный метод
 
@@ -33,7 +35,7 @@ class LawService:
             for parsed_section in parsed_chapter.sections:
                 await self._upsert_section(parsed_section, act.id, chapter.id)
 
-        act.last_parsed_at = datetime.utcnow()
+        act.last_parsed_at = datetime.now(timezone.utc)
         await self.session.commit()
 
         logger.info(
@@ -47,10 +49,7 @@ class LawService:
     # Act
 
     async def _upsert_act(self, parsed: ParsedAct) -> Act:
-        result = await self.session.execute(
-            select(Act).where(Act.key == parsed.key)
-        )
-        act = result.scalar_one_or_none()
+        act = await self.repo.get_act_by_key_plain(parsed.key)
 
         if act is None:
             act = Act(
@@ -76,14 +75,7 @@ class LawService:
     # Chapter
 
     async def _upsert_chapter(self, parsed: ParsedChapter, act_id: int) -> Chapter:
-        result = await self.session.execute(
-            select(Chapter).where(
-                Chapter.act_id == act_id,
-                Chapter.number == parsed.number,
-            )
-        )
-        chapter = result.scalar_one_or_none()
-
+        chapter = await self.repo.get_chapter_plain(act_id, parsed.number)
         if chapter is None:
             chapter = Chapter(
                 act_id=act_id,
@@ -97,23 +89,14 @@ class LawService:
 
         return chapter
 
-    # ── Section ──────────────────────────────────────────────
-
+    # Section
     async def _upsert_section(
         self,
         parsed: ParsedSection,
         act_id: int,
         chapter_id: int,
     ) -> Section:
-        result = await self.session.execute(
-            select(Section).where(
-                Section.act_id == act_id,
-                Section.chapter_id == chapter_id,
-                Section.number == parsed.number,
-            )
-        )
-        section = result.scalar_one_or_none()
-
+        section = await self.repo.get_section_plain(act_id, chapter_id, parsed.number)
         if section is None:
             section = Section(
                 act_id=act_id,
@@ -144,7 +127,7 @@ class LawService:
 
         return section
 
-    # ── Paragraphs ───────────────────────────────────────────
+    # Paragraphs
 
     async def _create_paragraphs(
         self, parsed: ParsedSection, section_id: int

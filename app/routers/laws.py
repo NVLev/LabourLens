@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 from app.database.db_helper import db_helper
 from app.database.models import Act, Section, Chapter
 from app.parsing.finlex import FinlexParser, ACTS_CONFIG
+from app.repositories.laws import LawRepository
 from app.services.law_service import LawService
 
 logger = logging.getLogger(__name__)
@@ -19,8 +20,8 @@ router = APIRouter(prefix="/laws", tags=["laws"])
 async def get_acts(
     session: AsyncSession = Depends(db_helper.session_getter),
 ):
-    result = await session.execute(select(Act))
-    acts = result.scalars().all()
+    repo = LawRepository(session)
+    acts = await repo.get_all_acts()
 
     return [
         {
@@ -33,9 +34,8 @@ async def get_acts(
     ]
 
 
-# ──────────────────────────────────────────────
+
 # GET ACT WITH CHAPTERS
-# ──────────────────────────────────────────────
 
 @router.get("/acts/{act_key}", summary="Get act with chapters")
 async def get_act(
@@ -69,9 +69,7 @@ async def get_act(
     }
 
 
-# ──────────────────────────────────────────────
 # GET CHAPTER WITH SECTIONS
-# ──────────────────────────────────────────────
 
 @router.get("/acts/{act_key}/{chapter_number}", summary="Get chapter with sections")
 async def get_chapter(
@@ -107,9 +105,7 @@ async def get_chapter(
     }
 
 
-# ──────────────────────────────────────────────
 # GET SECTION WITH FULL TEXT
-# ──────────────────────────────────────────────
 
 @router.get(
     "/acts/{act_key}/{chapter_number}/{section_number}",

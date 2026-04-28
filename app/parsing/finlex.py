@@ -3,7 +3,7 @@ import hashlib
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 
 import httpx
 from lxml import etree
@@ -121,7 +121,7 @@ class FinlexParser:
             name_fi=config["name_fi"],
             code=config["code"],
             url=config["web_url"],
-            parsed_at=datetime.utcnow(),
+            parsed_at=datetime.now(timezone.utc),
             chapters=self._parse_chapters(root, config["web_url"]),
         )
 
