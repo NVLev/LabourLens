@@ -7,19 +7,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import Act, Chapter, Section, SectionParagraph
 from app.translation.helsinki_nlp import translate_fi_en, MAX_CHUNK_CHARS, translate_batch_fi_en
-from app.translation.deepl import DeeplTranslator
 
 logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 8  # Helsinki-NLP батч
-DEEPL_BATCH_SIZE = 50  # DeepL поддерживает до 50 текстов за раз
 
 
 class TranslationService:
 
-    def __init__(self, session: AsyncSession, deepl_api_key: str = "") -> None:
+    def __init__(self, session: AsyncSession) -> None:
         self.session = session
-        self.deepl = DeeplTranslator(deepl_api_key) if deepl_api_key else None
 
     # Публичные методы
 
@@ -34,6 +31,18 @@ class TranslationService:
         translated = await self._translate_en_paragraphs(paragraphs)
         await self.session.commit()
         return self._result(act_key, translated, len(paragraphs))
+
+    async def translate_ru(self, act_key: str | None = None) -> dict:
+            """Helsinki-NLP fi→ru. act_key=None — все законы."""
+            paragraphs = await self._get_untranslated(act_key, lang="ru")
+            logger.info(
+                "RU translation: %d paragraphs to translate%s",
+                len(paragraphs),
+                f" for {act_key}" if act_key else "",
+            )
+            translated = await self._translate_ru_paragraphs(paragraphs)
+            await self.session.commit()
+            return self._result(act_key, translated, len(paragraphs))
 
     async def _translate_ru_paragraphs(
             self, paragraphs: list[SectionParagraph]
@@ -136,13 +145,11 @@ class TranslationService:
         act_key: str | None,
         translated: int,
         total: int,
-        usage: dict | None = None,
     ) -> dict:
         result = {
             "act": act_key or "all",
             "translated": translated,
             "skipped": total - translated,
         }
-        if usage:
-            result["deepl_usage"] = usage
+
         return result
