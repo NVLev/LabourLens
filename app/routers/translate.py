@@ -1,8 +1,8 @@
 import logging
-
+import time
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from sqlalchemy import select
 from app.database.db_helper import db_helper
 from app.parsing.finlex import ACTS_CONFIG
 from app.services.translation_service import TranslationService
@@ -12,14 +12,13 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/translate", tags=["translate"])
 
-
 def get_translation_service(
     session: AsyncSession = Depends(db_helper.session_getter),
 ) -> TranslationService:
     return TranslationService(
         session=session,
-        deepl_api_key=settings.translation.deepl_api_key,
     )
+
 
 @router.get("/laws/status", summary="Translation status for all acts")
 async def get_translation_status(
