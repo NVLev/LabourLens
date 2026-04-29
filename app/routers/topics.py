@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.db_helper import db_helper
 from app.services.topic_service import TopicService
-from app.repositories.topic_repository import TopicRepository
+from app.repositories.topics import TopicRepository
 
 router = APIRouter(prefix="/topics", tags=["topics"])
 
