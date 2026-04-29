@@ -23,6 +23,12 @@ async def lifespan(app: FastAPI):
         ],
     )
     logger.info("🚀 Приложение запущено. Подключение к БД готово.")
+    logger.info("Loading translation models...")
+    from app.translation.helsinki_nlp import _load_fi_en, _load_fi_ru
+    _load_fi_en()
+    _load_fi_ru()
+    logger.info("Models ready")
+
 
     try:
         yield
