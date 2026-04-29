@@ -1,17 +1,20 @@
 import logging
+import os
 from functools import lru_cache
+from typing import Any
 
-from transformers import MarianMTModel, MarianTokenizer
+from transformers import MarianMTModel, MarianTokenizer, PreTrainedModel
 
 logger = logging.getLogger(__name__)
 
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
 MODEL_FI_EN = "Helsinki-NLP/opus-mt-fi-en"
 MODEL_FI_RU = "Helsinki-NLP/opus-mt-fi-ru"
 MAX_CHUNK_CHARS = 400  # MarianMT плохо справляется с очень длинными текстами
 
 
 @lru_cache(maxsize=1)
-def _load_fi_en() -> tuple[MarianTokenizer, MarianMTModel]:
+def _load_fi_en() -> tuple[Any, PreTrainedModel]:
     logger.info("Loading model: %s", MODEL_FI_EN)
     tokenizer = MarianTokenizer.from_pretrained(MODEL_FI_EN)
     model = MarianMTModel.from_pretrained(MODEL_FI_EN)
@@ -19,7 +22,7 @@ def _load_fi_en() -> tuple[MarianTokenizer, MarianMTModel]:
     return tokenizer, model
 
 @lru_cache(maxsize=1)
-def _load_fi_ru() -> tuple[MarianTokenizer, MarianMTModel]:
+def _load_fi_ru() -> tuple[Any, PreTrainedModel]:
     logger.info("Loading model: %s", MODEL_FI_RU)
     tokenizer = MarianTokenizer.from_pretrained(MODEL_FI_RU)
     model = MarianMTModel.from_pretrained(MODEL_FI_RU)
