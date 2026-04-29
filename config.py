@@ -36,9 +36,6 @@ class ParserConfig(BaseModel):
     tyosuojelu_base_url: str = "https://www.tyosuojelu.fi"
     playwright_timeout_ms: int = 30000
 
-class TranslationConfig(BaseModel):
-    deepl_api_key: str = ""
-
 class PaginationConfig(BaseModel):
     page_size: int = 10
     bot_page_size: int = 5
@@ -58,7 +55,6 @@ class Settings(BaseSettings):
     db: DatabaseConfig = Field(default_factory=DatabaseConfig)
     # bot: Annotated[BotConfig, Field()]
     parser: ParserConfig = Field(default_factory=ParserConfig)
-    translation: TranslationConfig = Field(default_factory=TranslationConfig)
     pagination: PaginationConfig = Field(default_factory=PaginationConfig)
 
 
