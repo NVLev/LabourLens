@@ -6,8 +6,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from app.database.db_helper import db_helper
-from app.routers import parse
-from app.routers import laws
+from app.routers import parse, translate, laws, analyze, topics
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +23,12 @@ async def lifespan(app: FastAPI):
         ],
     )
     logger.info("🚀 Приложение запущено. Подключение к БД готово.")
+    logger.info("Loading translation models...")
+    from app.translation.helsinki_nlp import _load_fi_en, _load_fi_ru
+    _load_fi_en()
+    _load_fi_ru()
+    logger.info("Models ready")
+
 
     try:
         yield
@@ -42,6 +47,9 @@ def create_app() -> FastAPI:
     )
     app.include_router(parse.router)
     app.include_router(laws.router)
+    app.include_router(translate.router)
+    app.include_router(topics.router)
+    app.include_router(analyze.router)
     return app
 
 

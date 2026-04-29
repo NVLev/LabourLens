@@ -36,8 +36,6 @@ class ParserConfig(BaseModel):
     tyosuojelu_base_url: str = "https://www.tyosuojelu.fi"
     playwright_timeout_ms: int = 30000
 
-
-
 class PaginationConfig(BaseModel):
     page_size: int = 10
     bot_page_size: int = 5

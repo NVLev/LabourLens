@@ -20,6 +20,8 @@ class ParagraphResponse(ParagraphBase):
 
     id: int
     translated_at: Optional[datetime] = None
+    text_ru: Optional[str] = None
+    translated_ru_at: Optional[datetime] = None
 
 
 # Section

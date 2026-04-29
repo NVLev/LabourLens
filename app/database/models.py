@@ -3,7 +3,7 @@ from typing import Optional
 from sqlalchemy import (
     BigInteger, Boolean, Date, Float, ForeignKey,
     Integer, SmallInteger, String, Text,
-    UniqueConstraint, Index
+    UniqueConstraint, Index, TIMESTAMP
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -88,8 +88,9 @@ class SectionParagraph(Base):
     order_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     text_fi: Mapped[str] = mapped_column(Text, nullable=False)
     text_en: Mapped[Optional[str]] = mapped_column(Text)
-    translated_at: Mapped[Optional[datetime]] = mapped_column()
-
+    translated_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))
+    text_ru: Mapped[Optional[str]] = mapped_column(Text)
+    translated_ru_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))
     section: Mapped["Section"] = relationship(back_populates="paragraphs")
 
 
