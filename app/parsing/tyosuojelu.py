@@ -203,8 +203,13 @@ class TyosuojeluParser:
             t = " ".join(el.get_text().split())
             if t and len(t) > 20:  # игнорируем совсем короткие фрагменты
                 texts.append(t)
+        EU_FOOTER = "Tämä verkkosivu on osa Euroopan komission Your Europe -portaalia."
 
-        return "\n\n".join(texts)
+        result = "\n\n".join(texts)
+        # Обрезаем EU footer если он попал в текст
+        if EU_FOOTER in result:
+            result = result[:result.index(EU_FOOTER)].strip()
+        return result
 
     def _extract_section(self, main: Tag, section_name: str) -> str:
         """
@@ -244,8 +249,13 @@ class TyosuojeluParser:
             t = " ".join(sib.get_text().split())
             if t:
                 texts.append(t)
+        EU_FOOTER = "Tämä verkkosivu on osa Euroopan komission Your Europe -portaalia."
 
-        return "\n\n".join(texts)
+        result = "\n\n".join(texts)
+        # Обрезаем EU footer если он попал в текст
+        if EU_FOOTER in result:
+            result = result[:result.index(EU_FOOTER)].strip()
+        return result
 
     # Извлечение ссылок на законы
 
