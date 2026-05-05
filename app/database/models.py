@@ -143,7 +143,9 @@ class Interpretation(Base):
     title_fi: Mapped[Optional[str]] = mapped_column(String(300))
     text_fi: Mapped[str] = mapped_column(Text, nullable=False)
     text_en: Mapped[Optional[str]] = mapped_column(Text)
-    parsed_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    parsed_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))
+    text_ru: Mapped[Optional[str]] = mapped_column(Text)
+    translated_ru_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))
     content_hash: Mapped[Optional[str]] = mapped_column(String(64))
     # SHA-256 для детекта изменений при повторном парсинге
 
