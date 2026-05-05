@@ -7,6 +7,8 @@ from app.database.db_helper import db_helper
 from app.parsing.finlex import FinlexParser, ACTS_CONFIG
 from app.services.law_service import LawService
 from app.services.topic_service import TopicService
+from app.parsing.tyosuojelu import TyosuojeluParser, TYOSUOJELU_PAGES
+from app.services.interpretation_service import InterpretationService
 
 logger = logging.getLogger(__name__)
 
@@ -86,3 +88,50 @@ async def seed_topics(
     service = TopicService(session)
     result = await service.seed_topics()
     return result
+
+@router.post("/tyosuojelu", summary="Parse all Tyosuojelu pages")
+async def parse_tyosuojelu(
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    """
+    Парсит все страницы tyosuojelu.fi из TYOSUOJELU_PAGES,
+    сохраняет интерпретации в БД через upsert.
+    Безопасно запускать повторно.
+    """
+    parser = TyosuojeluParser()
+    service = InterpretationService(session)
+
+    parsed = await parser.parse_all()
+    stats = await service.upsert_all(parsed)
+
+    return {
+        "pages_fetched": len(parsed),
+        **stats,
+    }
+
+
+@router.post("/tyosuojelu/{topic_key}", summary="Parse single Tyosuojelu page")
+async def parse_tyosuojelu_topic(
+    topic_key: str,
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    """Парсит одну страницу по topic_key."""
+    if topic_key not in TYOSUOJELU_PAGES:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown topic key: {topic_key}. "
+                   f"Available: {list(TYOSUOJELU_PAGES.keys())}",
+        )
+    parser = TyosuojeluParser()
+    service = InterpretationService(session)
+
+    parsed = await parser.parse_page(topic_key, TYOSUOJELU_PAGES[topic_key])
+    stats = await service.upsert_all([parsed])
+
+    return {
+        "topic": topic_key,
+        "title_fi": parsed.title_fi,
+        "text_length": len(parsed.full_text_fi),
+        "finlex_refs": len(parsed.finlex_refs),
+        **stats,
+    }

@@ -28,7 +28,7 @@ class Act(Base):
     code: Mapped[str] = mapped_column(String(20), nullable=False)
     # "2001/55"
     url: Mapped[str] = mapped_column(String(500), nullable=False)
-    last_parsed_at: Mapped[Optional[datetime]] = mapped_column()
+    last_parsed_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))
     version_date: Mapped[Optional[date]] = mapped_column()
 
     chapters: Mapped[list["Chapter"]] = relationship(

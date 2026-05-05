@@ -36,7 +36,7 @@ TYOSUOJELU_PAGES = {
     # Увольнение
     "dismissal_grounds": "https://tyosuojelu.fi/tyosuhde/tyosuhteen-paattyminen/sopimuksen-irtisanominen",
     "notice_period": "https://tyosuojelu.fi/tyosuhde/tyosuhteen-paattyminen/sopimuksen-irtisanominen/irtisanomisajat",
-    "dismissal_protection": "https://tyosuojelu.fi/tyosuhde/tyosuhteen-paattuminen/erityistilanteet",
+    "dismissal_protection": "https://tyosuojelu.fi/tyosuhde/tyosuhteen-paattyminen/erityistilanteet",
 
     # Дискриминация
     "discrimination": "https://tyosuojelu.fi/tyosuhde/yhdenvertaisuus/syrjinta",
@@ -107,6 +107,11 @@ class TyosuojeluParser:
     Парсит тематические страницы tyosuojelu.fi.
     Использует httpx + BS4 — сайт на Liferay, рендерит на сервере.
     """
+    SECTION_PATTERNS = {
+        "general": ["yleistä aiheesta", "yleistä"],
+        "employee": ["ohjeita työntekijälle", "työntekijälle"],
+        "employer": ["ohjeita työnantajalle", "työnantajalle"],
+    }
 
     def __init__(self, request_delay: float = 2.0, timeout: float = 30.0) -> None:
         self.request_delay = request_delay
@@ -146,28 +151,60 @@ class TyosuojeluParser:
             logger.warning("No #main-content found at %s", url)
             return result
 
-        # Заголовок страницы
         h1 = main.find("h1", id="page-main-title")
         if h1:
             result.title_fi = h1.get_text(strip=True)
 
-        # Извлекаем секции контента
-        result.general_fi = self._extract_section(main, "Yleistä")
-        result.employee_fi = self._extract_section(main, "Työntekijälle")
-        result.employer_fi = self._extract_section(main, "Työnantajalle")
+        result.general_fi = self._extract_section(main, "general")
+        result.employee_fi = self._extract_section(main, "employee")
+        result.employer_fi = self._extract_section(main, "employer")
 
-        # Ссылки на параграфы законов
+        # Если все три секции пустые — страница имеет нестандартную структуру.
+        # Собираем весь основной контент в general_fi.
+        if not result.full_text_fi:
+            result.general_fi = self._extract_full_content(main)
+
         result.finlex_refs = self._extract_finlex_refs(main)
-
         result.compute_hash()
         return result
 
-    # Извлечение секций
-    SECTION_PATTERNS = {
-        "general": ["yleistä aiheesta", "yleistä"],
-        "employee": ["työntekijälle", "ohjeita työntekijälle"],
-        "employer": ["työnantajalle", "ohjeita työnantajalle"],
-    }
+    def _extract_full_content(self, main: Tag) -> str:
+        """
+        Fallback для страниц без стандартных секций.
+        Собирает весь текст из #main-content, исключая
+        служебные блоки (метаданные, навигация, SDG-пalkki).
+        """
+        SKIP_HEADINGS = {
+            "sivun päivityspäivämäärä ja metatiedot",
+            "sdg-palkki",
+            "muualla tyosuojelu.fissä",
+            "muualla verkossa",
+            "lomakkeet",
+            "sanasto",
+            "usein kysytyt kysymykset",
+            "ankkurilinkit",
+            "tällä sivulla",
+        }
+
+        texts = []
+        skip = False
+
+        for el in main.find_all(["h2", "h3", "p", "ul", "ol"]):
+            if el.name == "h2":
+                heading_text = el.get_text(strip=True).lower()
+                clean = re.sub(r"^.+\s*[-–]\s*", "", heading_text).strip()
+                skip = clean in SKIP_HEADINGS
+                continue
+
+            if skip:
+                continue
+
+            # Пропускаем пустые и навигационные элементы
+            t = " ".join(el.get_text().split())
+            if t and len(t) > 20:  # игнорируем совсем короткие фрагменты
+                texts.append(t)
+
+        return "\n\n".join(texts)
 
     def _extract_section(self, main: Tag, section_name: str) -> str:
         """
