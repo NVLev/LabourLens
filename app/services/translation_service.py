@@ -6,11 +6,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import Act, Chapter, Section, SectionParagraph
-from app.translation.helsinki_nlp import translate_fi_en, MAX_CHUNK_CHARS, translate_batch_fi_en
+from app.translation.nllb import translate_fi_en, MAX_CHUNK_CHARS, translate_batch_fi_en
 
 logger = logging.getLogger(__name__)
 
-BATCH_SIZE = 8  # Helsinki-NLP батч
+BATCH_SIZE = 8
 
 
 class TranslationService:
@@ -21,7 +21,7 @@ class TranslationService:
     # Публичные методы
 
     async def translate_en(self, act_key: str | None = None) -> dict:
-        """Helsinki-NLP fi→en. act_key=None — все законы."""
+        """NLLB-600 fi→en. act_key=None — все законы."""
         paragraphs = await self._get_untranslated(act_key, lang="en")
         logger.info(
             "EN translation: %d paragraphs to translate%s",
@@ -33,7 +33,7 @@ class TranslationService:
         return self._result(act_key, translated, len(paragraphs))
 
     async def translate_ru(self, act_key: str | None = None) -> dict:
-            """Helsinki-NLP fi→ru. act_key=None — все законы."""
+            """NLLB-600 fi→ru. act_key=None — все законы."""
             paragraphs = await self._get_untranslated(act_key, lang="ru")
             logger.info(
                 "RU translation: %d paragraphs to translate%s",
@@ -47,7 +47,7 @@ class TranslationService:
     async def _translate_ru_paragraphs(
             self, paragraphs: list[SectionParagraph]
     ) -> int:
-        from app.translation.helsinki_nlp import translate_batch_fi_ru
+        from app.translation.nllb import translate_batch_fi_ru
 
         translated_count = 0
         short = [p for p in paragraphs if len(p.text_fi) <= MAX_CHUNK_CHARS]
@@ -68,7 +68,7 @@ class TranslationService:
 
         for paragraph in long_:
             try:
-                from app.translation.helsinki_nlp import translate_fi_ru
+                from app.translation.nllb import translate_fi_ru
                 paragraph.text_ru = translate_fi_ru(paragraph.text_fi)
                 paragraph.translated_ru_at = datetime.now(timezone.utc)
                 translated_count += 1
@@ -104,7 +104,6 @@ class TranslationService:
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
-    # Helsinki-NLP fi→en
 
     async def _translate_en_paragraphs(
         self, paragraphs: list[SectionParagraph]
@@ -125,7 +124,7 @@ class TranslationService:
                     paragraph.translated_at = now
                     translated_count += 1
             except Exception as e:
-                logger.error("Helsinki-NLP batch failed: %s", e)
+                logger.error("NLLB batch failed: %s", e)
             await asyncio.sleep(0.05)
 
         # По одному для длинных — с разбивкой на чанки
@@ -136,7 +135,7 @@ class TranslationService:
                 paragraph.translated_at = datetime.now(timezone.utc)
                 translated_count += 1
             except Exception as e:
-                logger.error("Helsinki-NLP failed for paragraph %d: %s", paragraph.id, e)
+                logger.error("NLLB failed for paragraph %d: %s", paragraph.id, e)
 
         return translated_count
 

@@ -7,7 +7,7 @@ from transformers import MarianMTModel, MarianTokenizer, PreTrainedModel
 
 logger = logging.getLogger(__name__)
 
-os.environ["TRANSFORMERS_OFFLINE"] = "1"
+# os.environ["TRANSFORMERS_OFFLINE"] = "1"
 MODEL_FI_EN = "Helsinki-NLP/opus-mt-fi-en"
 MODEL_FI_RU = "Helsinki-NLP/opus-mt-fi-ru"
 MAX_CHUNK_CHARS = 400  # MarianMT плохо справляется с очень длинными текстами

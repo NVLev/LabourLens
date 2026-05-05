@@ -76,20 +76,20 @@ LabourLens/
 
 ## Слои и технологии
 
-| Слой | Файлы | Технология |
-|---|---|---|
-| Parsing / статика | `finlex.py` | httpx + BeautifulSoup4 |
-| Parsing / динамика | `tyosuojelu.py` | Playwright (async) |
-| Parsing / PDF | `tes/rakennusliitto.py` | pdfplumber |
-| Translation | `helsinki_nlp.py` | Helsinki-NLP fi→en |
-| Translation | `deepl.py` | DeepL Free API |
-| Database | `models.py`, `db_helper.py` | SQLAlchemy 2.0 async + PostgreSQL 16 |
-| Migrations | `migrations/` | Alembic |
-| Application | `faq_engine.py`, `tes_calculator.py` | rule-based, без LLM |
-| REST API | `routers/` | FastAPI + uvicorn |
-| Bot | `bot/` | aiogram 3.x |
-| Scheduler | `scheduler.py` | APScheduler |
-| Infrastructure | `docker-compose.yml` | Docker Compose |
+| Слой | Файлы                                | Технология                           |
+|---|--------------------------------------|--------------------------------------|
+| Parsing / статика | `finlex.py`                          | httpx + BeautifulSoup4               |
+| Parsing / динамика | `tyosuojelu.py`                      | Playwright (async)                   |
+| Parsing / PDF | `tes/rakennusliitto.py`              | pdfplumber                           |
+| Translation | `helsinki_nlp.py`                    | Helsinki-NLP fi→en                   |
+| Translation | `nllb.py`                            | NLLB-600 API                         |
+| Database | `models.py`, `db_helper.py`          | SQLAlchemy 2.0 async + PostgreSQL 16 |
+| Migrations | `migrations/`                        | Alembic                              |
+| Application | `faq_engine.py`, `tes_calculator.py` | rule-based, без LLM                  |
+| REST API | `routers/`                           | FastAPI + uvicorn                    |
+| Bot | `bot/`                               | aiogram 3.x                          |
+| Scheduler | `scheduler.py`                       | APScheduler                          |
+| Infrastructure | `docker-compose.yml`                 | Docker Compose                       |
 
 ## Приоритеты реализации
 
@@ -97,7 +97,7 @@ LabourLens/
 Фаза 1 — база
   finlex.py          парсим TSL главы 1,2,6,7 + Vuosilomalaki + Tyoaikalaki
   models.py          Act → Chapter → Section → Paragraph
-  helsinki_nlp.py    перевод fi→en
+  nllb.py    перевод fi→en
   topic_map.py       10 тем вручную (dismissal, overtime, sick_leave, ...)
 
 Фаза 2 — обогащение

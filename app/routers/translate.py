@@ -62,14 +62,14 @@ async def get_translation_status(
 
 
 
-@router.post("/laws/en", summary="Translate all acts fi→en via Helsinki-NLP")
+@router.post("/laws/en", summary="Translate all acts fi→en via NLLB-600M")
 async def translate_all_en(
     service: TranslationService = Depends(get_translation_service),
 ):
     return await service.translate_en()
 
 
-@router.post("/laws/ru", summary="Translate all acts fi→ru via Helsinki-NLP")
+@router.post("/laws/ru", summary="Translate all acts fi→ru via NLLB-600M")
 async def translate_all_ru(
     service: TranslationService = Depends(get_translation_service),
 ):

@@ -45,6 +45,12 @@ class InterpretationService:
         if topic is None:
             logger.warning("Topic not found for key '%s', skipping", item.topic_key)
             return "skipped"
+        if not item.full_text_fi:
+            logger.warning(
+                "Empty text for topic '%s' (%s), skipping",
+                item.topic_key, item.source_url,
+            )
+            return "skipped"
 
         existing = await self.repo.get_by_topic_and_source(topic.id, item.source)
 
