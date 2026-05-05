@@ -142,6 +142,10 @@ async def get_section(
             {
                 "order": p.order_index,
                 "text_fi": p.text_fi,
+                "text_en": p.text_en,
+                "text_ru": p.text_ru,
+                "translated_at": p.translated_at,
+                "translated_ru_at": p.translated_ru_at,
             }
             for p in section.paragraphs
         ],
