@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.db_helper import db_helper
+from app.repositories.interpretations import InterpretationRepository
 from app.repositories.topics import TopicRepository
 from app.services.topic_service import TopicService
 
@@ -50,24 +51,15 @@ async def list_topics(
     ]
 
 
-@router.get("/{key}", summary="Get topic with related law sections")
+@router.get("/{key}", summary="Get topic with related law sections and interpretations")
 async def get_topic(
     key: str,
     session: AsyncSession = Depends(db_helper.session_getter),
 ):
-    """
-    Возвращает тему с привязанными параграфами закона.
+    topic_repo = TopicRepository(session)
+    interp_repo = InterpretationRepository(session)
 
-    Включает:
-    - описание темы
-    - список параграфов (Section)
-    - текст на fi / en / ru
-
-    Параграфы отсортированы по релевантности.
-    """
-    repo = TopicRepository(session)
-    topic = await repo.get_with_sections(key)
-
+    topic = await topic_repo.get_with_sections(key)
     if not topic:
         raise HTTPException(404, "Topic not found")
 
@@ -76,6 +68,8 @@ async def get_topic(
         key=lambda x: x.relevance,
         reverse=True,
     )
+
+    interpretations = await interp_repo.get_by_topic_key(key)
 
     return {
         "topic": {
@@ -99,5 +93,15 @@ async def get_topic(
                 ],
             }
             for link in links
+        ],
+        "interpretations": [
+            {
+                "source": i.source,
+                "title_fi": i.title_fi,
+                "text_fi": i.text_fi,
+                "text_en": i.text_en,
+                "text_ru": i.text_ru,
+            }
+            for i in interpretations
         ],
     }
