@@ -1,9 +1,10 @@
 from datetime import datetime
 from typing import Optional
+
 from pydantic import BaseModel, ConfigDict
 
-
 # Paragraph
+
 
 class ParagraphBase(BaseModel):
     order_index: int
@@ -26,6 +27,7 @@ class ParagraphResponse(ParagraphBase):
 
 # Section
 
+
 class SectionBase(BaseModel):
     number: int
     title_fi: Optional[str] = None
@@ -43,6 +45,7 @@ class SectionCreate(SectionBase):
 
 class SectionShort(BaseModel):
     """Для списков — без пунктов, только заголовок."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -64,6 +67,7 @@ class SectionResponse(SectionBase):
 
 # Chapter
 
+
 class ChapterBase(BaseModel):
     number: int
     title_fi: Optional[str] = None
@@ -76,6 +80,7 @@ class ChapterCreate(ChapterBase):
 
 class ChapterShort(BaseModel):
     """Для списков — без параграфов."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -94,6 +99,7 @@ class ChapterResponse(ChapterBase):
 
 # Act
 
+
 class ActBase(BaseModel):
     key: str
     name_fi: str
@@ -108,6 +114,7 @@ class ActCreate(ActBase):
 
 class ActShort(BaseModel):
     """Для списков — только мета."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int

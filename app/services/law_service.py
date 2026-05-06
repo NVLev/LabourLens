@@ -112,16 +112,16 @@ class LawService:
             await self._create_paragraphs(parsed, section.id)
             logger.debug("Created section %d §%d", chapter_id, parsed.number)
 
-        elif section.content_hash is None or parsed.content_hash != section.content_hash:
+        elif (
+            section.content_hash is None or parsed.content_hash != section.content_hash
+        ):
             # Текст изменился — обновляем секцию и перезаписываем параграфы
             section.title_fi = parsed.title_fi
             section.anchor = parsed.anchor
             section.url = parsed.url
             section.content_hash = parsed.content_hash
             await self._replace_paragraphs(parsed, section.id)
-            logger.info(
-                "Updated section §%d (hash changed)", parsed.number
-            )
+            logger.info("Updated section §%d (hash changed)", parsed.number)
         else:
             logger.debug("Section §%d unchanged, skipping", parsed.number)
 
@@ -129,24 +129,20 @@ class LawService:
 
     # Paragraphs
 
-    async def _create_paragraphs(
-        self, parsed: ParsedSection, section_id: int
-    ) -> None:
+    async def _create_paragraphs(self, parsed: ParsedSection, section_id: int) -> None:
         for p in parsed.paragraphs:
-            self.session.add(SectionParagraph(
-                section_id=section_id,
-                order_index=p.order_index,
-                text_fi=p.text_fi,
-            ))
+            self.session.add(
+                SectionParagraph(
+                    section_id=section_id,
+                    order_index=p.order_index,
+                    text_fi=p.text_fi,
+                )
+            )
 
-    async def _replace_paragraphs(
-        self, parsed: ParsedSection, section_id: int
-    ) -> None:
+    async def _replace_paragraphs(self, parsed: ParsedSection, section_id: int) -> None:
         """Удаляем старые пункты и создаём новые — проще чем diff."""
         result = await self.session.execute(
-            select(SectionParagraph).where(
-                SectionParagraph.section_id == section_id
-            )
+            select(SectionParagraph).where(SectionParagraph.section_id == section_id)
         )
         for old in result.scalars().all():
             await self.session.delete(old)

@@ -19,26 +19,19 @@ class LawRepository:
     async def get_act_by_key(self, key: str) -> Act | None:
         result = await self.session.execute(
             select(Act)
-            .options(
-                selectinload(Act.chapters)
-                .selectinload(Chapter.sections)
-            )
+            .options(selectinload(Act.chapters).selectinload(Chapter.sections))
             .where(Act.key == key)
         )
         return result.scalar_one_or_none()
 
     async def get_act_by_key_plain(self, key: str) -> Act | None:
         """Без eager loading — для сервиса upsert."""
-        result = await self.session.execute(
-            select(Act).where(Act.key == key)
-        )
+        result = await self.session.execute(select(Act).where(Act.key == key))
         return result.scalar_one_or_none()
 
     # Chapter
 
-    async def get_chapter(
-        self, act_key: str, chapter_number: int
-    ) -> Chapter | None:
+    async def get_chapter(self, act_key: str, chapter_number: int) -> Chapter | None:
         result = await self.session.execute(
             select(Chapter)
             .join(Act)
@@ -99,6 +92,7 @@ class LawRepository:
     async def get_sections_by_topic(self, topic_key: str) -> list[Section]:
         """Все параграфы привязанные к теме — понадобится для situation_resolver."""
         from app.database.models import Topic, TopicSection
+
         result = await self.session.execute(
             select(Section)
             .join(TopicSection)

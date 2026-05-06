@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database.db_helper import db_helper
-from app.database.models import Act, Section, Chapter
-from app.parsing.finlex import FinlexParser, ACTS_CONFIG
+from app.database.models import Act, Chapter, Section
+from app.parsing.finlex import ACTS_CONFIG, FinlexParser
 from app.repositories.laws import LawRepository
 from app.services.law_service import LawService
 
@@ -34,8 +34,8 @@ async def get_acts(
     ]
 
 
-
 # GET ACT WITH CHAPTERS
+
 
 @router.get("/acts/{act_key}", summary="Get act with chapters")
 async def get_act(
@@ -44,10 +44,7 @@ async def get_act(
 ):
     result = await session.execute(
         select(Act)
-        .options(
-            selectinload(Act.chapters)
-            .selectinload(Chapter.sections)
-        )
+        .options(selectinload(Act.chapters).selectinload(Chapter.sections))
         .where(Act.key == act_key)
     )
     act = result.scalar_one_or_none()
@@ -70,6 +67,7 @@ async def get_act(
 
 
 # GET CHAPTER WITH SECTIONS
+
 
 @router.get("/acts/{act_key}/{chapter_number}", summary="Get chapter with sections")
 async def get_chapter(
@@ -107,6 +105,7 @@ async def get_chapter(
 
 # GET SECTION WITH FULL TEXT
 
+
 @router.get(
     "/acts/{act_key}/{chapter_number}/{section_number}",
     summary="Get section with paragraphs",
@@ -142,6 +141,10 @@ async def get_section(
             {
                 "order": p.order_index,
                 "text_fi": p.text_fi,
+                "text_en": p.text_en,
+                "text_ru": p.text_ru,
+                "translated_at": p.translated_at,
+                "translated_ru_at": p.translated_ru_at,
             }
             for p in section.paragraphs
         ],

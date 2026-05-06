@@ -1,8 +1,10 @@
 import logging
 import time
+
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.database.db_helper import db_helper
 from app.parsing.finlex import ACTS_CONFIG
 from app.services.translation_service import TranslationService
@@ -11,6 +13,7 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/translate", tags=["translate"])
+
 
 def get_translation_service(
     session: AsyncSession = Depends(db_helper.session_getter),
@@ -25,7 +28,8 @@ async def get_translation_status(
     session: AsyncSession = Depends(db_helper.session_getter),
 ):
     from sqlalchemy import func
-    from app.database.models import SectionParagraph, Section, Chapter, Act
+
+    from app.database.models import Act, Chapter, Section, SectionParagraph
 
     result = await session.execute(
         select(
@@ -61,15 +65,14 @@ async def get_translation_status(
     ]
 
 
-
-@router.post("/laws/en", summary="Translate all acts fi→en via Helsinki-NLP")
+@router.post("/laws/en", summary="Translate all acts fi→en via NLLB-600M")
 async def translate_all_en(
     service: TranslationService = Depends(get_translation_service),
 ):
     return await service.translate_en()
 
 
-@router.post("/laws/ru", summary="Translate all acts fi→ru via Helsinki-NLP")
+@router.post("/laws/ru", summary="Translate all acts fi→ru via NLLB-600M")
 async def translate_all_ru(
     service: TranslationService = Depends(get_translation_service),
 ):
@@ -82,7 +85,8 @@ async def get_act_translation_status(
     session: AsyncSession = Depends(db_helper.session_getter),
 ):
     from sqlalchemy import func
-    from app.database.models import SectionParagraph, Section, Chapter, Act
+
+    from app.database.models import Act, Chapter, Section, SectionParagraph
 
     if act_key not in ACTS_CONFIG:
         raise HTTPException(404, f"Unknown act: {act_key}")
@@ -115,10 +119,11 @@ async def get_act_translation_status(
         "last_translated_ru": row.last_translated_ru,
     }
 
+
 @router.post("/laws/{act_key}/en", summary="Translate single act fi→en")
 async def translate_act_en(
-        act_key: str,
-        service: TranslationService = Depends(get_translation_service),
+    act_key: str,
+    service: TranslationService = Depends(get_translation_service),
 ):
     if act_key not in ACTS_CONFIG:
         raise HTTPException(404, f"Unknown act: {act_key}")
@@ -127,8 +132,6 @@ async def translate_act_en(
     result = await service.translate_en(act_key)
     result["elapsed_seconds"] = round(time.perf_counter() - start, 2)
     return result
-
-
 
 
 @router.post("/laws/{act_key}/ru", summary="Translate single act fi→ru")
@@ -144,3 +147,51 @@ async def translate_act_ru(
     result["elapsed_seconds"] = round(time.perf_counter() - start, 2)
     return result
 
+
+@router.get("/interpretations/status", summary="Translation status for interpretations")
+async def get_interpretations_translation_status(
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    from sqlalchemy import func
+
+    from app.database.models import Interpretation, Topic
+
+    result = await session.execute(
+        select(
+            Topic.key,
+            Topic.name_en,
+            func.count(Interpretation.id).label("total"),
+            func.count(Interpretation.text_en).label("translated_en"),
+            func.count(Interpretation.text_ru).label("translated_ru"),
+        )
+        .join(Interpretation, Interpretation.topic_id == Topic.id)
+        .group_by(Topic.key, Topic.name_en)
+        .order_by(Topic.key)
+    )
+    rows = result.all()
+    return [
+        {
+            "topic": row.key,
+            "name_en": row.name_en,
+            "total": row.total,
+            "translated_en": row.translated_en,
+            "translated_ru": row.translated_ru,
+            "pending_en": row.total - row.translated_en,
+            "pending_ru": row.total - row.translated_ru,
+        }
+        for row in rows
+    ]
+
+
+@router.post("/interpretations/en", summary="Translate all interpretations fi→en")
+async def translate_interpretations_en(
+    service: TranslationService = Depends(get_translation_service),
+):
+    return await service.translate_interpretations_en()
+
+
+@router.post("/interpretations/ru", summary="Translate all interpretations fi→ru")
+async def translate_interpretations_ru(
+    service: TranslationService = Depends(get_translation_service),
+):
+    return await service.translate_interpretations_ru()

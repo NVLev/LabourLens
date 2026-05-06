@@ -6,9 +6,10 @@ import uvicorn
 from fastapi import FastAPI
 
 from app.database.db_helper import db_helper
-from app.routers import parse, translate, laws, analyze, topics
+from app.routers import analyze, laws, parse, topics, translate
 
 logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -24,18 +25,16 @@ async def lifespan(app: FastAPI):
     )
     logger.info("🚀 Приложение запущено. Подключение к БД готово.")
     logger.info("Loading translation models...")
-    from app.translation.helsinki_nlp import _load_fi_en, _load_fi_ru
-    _load_fi_en()
-    _load_fi_ru()
-    logger.info("Models ready")
+    from app.translation.nllb import _load_model
 
+    _load_model()
+    logger.info("Models ready")
 
     try:
         yield
     finally:
         await db_helper.dispose()
         logger.info("🔌 Соединение с БД закрыто.")
-
 
 
 def create_app() -> FastAPI:
