@@ -4,8 +4,6 @@ import re
 from functools import lru_cache
 from typing import Any
 
-
-
 logger = logging.getLogger(__name__)
 
 MODEL_NAME = "facebook/nllb-200-distilled-600M"
@@ -18,6 +16,7 @@ MAX_CHUNK_CHARS = 500
 @lru_cache(maxsize=1)
 def _load_model() -> tuple[Any, Any]:
     from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+
     logger.info("Loading NLLB model: %s", MODEL_NAME)
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)

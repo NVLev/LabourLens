@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models import Act, Chapter, Section, SectionParagraph, Interpretation
-from app.translation.nllb import translate_fi_en, MAX_CHUNK_CHARS, translate_batch_fi_en
+from app.database.models import Act, Chapter, Interpretation, Section, SectionParagraph
+from app.translation.nllb import MAX_CHUNK_CHARS, translate_batch_fi_en, translate_fi_en
 
 logger = logging.getLogger(__name__)
 
@@ -33,20 +33,18 @@ class TranslationService:
         return self._result(act_key, translated, len(paragraphs))
 
     async def translate_ru(self, act_key: str | None = None) -> dict:
-            """NLLB-600 fi→ru. act_key=None — все законы."""
-            paragraphs = await self._get_untranslated(act_key, lang="ru")
-            logger.info(
-                "RU translation: %d paragraphs to translate%s",
-                len(paragraphs),
-                f" for {act_key}" if act_key else "",
-            )
-            translated = await self._translate_ru_paragraphs(paragraphs)
-            await self.session.commit()
-            return self._result(act_key, translated, len(paragraphs))
+        """NLLB-600 fi→ru. act_key=None — все законы."""
+        paragraphs = await self._get_untranslated(act_key, lang="ru")
+        logger.info(
+            "RU translation: %d paragraphs to translate%s",
+            len(paragraphs),
+            f" for {act_key}" if act_key else "",
+        )
+        translated = await self._translate_ru_paragraphs(paragraphs)
+        await self.session.commit()
+        return self._result(act_key, translated, len(paragraphs))
 
-    async def _translate_ru_paragraphs(
-            self, paragraphs: list[SectionParagraph]
-    ) -> int:
+    async def _translate_ru_paragraphs(self, paragraphs: list[SectionParagraph]) -> int:
         from app.translation.nllb import translate_batch_fi_ru
 
         translated_count = 0
@@ -54,7 +52,7 @@ class TranslationService:
         long_ = [p for p in paragraphs if len(p.text_fi) > MAX_CHUNK_CHARS]
 
         for i in range(0, len(short), BATCH_SIZE):
-            batch = short[i: i + BATCH_SIZE]
+            batch = short[i : i + BATCH_SIZE]
             try:
                 translations = translate_batch_fi_ru([p.text_fi for p in batch])
                 now = datetime.now(timezone.utc)
@@ -69,6 +67,7 @@ class TranslationService:
         for paragraph in long_:
             try:
                 from app.translation.nllb import translate_fi_ru
+
                 paragraph.text_ru = translate_fi_ru(paragraph.text_fi)
                 paragraph.translated_ru_at = datetime.now(timezone.utc)
                 translated_count += 1
@@ -86,9 +85,7 @@ class TranslationService:
     ) -> list[SectionParagraph]:
         """Параграфы где text_en или text_ru IS NULL."""
         null_col = (
-            SectionParagraph.text_en
-            if lang == "en"
-            else SectionParagraph.text_ru
+            SectionParagraph.text_en if lang == "en" else SectionParagraph.text_ru
         )
 
         query = (
@@ -104,10 +101,7 @@ class TranslationService:
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
-
-    async def _translate_en_paragraphs(
-        self, paragraphs: list[SectionParagraph]
-    ) -> int:
+    async def _translate_en_paragraphs(self, paragraphs: list[SectionParagraph]) -> int:
         translated_count = 0
 
         short = [p for p in paragraphs if len(p.text_fi) <= MAX_CHUNK_CHARS]
@@ -142,7 +136,9 @@ class TranslationService:
     async def translate_interpretations_en(self) -> dict:
         """NLLB-600 fi→en для всех интерпретаций."""
         interpretations = await self._get_untranslated_interpretations(lang="en")
-        logger.info("EN translation: %d interpretations to translate", len(interpretations))
+        logger.info(
+            "EN translation: %d interpretations to translate", len(interpretations)
+        )
         translated = await self._translate_interpretations(interpretations, lang="en")
         await self.session.commit()
         return {"translated": translated, "skipped": len(interpretations) - translated}
@@ -150,24 +146,24 @@ class TranslationService:
     async def translate_interpretations_ru(self) -> dict:
         """NLLB-600 fi→ru для всех интерпретаций."""
         interpretations = await self._get_untranslated_interpretations(lang="ru")
-        logger.info("RU translation: %d interpretations to translate", len(interpretations))
+        logger.info(
+            "RU translation: %d interpretations to translate", len(interpretations)
+        )
         translated = await self._translate_interpretations(interpretations, lang="ru")
         await self.session.commit()
         return {"translated": translated, "skipped": len(interpretations) - translated}
 
     async def _get_untranslated_interpretations(
-            self, lang: str
+        self, lang: str
     ) -> list[Interpretation]:
-        null_col = (
-            Interpretation.text_en if lang == "en" else Interpretation.text_ru
-        )
+        null_col = Interpretation.text_en if lang == "en" else Interpretation.text_ru
         result = await self.session.execute(
             select(Interpretation).where(null_col.is_(None))
         )
         return list(result.scalars().all())
 
     async def _translate_interpretations(
-            self, interpretations: list[Interpretation], lang: str
+        self, interpretations: list[Interpretation], lang: str
     ) -> int:
         from app.translation.nllb import translate_fi_en, translate_fi_ru
 
@@ -188,7 +184,7 @@ class TranslationService:
                 )
 
         return translated_count
-    
+
     def _result(
         self,
         act_key: str | None,

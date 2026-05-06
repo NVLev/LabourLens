@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.db_helper import db_helper
-from app.services.topic_service import TopicService
 from app.repositories.topics import TopicRepository
+from app.services.topic_service import TopicService
 
 router = APIRouter(prefix="/topics", tags=["topics"])
 

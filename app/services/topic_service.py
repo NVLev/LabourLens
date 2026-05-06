@@ -1,9 +1,10 @@
 import logging
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models import Act, Chapter, Section, Topic, TopicSection
 from app.application.seeds.topic_map import TOPICS, TopicSeed
+from app.database.models import Act, Chapter, Section, Topic, TopicSection
 from app.repositories.topics import TopicRepository
 
 logger = logging.getLogger(__name__)
@@ -11,12 +12,12 @@ logger = logging.getLogger(__name__)
 
 class TopicService:
     """
-        Инициализирует темы и их связи с параграфами законов в БД.
+    Инициализирует темы и их связи с параграфами законов в БД.
 
-        Читает конфигурацию из topic_map.py и выполняет upsert тем (Topic)
-        и связей тема-параграф (TopicSection). Требует чтобы законы
-        уже были распарсены через FinlexParser.
-        """
+    Читает конфигурацию из topic_map.py и выполняет upsert тем (Topic)
+    и связей тема-параграф (TopicSection). Требует чтобы законы
+    уже были распарсены через FinlexParser.
+    """
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -39,7 +40,9 @@ class TopicService:
                     skipped_refs += 1
                     logger.warning(
                         "Section not found: %s chp%d §%d — skipping",
-                        ref["act"], ref["chapter"], ref["section"],
+                        ref["act"],
+                        ref["chapter"],
+                        ref["section"],
                     )
 
         await self.session.commit()
@@ -48,7 +51,6 @@ class TopicService:
             "topics": len(TOPICS),
             "skipped_refs": skipped_refs,
         }
-
 
     async def _upsert_topic(self, data: TopicSeed) -> Topic:
         topic = await self.repo.get_by_key(data["key"])
@@ -68,9 +70,7 @@ class TopicService:
 
         return topic
 
-    async def _upsert_topic_section(
-        self, topic: Topic, ref: dict
-    ) -> bool:
+    async def _upsert_topic_section(self, topic: Topic, ref: dict) -> bool:
         section = await self.repo.find_section(
             act=ref["act"],
             chapter=ref["chapter"],

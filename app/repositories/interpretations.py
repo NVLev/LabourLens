@@ -28,9 +28,7 @@ class InterpretationRepository:
 
     async def get_by_topic_key(self, topic_key: str) -> list[Interpretation]:
         result = await self.session.execute(
-            select(Interpretation)
-            .join(Topic)
-            .where(Topic.key == topic_key)
+            select(Interpretation).join(Topic).where(Topic.key == topic_key)
         )
         return list(result.scalars().all())
 

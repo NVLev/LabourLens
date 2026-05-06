@@ -3,7 +3,7 @@ import hashlib
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, date, timezone
+from datetime import date, datetime, timezone
 
 import httpx
 from lxml import etree
@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 # XML namespace
 AKN_NS = "http://docs.oasis-open.org/legaldocml/ns/akn/3.0"
 NS = {"akn": AKN_NS}
+
 
 def akn(tag: str) -> str:
     """Возвращает тег с namespace: akn('chapter') → '{http://...}chapter'"""
@@ -55,6 +56,7 @@ ACTS_CONFIG = {
 
 # Датаклассы
 
+
 @dataclass
 class ParsedParagraph:
     order_index: int
@@ -66,7 +68,7 @@ class ParsedSection:
     chapter_number: int
     number: int
     title_fi: str
-    anchor: str           # "chp_1__sec_1"
+    anchor: str  # "chp_1__sec_1"
     url: str
     paragraphs: list[ParsedParagraph] = field(default_factory=list)
     content_hash: str = ""
@@ -95,6 +97,7 @@ class ParsedAct:
 
 
 # Парсер
+
 
 class FinlexParser:
     """
@@ -151,13 +154,13 @@ class FinlexParser:
         return results
 
     # Парсинг XML
-    def _parse_chapters(self, root: etree._Element, web_url: str) -> list[ParsedChapter]:
+    def _parse_chapters(
+        self, root: etree._Element, web_url: str
+    ) -> list[ParsedChapter]:
         chapters = []
 
         # Все chapter внутри body → hcontainer
-        for chp_el in root.findall(
-            f".//{akn('chapter')}"
-        ):
+        for chp_el in root.findall(f".//{akn('chapter')}"):
             chp_num = self._parse_chapter_number(chp_el)
             if chp_num is None:
                 continue
@@ -274,9 +277,7 @@ class FinlexParser:
         if el is None:
             return ""
         # itertext() обходит весь поддерев включая tail
-        return " ".join(
-            t.strip() for t in el.itertext() if t.strip()
-        )
+        return " ".join(t.strip() for t in el.itertext() if t.strip())
 
     def _text(self, el: etree._Element | None) -> str | None:
         """Текст одного элемента, None если элемент отсутствует."""

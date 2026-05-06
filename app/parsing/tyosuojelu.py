@@ -15,36 +15,27 @@ TYOSUOJELU_PAGES = {
     # Трудовой договор
     "contract_types": "https://tyosuojelu.fi/tyosuhde/tyosopimus",
     "probation_period": "https://tyosuojelu.fi/tyosuhde/tyosopimus/koeaika",
-
     # Рабочее время
     "working_hours": "https://tyosuojelu.fi/tyosuhde/tyoaika/saannollinen",
     "overtime": "https://tyosuojelu.fi/tyosuhde/tyoaika/lisa-jaylityot",
-
     # Зарплата
     "sick_leave": "https://tyosuojelu.fi/tyosuhde/palkka/sairausajan-palkka",
-
     # Отпуск
     "annual_leave": "https://tyosuojelu.fi/tyosuhde/vuosiloma/lomapaivien-maara",
     "holiday_pay": "https://tyosuojelu.fi/tyosuhde/vuosiloma/lomapalkka-ja-korvaus",
-
     # Семья
     "parental_leave": "https://tyosuojelu.fi/tyosuhde/muut-vapaat-tyosta/perhevapaat",
-
     # Ломаутус
     "layoff": "https://tyosuojelu.fi/tyosuhde/lomautus",
-
     # Увольнение
     "dismissal_grounds": "https://tyosuojelu.fi/tyosuhde/tyosuhteen-paattyminen/sopimuksen-irtisanominen",
     "notice_period": "https://tyosuojelu.fi/tyosuhde/tyosuhteen-paattyminen/sopimuksen-irtisanominen/irtisanomisajat",
     "dismissal_protection": "https://tyosuojelu.fi/tyosuhde/tyosuhteen-paattyminen/erityistilanteet",
-
     # Дискриминация
     "discrimination": "https://tyosuojelu.fi/tyosuhde/yhdenvertaisuus/syrjinta",
-
     # Безопасность
     "workplace_safety": "https://tyosuojelu.fi/tyosuojelu-tyopaikalla/vaarojen-arviointi",
 }
-
 
 
 BASE_URL = "https://tyosuojelu.fi"
@@ -59,14 +50,12 @@ HEADERS = {
 }
 
 
-
 @dataclass
 class ParsedFinlexRef:
     act_code: str
     chapter: Optional[int]
     section: int
     raw_text: str = ""
-
 
 
 @dataclass
@@ -77,9 +66,9 @@ class ParsedInterpretation:
     title_fi: str = ""
 
     # Секции контента
-    general_fi: str = ""       # "Yleistä aiheesta"
-    employee_fi: str = ""      # "Työntekijälle"
-    employer_fi: str = ""      # "Työnantajalle"
+    general_fi: str = ""  # "Yleistä aiheesta"
+    employee_fi: str = ""  # "Työntekijälle"
+    employer_fi: str = ""  # "Työnantajalle"
 
     finlex_refs: list[ParsedFinlexRef] = field(default_factory=list)
     content_hash: str = ""
@@ -107,6 +96,7 @@ class TyosuojeluParser:
     Парсит тематические страницы tyosuojelu.fi.
     Использует httpx + BS4 — сайт на Liferay, рендерит на сервере.
     """
+
     SECTION_PATTERNS = {
         "general": ["yleistä aiheesta", "yleistä"],
         "employee": ["ohjeita työntekijälle", "työntekijälle"],
@@ -208,7 +198,7 @@ class TyosuojeluParser:
         result = "\n\n".join(texts)
         # Обрезаем EU footer если он попал в текст
         if EU_FOOTER in result:
-            result = result[:result.index(EU_FOOTER)].strip()
+            result = result[: result.index(EU_FOOTER)].strip()
         return result
 
     def _extract_section(self, main: Tag, section_name: str) -> str:
@@ -254,7 +244,7 @@ class TyosuojeluParser:
         result = "\n\n".join(texts)
         # Обрезаем EU footer если он попал в текст
         if EU_FOOTER in result:
-            result = result[:result.index(EU_FOOTER)].strip()
+            result = result[: result.index(EU_FOOTER)].strip()
         return result
 
     # Извлечение ссылок на законы
@@ -284,7 +274,9 @@ class TyosuojeluParser:
                 text = el.get_text(strip=True)
 
                 chap_m = re.search(r"(\d+)\s*luku", text, re.IGNORECASE)
-                chapter = int(chap_m.group(1)) if chap_m else self._find_chapter_context(el)
+                chapter = (
+                    int(chap_m.group(1)) if chap_m else self._find_chapter_context(el)
+                )
 
                 for sect_m in re.finditer(r"(\d+)\s*§", text):
                     section = int(sect_m.group(1))
@@ -300,14 +292,17 @@ class TyosuojeluParser:
 
                     seen_with_chapter.add(full_key)
                     seen_sections.add(section_key)
-                    refs.append(ParsedFinlexRef(
-                        act_code=current_act_code,
-                        chapter=chapter,
-                        section=section,
-                        raw_text=text[:100],
-                    ))
+                    refs.append(
+                        ParsedFinlexRef(
+                            act_code=current_act_code,
+                            chapter=chapter,
+                            section=section,
+                            raw_text=text[:100],
+                        )
+                    )
 
         return refs
+
     def _parse_act_code_from_url(self, url: str) -> str | None:
         """
         finlex.fi/fi/laki/ajantasa/2001/20010055 → "2001/55"
@@ -318,7 +313,7 @@ class TyosuojeluParser:
         year = m.group(1)
         raw_num = m.group(2)
         # 20010055 → убираем год-префикс → "55"
-        num = str(int(raw_num[len(year):]))
+        num = str(int(raw_num[len(year) :]))
         return f"{year}/{num}"
 
     def _find_chapter_context(self, li: Tag) -> int | None:

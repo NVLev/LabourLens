@@ -1,9 +1,19 @@
-from datetime import datetime, date
+from datetime import date, datetime
 from typing import Optional
+
 from sqlalchemy import (
-    BigInteger, Boolean, Date, Float, ForeignKey,
-    Integer, SmallInteger, String, Text,
-    UniqueConstraint, Index, TIMESTAMP
+    TIMESTAMP,
+    BigInteger,
+    Boolean,
+    Date,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -13,11 +23,12 @@ class Base(DeclarativeBase):
     pass
 
 
-
 # СЛОЙ ЗАКОНОВ
+
 
 class Act(Base):
     """Закон целиком — Työsopimuslaki, Vuosilomalaki и т.д."""
+
     __tablename__ = "acts"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -38,6 +49,7 @@ class Act(Base):
 
 class Chapter(Base):
     """Глава закона."""
+
     __tablename__ = "chapters"
     __table_args__ = (UniqueConstraint("act_id", "number"),)
 
@@ -55,12 +67,15 @@ class Chapter(Base):
 
 class Section(Base):
     """Параграф (§)."""
+
     __tablename__ = "sections"
     __table_args__ = (UniqueConstraint("act_id", "chapter_id", "number"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     act_id: Mapped[int] = mapped_column(ForeignKey("acts.id", ondelete="CASCADE"))
-    chapter_id: Mapped[int] = mapped_column(ForeignKey("chapters.id", ondelete="CASCADE"))
+    chapter_id: Mapped[int] = mapped_column(
+        ForeignKey("chapters.id", ondelete="CASCADE")
+    )
     number: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     title_fi: Mapped[Optional[str]] = mapped_column(String(300))
     title_en: Mapped[Optional[str]] = mapped_column(String(300))
@@ -73,35 +88,42 @@ class Section(Base):
     act: Mapped["Act"] = relationship()
     chapter: Mapped["Chapter"] = relationship(back_populates="sections")
     paragraphs: Mapped[list["SectionParagraph"]] = relationship(
-        back_populates="section", cascade="all, delete-orphan",
-        order_by="SectionParagraph.order_index"
+        back_populates="section",
+        cascade="all, delete-orphan",
+        order_by="SectionParagraph.order_index",
     )
     topic_links: Mapped[list["TopicSection"]] = relationship(back_populates="section")
 
 
 class SectionParagraph(Base):
     """Пункт параграфа — один <subsection> в HTML finlex."""
+
     __tablename__ = "section_paragraphs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    section_id: Mapped[int] = mapped_column(ForeignKey("sections.id", ondelete="CASCADE"))
+    section_id: Mapped[int] = mapped_column(
+        ForeignKey("sections.id", ondelete="CASCADE")
+    )
     order_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     text_fi: Mapped[str] = mapped_column(Text, nullable=False)
     text_en: Mapped[Optional[str]] = mapped_column(Text)
     translated_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))
     text_ru: Mapped[Optional[str]] = mapped_column(Text)
-    translated_ru_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))
+    translated_ru_at: Mapped[Optional[datetime]] = mapped_column(
+        TIMESTAMP(timezone=True)
+    )
     section: Mapped["Section"] = relationship(back_populates="paragraphs")
 
 
-
 # СЛОЙ ТЕМ
+
 
 class Topic(Base):
     """
     Тематический якорь: 'dismissal', 'overtime', 'sick_leave'.
     Всё остальное крутится вокруг него.
     """
+
     __tablename__ = "topics"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -111,13 +133,16 @@ class Topic(Base):
     description: Mapped[Optional[str]] = mapped_column(Text)
 
     section_links: Mapped[list["TopicSection"]] = relationship(back_populates="topic")
-    interpretations: Mapped[list["Interpretation"]] = relationship(back_populates="topic")
+    interpretations: Mapped[list["Interpretation"]] = relationship(
+        back_populates="topic"
+    )
     tes_clauses: Mapped[list["TesClause"]] = relationship(back_populates="topic")
     faq_rules: Mapped[list["FaqRule"]] = relationship(back_populates="topic")
 
 
 class TopicSection(Base):
     """M2M: тема ↔ параграф, с весом релевантности."""
+
     __tablename__ = "topic_sections"
 
     topic_id: Mapped[int] = mapped_column(ForeignKey("topics.id"), primary_key=True)
@@ -131,8 +156,10 @@ class TopicSection(Base):
 
 # СЛОЙ ИНТЕРПРЕТАЦИЙ
 
+
 class Interpretation(Base):
     """Объяснение от Työsuojelu или профсоюза."""
+
     __tablename__ = "interpretations"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -145,7 +172,9 @@ class Interpretation(Base):
     text_en: Mapped[Optional[str]] = mapped_column(Text)
     parsed_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))
     text_ru: Mapped[Optional[str]] = mapped_column(Text)
-    translated_ru_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))
+    translated_ru_at: Mapped[Optional[datetime]] = mapped_column(
+        TIMESTAMP(timezone=True)
+    )
     content_hash: Mapped[Optional[str]] = mapped_column(String(64))
     # SHA-256 для детекта изменений при повторном парсинге
 
@@ -154,8 +183,10 @@ class Interpretation(Base):
 
 # СЛОЙ TES
 
+
 class Union(Base):
     """Профсоюз."""
+
     __tablename__ = "unions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -170,6 +201,7 @@ class Union(Base):
 
 class Agreement(Base):
     """Конкретный TES с датами действия."""
+
     __tablename__ = "agreements"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -189,11 +221,16 @@ class Agreement(Base):
 
 class TesClause(Base):
     """Клауза TES, привязанная к теме."""
+
     __tablename__ = "tes_clauses"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    agreement_id: Mapped[int] = mapped_column(ForeignKey("agreements.id", ondelete="CASCADE"))
-    topic_id: Mapped[int] = mapped_column(ForeignKey("topics.id", ondelete="SET NULL"), nullable=True)
+    agreement_id: Mapped[int] = mapped_column(
+        ForeignKey("agreements.id", ondelete="CASCADE")
+    )
+    topic_id: Mapped[int] = mapped_column(
+        ForeignKey("topics.id", ondelete="SET NULL"), nullable=True
+    )
     section_ref: Mapped[Optional[str]] = mapped_column(String(100))
     # "§ 12" внутри TES
     text_fi: Mapped[str] = mapped_column(Text, nullable=False)
@@ -208,8 +245,10 @@ class TesClause(Base):
 
 # СЛОЙ APPLICATION
 
+
 class FaqRule(Base):
     """Rule-based FAQ: условия → готовый ответ со ссылками."""
+
     __tablename__ = "faq_rules"
     __table_args__ = (
         Index("ix_faq_rules_conditions", "conditions", postgresql_using="gin"),
@@ -226,11 +265,14 @@ class FaqRule(Base):
     priority: Mapped[int] = mapped_column(SmallInteger, default=0)
 
     topic: Mapped["Topic"] = relationship(back_populates="faq_rules")
-    section_refs: Mapped[list["FaqSectionRef"]] = relationship(back_populates="faq_rule")
+    section_refs: Mapped[list["FaqSectionRef"]] = relationship(
+        back_populates="faq_rule"
+    )
 
 
 class FaqSectionRef(Base):
     """FAQ → конкретные параграфы закона."""
+
     __tablename__ = "faq_section_refs"
 
     faq_id: Mapped[int] = mapped_column(ForeignKey("faq_rules.id"), primary_key=True)
@@ -240,11 +282,12 @@ class FaqSectionRef(Base):
     section: Mapped["Section"] = relationship()
 
 
-
 # СЛОЙ ПОЛЬЗОВАТЕЛЕЙ
+
 
 class User(Base):
     """Telegram-пользователь."""
+
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -260,11 +303,14 @@ class User(Base):
 
 class UserQuery(Base):
     """История запросов — для анализа и улучшения FAQ."""
+
     __tablename__ = "user_queries"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-    topic_id: Mapped[Optional[int]] = mapped_column(ForeignKey("topics.id"), nullable=True)
+    topic_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("topics.id"), nullable=True
+    )
     raw_query: Mapped[Optional[str]] = mapped_column(Text)
     matched_faq_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("faq_rules.id"), nullable=True

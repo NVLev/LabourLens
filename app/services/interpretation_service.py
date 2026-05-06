@@ -13,21 +13,19 @@ logger = logging.getLogger(__name__)
 
 class InterpretationService:
     """
-        Сохраняет и обновляет интерпретации с tyosuojelu.fi в БД.
+    Сохраняет и обновляет интерпретации с tyosuojelu.fi в БД.
 
-        Использует hash-based change detection: если content_hash не изменился,
-        запись не перезаписывается. При изменении финского текста сбрасывает
-        переводы (text_en, text_ru) — они будут пересчитаны TranslationService.
-        """
+    Использует hash-based change detection: если content_hash не изменился,
+    запись не перезаписывается. При изменении финского текста сбрасывает
+    переводы (text_en, text_ru) — они будут пересчитаны TranslationService.
+    """
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self.repo = InterpretationRepository(session)
         self.topic_repo = TopicRepository(session)
 
-    async def upsert_all(
-        self, parsed: list[ParsedInterpretation]
-    ) -> dict[str, int]:
+    async def upsert_all(self, parsed: list[ParsedInterpretation]) -> dict[str, int]:
         created = updated = skipped = 0
 
         for item in parsed:
@@ -42,7 +40,9 @@ class InterpretationService:
         await self.session.commit()
         logger.info(
             "Interpretations upsert done: %d created, %d updated, %d skipped",
-            created, updated, skipped,
+            created,
+            updated,
+            skipped,
         )
         return {"created": created, "updated": updated, "skipped": skipped}
 
@@ -55,7 +55,8 @@ class InterpretationService:
         if not item.full_text_fi:
             logger.warning(
                 "Empty text for topic '%s' (%s), skipping",
-                item.topic_key, item.source_url,
+                item.topic_key,
+                item.source_url,
             )
             return "skipped"
 
@@ -77,14 +78,16 @@ class InterpretationService:
             logger.debug("Updated interpretation for topic '%s'", item.topic_key)
             return "updated"
 
-        self.repo.add(Interpretation(
-            topic_id=topic.id,
-            source=item.source,
-            source_url=item.source_url,
-            title_fi=item.title_fi,
-            text_fi=item.full_text_fi,
-            content_hash=item.content_hash,
-            parsed_at=datetime.now(timezone.utc),
-        ))
+        self.repo.add(
+            Interpretation(
+                topic_id=topic.id,
+                source=item.source,
+                source_url=item.source_url,
+                title_fi=item.title_fi,
+                text_fi=item.full_text_fi,
+                content_hash=item.content_hash,
+                parsed_at=datetime.now(timezone.utc),
+            )
+        )
         logger.debug("Created interpretation for topic '%s'", item.topic_key)
         return "created"

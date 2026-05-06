@@ -5,15 +5,15 @@ from app.services.faq_service import FaqService
 
 class AnalyzeService:
     """
-        Собирает ответ на запрос пользователя по заданной теме трудового права.
+    Собирает ответ на запрос пользователя по заданной теме трудового права.
 
-        Для заданного topic_key возвращает:
-        - релевантные параграфы законов (отсортированные по relevance из TopicSection)
-        - FAQ-ответ если user_input совпадает с условиями одного из FaqRule
-        - None если тема не найдена в БД
+    Для заданного topic_key возвращает:
+    - релевантные параграфы законов (отсортированные по relevance из TopicSection)
+    - FAQ-ответ если user_input совпадает с условиями одного из FaqRule
+    - None если тема не найдена в БД
 
-        Используется как основной слой логики для API и Telegram-бота.
-        """
+    Используется как основной слой логики для API и Telegram-бота.
+    """
 
     def __init__(self, session):
         self.session = session
@@ -23,14 +23,14 @@ class AnalyzeService:
 
     async def analyze(self, topic_key: str, user_input: dict):
         """
-                Возвращает данные по теме для заданного пользовательского контекста.
+        Возвращает данные по теме для заданного пользовательского контекста.
 
-                :param topic_key: ключ темы, например 'dismissal' или 'overtime'
-                :param user_input: словарь с параметрами пользователя,
-                                   например {"employment_type": "fixed", "tenure_months": 3}
-                :return: dict с полями topic, law, answer_en, answer_ru, matched_rule_id
-                         или None если тема не найдена
-                """
+        :param topic_key: ключ темы, например 'dismissal' или 'overtime'
+        :param user_input: словарь с параметрами пользователя,
+                           например {"employment_type": "fixed", "tenure_months": 3}
+        :return: dict с полями topic, law, answer_en, answer_ru, matched_rule_id
+                 или None если тема не найдена
+        """
         # 1. Получаем тему с секциями
         topic = await self.topic_repo.get_with_sections(topic_key)
         if not topic:

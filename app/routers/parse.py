@@ -4,11 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.db_helper import db_helper
-from app.parsing.finlex import FinlexParser, ACTS_CONFIG
+from app.parsing.finlex import ACTS_CONFIG, FinlexParser
+from app.parsing.tyosuojelu import TYOSUOJELU_PAGES, TyosuojeluParser
+from app.services.interpretation_service import InterpretationService
 from app.services.law_service import LawService
 from app.services.topic_service import TopicService
-from app.parsing.tyosuojelu import TyosuojeluParser, TYOSUOJELU_PAGES
-from app.services.interpretation_service import InterpretationService
 
 logger = logging.getLogger(__name__)
 
@@ -32,19 +32,23 @@ async def parse_finlex(
         try:
             parsed = await parser.parse_act(act_key)
             act = await service.upsert_act(parsed)
-            results.append({
-                "act": act_key,
-                "status": "ok",
-                "chapters": len(parsed.chapters),
-                "sections": sum(len(ch.sections) for ch in parsed.chapters),
-            })
+            results.append(
+                {
+                    "act": act_key,
+                    "status": "ok",
+                    "chapters": len(parsed.chapters),
+                    "sections": sum(len(ch.sections) for ch in parsed.chapters),
+                }
+            )
         except Exception as e:
             logger.error("Failed to parse %s: %s", act_key, e)
-            results.append({
-                "act": act_key,
-                "status": "error",
-                "detail": str(e),
-            })
+            results.append(
+                {
+                    "act": act_key,
+                    "status": "error",
+                    "detail": str(e),
+                }
+            )
 
     return {"parsed": results}
 
@@ -59,7 +63,7 @@ async def parse_finlex_act(
         raise HTTPException(
             status_code=404,
             detail=f"Unknown act key: {act_key}. "
-                   f"Available: {list(ACTS_CONFIG.keys())}",
+            f"Available: {list(ACTS_CONFIG.keys())}",
         )
 
     parser = FinlexParser()
@@ -76,6 +80,7 @@ async def parse_finlex_act(
         "version_date": str(act.version_date) if act.version_date else None,
     }
 
+
 @router.post("/topics/seed", summary="Load topics from topic_map into DB")
 async def seed_topics(
     session: AsyncSession = Depends(db_helper.session_getter),
@@ -88,6 +93,7 @@ async def seed_topics(
     service = TopicService(session)
     result = await service.seed_topics()
     return result
+
 
 @router.post("/tyosuojelu", summary="Parse all Tyosuojelu pages")
 async def parse_tyosuojelu(
@@ -120,7 +126,7 @@ async def parse_tyosuojelu_topic(
         raise HTTPException(
             status_code=404,
             detail=f"Unknown topic key: {topic_key}. "
-                   f"Available: {list(TYOSUOJELU_PAGES.keys())}",
+            f"Available: {list(TYOSUOJELU_PAGES.keys())}",
         )
     parser = TyosuojeluParser()
     service = InterpretationService(session)

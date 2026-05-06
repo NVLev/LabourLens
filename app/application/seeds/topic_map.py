@@ -17,9 +17,7 @@ class TopicSeed(TypedDict):
 
 
 TOPICS: list[TopicSeed] = [
-
     # ── ТРУДОВОЙ ДОГОВОР ─────────────────────────────────────
-
     {
         "key": "contract_types",
         "name_en": "Employment contract types",
@@ -30,7 +28,6 @@ TOPICS: list[TopicSeed] = [
             {"act": "tyosopimuslaki", "chapter": 1, "section": 4, "relevance": 2},
         ],
     },
-
     {
         "key": "probation_period",
         "name_en": "Probation period",
@@ -40,7 +37,6 @@ TOPICS: list[TopicSeed] = [
             {"act": "tyosopimuslaki", "chapter": 1, "section": 4, "relevance": 3},
         ],
     },
-
     {
         "key": "employer_obligations",
         "name_en": "Employer obligations",
@@ -52,7 +48,6 @@ TOPICS: list[TopicSeed] = [
             {"act": "tyosopimuslaki", "chapter": 2, "section": 3, "relevance": 2},
         ],
     },
-
     {
         "key": "employee_obligations",
         "name_en": "Employee obligations",
@@ -64,47 +59,41 @@ TOPICS: list[TopicSeed] = [
             {"act": "tyosopimuslaki", "chapter": 3, "section": 3, "relevance": 2},
         ],
     },
-
     # ── РАБОЧЕЕ ВРЕМЯ ────────────────────────────────────────
-
     {
         "key": "working_hours",
         "name_en": "Working hours",
         "name_ru": "Рабочее время",
         "description": "Regular working hours, maximum limits, flexible arrangements",
         "section_refs": [
-        {"act": "tyoaikalaki", "chapter": 2, "section": 3, "relevance": 3},
-        {"act": "tyoaikalaki", "chapter": 2, "section": 4, "relevance": 2},
+            {"act": "tyoaikalaki", "chapter": 2, "section": 3, "relevance": 3},
+            {"act": "tyoaikalaki", "chapter": 2, "section": 4, "relevance": 2},
         ],
     },
-
     {
         "key": "overtime",
         "name_en": "Overtime work and compensation",
         "name_ru": "Сверхурочная работа",
         "description": "Overtime limits, required consent, compensation rates",
         "section_refs": [
-        {"act": "tyoaikalaki", "chapter": 5, "section": 16, "relevance": 3},
-        {"act": "tyoaikalaki", "chapter": 5, "section": 17, "relevance": 2},
-        {"act": "tyoaikalaki", "chapter": 5, "section": 18, "relevance": 2},
-        {"act": "tyoaikalaki", "chapter": 5, "section": 20, "relevance": 3},
+            {"act": "tyoaikalaki", "chapter": 5, "section": 16, "relevance": 3},
+            {"act": "tyoaikalaki", "chapter": 5, "section": 17, "relevance": 2},
+            {"act": "tyoaikalaki", "chapter": 5, "section": 18, "relevance": 2},
+            {"act": "tyoaikalaki", "chapter": 5, "section": 20, "relevance": 3},
         ],
     },
-
     {
         "key": "night_and_sunday_work",
         "name_en": "Night work and Sunday work",
         "name_ru": "Ночная работа и работа в воскресенье",
         "description": "Conditions for night shifts, Sunday premium pay",
         "section_refs": [
-        {"act": "tyoaikalaki", "chapter": 3, "section": 8, "relevance": 3},
-        {"act": "tyoaikalaki", "chapter": 5, "section": 20, "relevance": 3},
-        {"act": "tyoaikalaki", "chapter": 5, "section": 21, "relevance": 2},
-    ],
+            {"act": "tyoaikalaki", "chapter": 3, "section": 8, "relevance": 3},
+            {"act": "tyoaikalaki", "chapter": 5, "section": 20, "relevance": 3},
+            {"act": "tyoaikalaki", "chapter": 5, "section": 21, "relevance": 2},
+        ],
     },
-
     # ── ОТПУСК ───────────────────────────────────────────────
-
     {
         "key": "annual_leave",
         "name_en": "Annual leave",
@@ -116,7 +105,6 @@ TOPICS: list[TopicSeed] = [
             {"act": "vuosilomalaki", "chapter": 2, "section": 6, "relevance": 3},
         ],
     },
-
     {
         "key": "holiday_pay",
         "name_en": "Holiday pay calculation",
@@ -128,9 +116,7 @@ TOPICS: list[TopicSeed] = [
             {"act": "vuosilomalaki", "chapter": 3, "section": 11, "relevance": 2},
         ],
     },
-
     # ── БОЛЬНИЧНЫЙ ───────────────────────────────────────────
-
     {
         "key": "sick_leave",
         "name_en": "Sick leave and pay",
@@ -140,9 +126,7 @@ TOPICS: list[TopicSeed] = [
             {"act": "tyosopimuslaki", "chapter": 2, "section": 11, "relevance": 3},
         ],
     },
-
     # ── УВОЛЬНЕНИЕ ───────────────────────────────────────────
-
     {
         "key": "dismissal_grounds",
         "name_en": "Grounds for dismissal",
@@ -154,7 +138,6 @@ TOPICS: list[TopicSeed] = [
             {"act": "tyosopimuslaki", "chapter": 7, "section": 3, "relevance": 2},
         ],
     },
-
     {
         "key": "notice_period",
         "name_en": "Notice period",
@@ -165,7 +148,6 @@ TOPICS: list[TopicSeed] = [
             {"act": "tyosopimuslaki", "chapter": 6, "section": 4, "relevance": 2},
         ],
     },
-
     {
         "key": "dismissal_protection",
         "name_en": "Dismissal protection",
@@ -177,7 +159,6 @@ TOPICS: list[TopicSeed] = [
             {"act": "tyosopimuslaki", "chapter": 7, "section": 11, "relevance": 2},
         ],
     },
-
     {
         "key": "layoff",
         "name_en": "Temporary layoff (lomautus)",
@@ -189,9 +170,7 @@ TOPICS: list[TopicSeed] = [
             {"act": "tyosopimuslaki", "chapter": 5, "section": 4, "relevance": 3},
         ],
     },
-
     # ── ОСОБЫЕ СИТУАЦИИ ──────────────────────────────────────
-
     {
         "key": "parental_leave",
         "name_en": "Parental and family leave",
@@ -203,18 +182,16 @@ TOPICS: list[TopicSeed] = [
             {"act": "tyosopimuslaki", "chapter": 7, "section": 9, "relevance": 2},
         ],
     },
-
     {
         "key": "discrimination",
         "name_en": "Discrimination at work",
         "name_ru": "Дискриминация на работе",
         "description": "Prohibited grounds for discrimination, equal treatment obligation",
         "section_refs": [
-        {"act": "tyosopimuslaki", "chapter": 2, "section": 2, "relevance": 3},
-        {"act": "tyoturvallisuuslaki", "chapter": 2, "section": 8, "relevance": 2},
+            {"act": "tyosopimuslaki", "chapter": 2, "section": 2, "relevance": 3},
+            {"act": "tyoturvallisuuslaki", "chapter": 2, "section": 8, "relevance": 2},
         ],
     },
-
     {
         "key": "workplace_safety",
         "name_en": "Workplace safety",

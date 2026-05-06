@@ -9,11 +9,13 @@ class TopicRepository:
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+
     # Получить список тем
     async def get_all(self) -> list[Topic]:
 
         result = await self.session.execute(select(Topic))
         return list(result.scalars().all())
+
     # Получить тему с секциями
     async def get_with_sections(self, key: str) -> Topic | None:
         result = await self.session.execute(
@@ -29,7 +31,7 @@ class TopicRepository:
 
     # Получить секцию по ref.
     async def find_section(
-            self, act: str, chapter: int, section: int
+        self, act: str, chapter: int, section: int
     ) -> Section | None:
         result = await self.session.execute(
             select(Section)
@@ -44,13 +46,11 @@ class TopicRepository:
         return result.scalar_one_or_none()
 
     async def get_by_key(self, key: str) -> Topic | None:
-        result = await self.session.execute(
-            select(Topic).where(Topic.key == key)
-        )
+        result = await self.session.execute(select(Topic).where(Topic.key == key))
         return result.scalar_one_or_none()
 
     async def get_topic_section_link(
-            self, topic_id: int, section_id: int
+        self, topic_id: int, section_id: int
     ) -> TopicSection | None:
         result = await self.session.execute(
             select(TopicSection).where(

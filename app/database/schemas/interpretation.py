@@ -1,11 +1,13 @@
 from datetime import datetime
 from typing import Optional
+
 from pydantic import BaseModel, ConfigDict
+
 from .topic import TopicShort
 
 
 class InterpretationBase(BaseModel):
-    source: str          # "tyosuojelu" | "sak" | "pam" | "tek"
+    source: str  # "tyosuojelu" | "sak" | "pam" | "tek"
     source_url: Optional[str] = None
     title_fi: Optional[str] = None
     text_fi: str
