@@ -214,6 +214,9 @@ class Agreement(Base):
     source_type: Mapped[str] = mapped_column(String(20), default="html")
     # "html" | "pdf"
     is_current: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_universally_binding: Mapped[bool] = mapped_column(Boolean, default=False)
+    # yleissitova — обязателен для всех работодателей отрасли,
+    # независимо от членства в профсоюзе
 
     union: Mapped["Union"] = relationship(back_populates="agreements")
     clauses: Mapped[list["TesClause"]] = relationship(back_populates="agreement")
