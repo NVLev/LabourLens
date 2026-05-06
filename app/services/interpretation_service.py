@@ -12,6 +12,13 @@ logger = logging.getLogger(__name__)
 
 
 class InterpretationService:
+    """
+        Сохраняет и обновляет интерпретации с tyosuojelu.fi в БД.
+
+        Использует hash-based change detection: если content_hash не изменился,
+        запись не перезаписывается. При изменении финского текста сбрасывает
+        переводы (text_en, text_ru) — они будут пересчитаны TranslationService.
+        """
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session

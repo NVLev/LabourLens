@@ -10,6 +10,13 @@ logger = logging.getLogger(__name__)
 
 
 class TopicService:
+    """
+        Инициализирует темы и их связи с параграфами законов в БД.
+
+        Читает конфигурацию из topic_map.py и выполняет upsert тем (Topic)
+        и связей тема-параграф (TopicSection). Требует чтобы законы
+        уже были распарсены через FinlexParser.
+        """
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
