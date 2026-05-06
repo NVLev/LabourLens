@@ -144,3 +144,49 @@ async def translate_act_ru(
     result["elapsed_seconds"] = round(time.perf_counter() - start, 2)
     return result
 
+@router.get("/interpretations/status", summary="Translation status for interpretations")
+async def get_interpretations_translation_status(
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    from sqlalchemy import func
+    from app.database.models import Interpretation, Topic
+
+    result = await session.execute(
+        select(
+            Topic.key,
+            Topic.name_en,
+            func.count(Interpretation.id).label("total"),
+            func.count(Interpretation.text_en).label("translated_en"),
+            func.count(Interpretation.text_ru).label("translated_ru"),
+        )
+        .join(Interpretation, Interpretation.topic_id == Topic.id)
+        .group_by(Topic.key, Topic.name_en)
+        .order_by(Topic.key)
+    )
+    rows = result.all()
+    return [
+        {
+            "topic": row.key,
+            "name_en": row.name_en,
+            "total": row.total,
+            "translated_en": row.translated_en,
+            "translated_ru": row.translated_ru,
+            "pending_en": row.total - row.translated_en,
+            "pending_ru": row.total - row.translated_ru,
+        }
+        for row in rows
+    ]
+
+@router.post("/interpretations/en", summary="Translate all interpretations fi→en")
+async def translate_interpretations_en(
+    service: TranslationService = Depends(get_translation_service),
+):
+    return await service.translate_interpretations_en()
+
+
+@router.post("/interpretations/ru", summary="Translate all interpretations fi→ru")
+async def translate_interpretations_ru(
+    service: TranslationService = Depends(get_translation_service),
+):
+    return await service.translate_interpretations_ru()
+

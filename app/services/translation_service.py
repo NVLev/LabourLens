@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models import Act, Chapter, Section, SectionParagraph
+from app.database.models import Act, Chapter, Section, SectionParagraph, Interpretation
 from app.translation.nllb import translate_fi_en, MAX_CHUNK_CHARS, translate_batch_fi_en
 
 logger = logging.getLogger(__name__)
@@ -139,6 +139,56 @@ class TranslationService:
 
         return translated_count
 
+    async def translate_interpretations_en(self) -> dict:
+        """NLLB-600 fi→en для всех интерпретаций."""
+        interpretations = await self._get_untranslated_interpretations(lang="en")
+        logger.info("EN translation: %d interpretations to translate", len(interpretations))
+        translated = await self._translate_interpretations(interpretations, lang="en")
+        await self.session.commit()
+        return {"translated": translated, "skipped": len(interpretations) - translated}
+
+    async def translate_interpretations_ru(self) -> dict:
+        """NLLB-600 fi→ru для всех интерпретаций."""
+        interpretations = await self._get_untranslated_interpretations(lang="ru")
+        logger.info("RU translation: %d interpretations to translate", len(interpretations))
+        translated = await self._translate_interpretations(interpretations, lang="ru")
+        await self.session.commit()
+        return {"translated": translated, "skipped": len(interpretations) - translated}
+
+    async def _get_untranslated_interpretations(
+            self, lang: str
+    ) -> list[Interpretation]:
+        null_col = (
+            Interpretation.text_en if lang == "en" else Interpretation.text_ru
+        )
+        result = await self.session.execute(
+            select(Interpretation).where(null_col.is_(None))
+        )
+        return list(result.scalars().all())
+
+    async def _translate_interpretations(
+            self, interpretations: list[Interpretation], lang: str
+    ) -> int:
+        from app.translation.nllb import translate_fi_en, translate_fi_ru
+
+        translate_fn = translate_fi_en if lang == "en" else translate_fi_ru
+        now_field = "translated_at" if lang == "en" else "translated_ru_at"
+        text_field = "text_en" if lang == "en" else "text_ru"
+
+        translated_count = 0
+        for interp in interpretations:
+            try:
+                translation = translate_fn(interp.text_fi)
+                setattr(interp, text_field, translation)
+                setattr(interp, now_field, datetime.now(timezone.utc))
+                translated_count += 1
+            except Exception as e:
+                logger.error(
+                    "Translation failed for interpretation %d: %s", interp.id, e
+                )
+
+        return translated_count
+    
     def _result(
         self,
         act_key: str | None,
