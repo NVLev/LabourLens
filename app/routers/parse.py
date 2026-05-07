@@ -81,20 +81,6 @@ async def parse_finlex_act(
     }
 
 
-@router.post("/topics/seed", summary="Load topics from topic_map into DB")
-async def seed_topics(
-    session: AsyncSession = Depends(db_helper.session_getter),
-):
-    """
-    Загружает темы и их связи с параграфами из topic_map.py.
-    Требует чтобы законы уже были распарсены.
-    Безопасно запускать повторно.
-    """
-    service = TopicService(session)
-    result = await service.seed_topics()
-    return result
-
-
 @router.post("/tyosuojelu", summary="Parse all Tyosuojelu pages")
 async def parse_tyosuojelu(
     session: AsyncSession = Depends(db_helper.session_getter),
