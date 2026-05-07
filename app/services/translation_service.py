@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models import Act, Chapter, Interpretation, Section, SectionParagraph
+from app.database.models import Act, Chapter, Interpretation, Section, SectionParagraph, TesClause
 from app.translation.nllb import MAX_CHUNK_CHARS, translate_batch_fi_en, translate_fi_en
 
 logger = logging.getLogger(__name__)
@@ -182,6 +182,47 @@ class TranslationService:
                 logger.error(
                     "Translation failed for interpretation %d: %s", interp.id, e
                 )
+
+        return translated_count
+
+    async def translate_tes_en(self) -> dict:
+        """NLLB fi→en для всех TesClause."""
+        clauses = await self._get_untranslated_tes(lang="en")
+        logger.info("EN translation: %d TES clauses to translate", len(clauses))
+        translated = await self._translate_tes_clauses(clauses, lang="en")
+        await self.session.commit()
+        return {"translated": translated, "skipped": len(clauses) - translated}
+
+    async def translate_tes_ru(self) -> dict:
+        """NLLB fi→ru для всех TesClause."""
+        clauses = await self._get_untranslated_tes(lang="ru")
+        logger.info("RU translation: %d TES clauses to translate", len(clauses))
+        translated = await self._translate_tes_clauses(clauses, lang="ru")
+        await self.session.commit()
+        return {"translated": translated, "skipped": len(clauses) - translated}
+
+    async def _get_untranslated_tes(self, lang: str) -> list[TesClause]:
+        from app.database.models import TesClause
+        null_col = TesClause.text_en if lang == "en" else TesClause.text_ru
+        result = await self.session.execute(
+            select(TesClause).where(null_col.is_(None))
+        )
+        return list(result.scalars().all())
+
+    async def _translate_tes_clauses(
+            self, clauses: list[TesClause], lang: str
+    ) -> int:
+        from app.translation.nllb import translate_fi_en, translate_fi_ru
+        translate_fn = translate_fi_en if lang == "en" else translate_fi_ru
+        text_field = "text_en" if lang == "en" else "text_ru"
+        translated_count = 0
+
+        for clause in clauses:
+            try:
+                setattr(clause, text_field, translate_fn(clause.text_fi))
+                translated_count += 1
+            except Exception as e:
+                logger.error("TES translation failed for clause %d: %s", clause.id, e)
 
         return translated_count
 

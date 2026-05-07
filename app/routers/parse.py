@@ -127,3 +127,65 @@ async def parse_tyosuojelu_topic(
         "finlex_refs": len(parsed.finlex_refs),
         **stats,
     }
+from app.parsing.tes import TesPdfParser
+from app.services.tes_service import TesService
+
+# Конфиг доступных TES — пополняется по мере добавления профсоюзов
+TES_CONFIG: dict[str, dict] = {
+    "pam_kauppa": {
+        "union_key": "pam",
+        "url": "https://www.pam.fi/wp-content/uploads/2023/03/Kaupan_TES_korjattu15092025_PAM.pdf",
+        "is_universally_binding": True,
+    },
+    "pam_marava": {
+        "union_key": "pam",
+        "url": "https://www.pam.fi/wp-content/uploads/2023/06/TAITTO_TES_Marava_2025.pdf",
+        "is_universally_binding": True,
+    },
+}
+
+
+@router.post("/tes", summary="Parse all configured TES agreements")
+async def parse_tes_all(
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    parser = TesPdfParser()
+    service = TesService(session)
+    results = []
+
+    for key, cfg in TES_CONFIG.items():
+        try:
+            parsed = await parser.parse_from_url(
+                cfg["url"],
+                union_key=cfg["union_key"],
+                is_universally_binding=cfg["is_universally_binding"],
+            )
+            stats = await service.upsert(parsed)
+            results.append({"tes": key, "status": "ok", **stats})
+        except Exception as e:
+            logger.error("Failed to parse TES %s: %s", key, e)
+            results.append({"tes": key, "status": "error", "detail": str(e)})
+
+    return {"parsed": results}
+
+
+@router.post("/tes/{tes_key}", summary="Parse single TES agreement")
+async def parse_tes_one(
+    tes_key: str,
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    if tes_key not in TES_CONFIG:
+        raise HTTPException(
+            404,
+            detail=f"Unknown TES key: {tes_key}. "
+                   f"Available: {list(TES_CONFIG.keys())}",
+        )
+    cfg = TES_CONFIG[tes_key]
+    parser = TesPdfParser()
+    service = TesService(session)
+    parsed = await parser.parse_from_url(
+        cfg["url"],
+        union_key=cfg["union_key"],
+        is_universally_binding=cfg["is_universally_binding"],
+    )
+    return await service.upsert(parsed)
