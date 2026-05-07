@@ -238,6 +238,9 @@ class TesClause(Base):
     # "§ 12" внутри TES
     text_fi: Mapped[str] = mapped_column(Text, nullable=False)
     text_en: Mapped[Optional[str]] = mapped_column(Text)
+    text_ru: Mapped[Optional[str]] = mapped_column(Text)
+    translated_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))
+    translated_ru_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))
     priority_over_law: Mapped[bool] = mapped_column(Boolean, default=False)
     priority_note: Mapped[Optional[str]] = mapped_column(Text)
     # объяснение почему TES лучше закона
@@ -299,7 +302,7 @@ class User(Base):
     union_key: Mapped[Optional[str]] = mapped_column(String(50))
     employment_type: Mapped[Optional[str]] = mapped_column(String(20))
     # "permanent" | "fixed"
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))
 
     queries: Mapped[list["UserQuery"]] = relationship(back_populates="user")
 
@@ -318,6 +321,6 @@ class UserQuery(Base):
     matched_faq_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("faq_rules.id"), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))
 
     user: Mapped["User"] = relationship(back_populates="queries")
