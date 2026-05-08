@@ -193,10 +193,28 @@ class Union(Base):
     key: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     # "pam" | "rakennusliitto" | "tek"
     name_fi: Mapped[str] = mapped_column(String(200), nullable=False)
-    sector_en: Mapped[Optional[str]] = mapped_column(String(200))
     website: Mapped[Optional[str]] = mapped_column(String(200))
 
     agreements: Mapped[list["Agreement"]] = relationship(back_populates="union")
+
+class UnionPortal(Base):
+    """
+    Каталог TES на сайте профсоюза — точка входа для автообнаружения.
+    Вводится вручную один раз, далее всё автоматически.
+    """
+    __tablename__ = "union_portals"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    union_id: Mapped[int] = mapped_column(
+        ForeignKey("unions.id", ondelete="CASCADE")
+    )
+    catalog_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_scanned_at: Mapped[Optional[datetime]] = mapped_column(
+        TIMESTAMP(timezone=True)
+    )
+
+    union: Mapped["Union"] = relationship()
 
 
 class Agreement(Base):
@@ -205,6 +223,7 @@ class Agreement(Base):
     __tablename__ = "agreements"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key: Mapped[Optional[str]] = mapped_column(String(200), unique=True, nullable=True)
     union_id: Mapped[int] = mapped_column(ForeignKey("unions.id", ondelete="CASCADE"))
     name_fi: Mapped[str] = mapped_column(String(300), nullable=False)
     valid_from: Mapped[Optional[date]] = mapped_column(Date)
@@ -214,9 +233,17 @@ class Agreement(Base):
     source_type: Mapped[str] = mapped_column(String(20), default="html")
     # "html" | "pdf"
     is_current: Mapped[bool] = mapped_column(Boolean, default=True)
-    is_universally_binding: Mapped[bool] = mapped_column(Boolean, default=False)
     # yleissitova — обязателен для всех работодателей отрасли,
     # независимо от членства в профсоюзе
+    is_universally_binding: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    sector_fi: Mapped[Optional[str]] = mapped_column(String(200))
+    # "Kauppa", "Matkailu ja ravintola"
+    sector_en: Mapped[Optional[str]] = mapped_column(String(200))
+    # "Retail trade", "Hospitality"
+
+    is_parsed: Mapped[bool] = mapped_column(Boolean, default=False)
+    parsed_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))
 
     union: Mapped["Union"] = relationship(back_populates="agreements")
     clauses: Mapped[list["TesClause"]] = relationship(back_populates="agreement")
