@@ -85,3 +85,23 @@ class TesRepository:
 
     def add_clause(self, clause: TesClause) -> None:
         self.session.add(clause)
+
+    async def get_all_unions(self) -> list[Union]:
+        result = await self.session.execute(select(Union))
+        return list(result.scalars().all())
+
+    async def get_all_agreements(
+            self,
+            current_only: bool = True,
+            union_key: str | None = None,
+            sector_fi: str | None = None,
+    ) -> list[Agreement]:
+        query = select(Agreement)
+        if current_only:
+            query = query.where(Agreement.is_current == True)
+        if union_key:
+            query = query.join(Union).where(Union.key == union_key)
+        if sector_fi:
+            query = query.where(Agreement.sector_fi.ilike(f"%{sector_fi}%"))
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
