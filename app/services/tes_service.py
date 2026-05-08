@@ -4,7 +4,7 @@ from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import Agreement, TesClause, Union
-from app.parsing.tes import ParsedAgreement, ParsedTesClause
+from app.parsing.tes.pam import ParsedAgreement, ParsedTesClause
 from app.repositories.tes import TesRepository
 from app.repositories.topics import TopicRepository
 
@@ -28,13 +28,19 @@ class TesService:
         self.repo = TesRepository(session)
         self.topic_repo = TopicRepository(session)
 
-    async def upsert(self, parsed: ParsedAgreement) -> dict:
+    async def upsert(
+            self,
+            parsed: ParsedAgreement,
+            sector_fi: str | None = None,
+    ) -> dict:
         """
         Сохраняет или обновляет договор и все его клаузулы.
         Возвращает статистику: created/updated + counts.
         """
         union = await self._get_or_create_union(parsed.union_key)
-        agreement, status = await self._upsert_agreement(parsed, union.id)
+        agreement, status = await self._upsert_agreement(
+            parsed, union.id, sector_fi=sector_fi
+        )
         clause_stats = await self._upsert_clauses(parsed.clauses, agreement.id)
         await self.session.commit()
 
@@ -68,7 +74,10 @@ class TesService:
     # Agreement
 
     async def _upsert_agreement(
-        self, parsed: ParsedAgreement, union_id: int
+            self,
+            parsed: ParsedAgreement,
+            union_id: int,
+            sector_fi: str | None = None,
     ) -> tuple[Agreement, str]:
         existing = await self.repo.get_agreement_by_url(parsed.source_url)
 
@@ -87,9 +96,11 @@ class TesService:
             source_type="pdf",
             is_current=True,
             is_universally_binding=parsed.is_universally_binding,
+            sector_fi=sector_fi or parsed.name_fi,
+            sector_en=None,
         )
         self.repo.add_agreement(agreement)
-        await self.session.flush()  # получаем agreement.id
+        await self.session.flush()
         return agreement, status
 
     # Clauses
@@ -129,7 +140,21 @@ class TesService:
             "unlinked": unlinked,
         }
 
-
+    async def upsert_clauses_for_agreement(
+            self,
+            agreement: Agreement,
+            clauses: list,
+    ) -> dict:
+        """Сохраняет клаузулы для уже существующего agreement."""
+        clause_stats = await self._upsert_clauses(clauses, agreement.id)
+        logger.info(
+            "Clauses saved for '%s': %d linked, %d unlinked",
+            agreement.name_fi,
+            clause_stats["linked"],
+            clause_stats["unlinked"],
+        )
+        return clause_stats
+    
     @staticmethod
     def _parse_date(date_str: str | None) -> date | None:
         if not date_str:
