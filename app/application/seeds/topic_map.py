@@ -93,6 +93,7 @@ TOPICS: list[TopicSeed] = [
             {"act": "tyoaikalaki", "chapter": 5, "section": 21, "relevance": 2},
         ],
     },
+    
     # ── ОТПУСК ───────────────────────────────────────────────
     {
         "key": "annual_leave",
@@ -211,16 +212,5 @@ TOPICS: list[TopicSeed] = [
                            "Finland has no statutory national minimum wage.",
             "section_refs": [],
         },
-        {
-            "key": "night_and_sunday_work",
-            "name_en": "Night work and Sunday work allowances",
-            "name_ru": "Надбавки за ночную работу и работу в воскресенье",
-            "description": "Compensation rates for night shifts, Sunday work, and public holidays. "
-                           "Rates are set by collective agreements, not by law directly.",
-            "section_refs": [
-                {"act": "tyoaikalaki", "chapter": 3, "section": 8, "relevance": 3},
-                {"act": "tyoaikalaki", "chapter": 5, "section": 20, "relevance": 3},
-                {"act": "tyoaikalaki", "chapter": 5, "section": 21, "relevance": 2},
-            ],
-        },
+
     ]
