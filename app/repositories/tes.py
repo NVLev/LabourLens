@@ -95,6 +95,7 @@ class TesRepository:
             current_only: bool = True,
             union_key: str | None = None,
             sector_fi: str | None = None,
+            is_parsed: bool | None = None,
     ) -> list[Agreement]:
         query = select(Agreement)
         if current_only:
@@ -103,5 +104,21 @@ class TesRepository:
             query = query.join(Union).where(Union.key == union_key)
         if sector_fi:
             query = query.where(Agreement.sector_fi.ilike(f"%{sector_fi}%"))
+        if is_parsed is not None:
+            query = query.where(Agreement.is_parsed == is_parsed)
         result = await self.session.execute(query)
         return list(result.scalars().all())
+
+    async def get_agreement_by_key(self, key: str) -> Agreement | None:
+        result = await self.session.execute(
+            select(Agreement).where(Agreement.key == key)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_agreement_with_clauses_by_key(self, key: str) -> Agreement | None:
+        result = await self.session.execute(
+            select(Agreement)
+            .options(selectinload(Agreement.clauses))
+            .where(Agreement.key == key)
+        )
+        return result.scalar_one_or_none()
