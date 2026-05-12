@@ -245,6 +245,8 @@ class Agreement(Base):
     is_parsed: Mapped[bool] = mapped_column(Boolean, default=False)
     parsed_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))
 
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=True)
+
     union: Mapped["Union"] = relationship(back_populates="agreements")
     clauses: Mapped[list["TesClause"]] = relationship(back_populates="agreement")
 

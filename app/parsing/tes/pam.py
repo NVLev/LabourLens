@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import re
 from dataclasses import dataclass, field
@@ -75,10 +76,12 @@ class ParsedTesClause:
 @dataclass
 class ParsedAgreement:
     union_key: str          # "pam"
+    key: str
     name_fi: str            # "Kaupan työehtosopimus"
     valid_from: str | None  # "2025-02-01"
     valid_until: str | None # "2028-01-31"
     source_url: str
+    content_hash: str
     is_universally_binding: bool = True
     clauses: list[ParsedTesClause] = field(default_factory=list)
 
@@ -95,7 +98,17 @@ _SECTION_HEADER = re.compile(
 _VALIDITY_RE = re.compile(
     r"(\d{1,2}\.\d{1,2}\.\d{4})\s*[–-]\s*(\d{1,2}\.\d{1,2}\.\d{4})"
 )
+def build_key(union_key: str, name_fi: str) -> str:
+    import re
 
+    slug = name_fi.lower()
+    slug = re.sub(r"[^a-z0-9]+", "-", slug)
+    slug = slug.strip("-")
+
+    return f"{union_key}-{slug}"
+def build_content_hash(clauses: list[ParsedTesClause]) -> str:
+    raw = "\n".join(c.text_fi.strip() for c in clauses if c.text_fi)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 class TesPdfParser:
     """
@@ -147,7 +160,8 @@ class TesPdfParser:
         name_fi, valid_from, valid_until = self._extract_metadata(full_text)
         start_pos = self._find_content_start(full_text)
         clauses = self._extract_clauses(full_text[start_pos:], page_index, start_pos)
-
+        key = build_key(union_key, name_fi)
+        content_hash = build_content_hash(clauses)
         logger.info(
             "Parsed %s: %d clauses, valid %s–%s",
             path.name, len(clauses), valid_from, valid_until,
@@ -165,16 +179,17 @@ class TesPdfParser:
 
         return ParsedAgreement(
             union_key=union_key,
+            key=key,
             name_fi=name_fi,
             valid_from=valid_from,
             valid_until=valid_until,
             source_url=source_url,
+            content_hash=content_hash,
             is_universally_binding=is_universally_binding,
             clauses=clauses,
         )
 
     # Text extraction
-
     def _extract_pages(self, path: Path) -> list[tuple[int, str]]:
         """Возвращает список (page_number_1based, text)."""
         pages = []

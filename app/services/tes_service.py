@@ -79,15 +79,23 @@ class TesService:
             union_id: int,
             sector_fi: str | None = None,
     ) -> tuple[Agreement, str]:
-        existing = await self.repo.get_agreement_by_url(parsed.source_url)
+        current = await self.repo.get_current_agreement(parsed.key)
+        existing_by_url = await self.repo.get_agreement_by_url(parsed.source_url)
+        # тот же файл
+        if existing_by_url and existing_by_url.content_hash == parsed.content_hash:
+            return existing_by_url, "skipped"
+        # обновление по тому же url
+        if existing_by_url and existing_by_url.content_hash != parsed.content_hash:
+            existing_by_url.is_current = False
+        # новый url, тот же key
+        elif current:
+            current.is_current = False
 
-        if existing is not None:
-            existing.is_current = False
-            status = "updated"
         else:
             status = "created"
 
         agreement = Agreement(
+            key=parsed.key,
             union_id=union_id,
             name_fi=parsed.name_fi,
             valid_from=self._parse_date(parsed.valid_from),
@@ -96,12 +104,15 @@ class TesService:
             source_type="pdf",
             is_current=True,
             is_universally_binding=parsed.is_universally_binding,
-            sector_fi=sector_fi or parsed.name_fi,
+            sector_fi=sector_fi,
             sector_en=None,
+            content_hash=parsed.content_hash,
         )
+
         self.repo.add_agreement(agreement)
         await self.session.flush()
-        return agreement, status
+
+        return agreement, "created"
 
     # Clauses
 

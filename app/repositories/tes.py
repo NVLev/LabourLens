@@ -26,7 +26,14 @@ class TesRepository:
         self.session.add(union)
 
     # Agreement
-
+    async def get_current_agreement(self, key: str) -> Agreement | None:
+        result = await self.session.execute(
+            select(Agreement)
+            .where(Agreement.key == key)
+            .where(Agreement.is_current == True)
+        )
+        return result.scalar_one_or_none()
+    
     async def get_agreement_by_url(self, source_url: str) -> Agreement | None:
         result = await self.session.execute(
             select(Agreement).where(Agreement.source_url == source_url)
@@ -63,12 +70,28 @@ class TesRepository:
         )
         return list(result.scalars().all())
 
-    async def get_clauses_by_topic_key(self, topic_key: str) -> list[TesClause]:
-        result = await self.session.execute(
+    async def get_clauses_by_topic_key(
+            self,
+            topic_key: str,
+            union_key: str | None = None,
+            sector_fi: str | None = None,
+    ) -> list[TesClause]:
+
+        query = (
             select(TesClause)
-            .join(Topic)
+            .join(TesClause.topic)
+            .join(TesClause.agreement)
+            .join(Agreement.union)
             .where(Topic.key == topic_key)
         )
+
+        if union_key:
+            query = query.where(Union.key == union_key)
+
+        if sector_fi:
+            query = query.where(Agreement.sector_fi.ilike(f"%{sector_fi}%"))
+
+        result = await self.session.execute(query)
         return list(result.scalars().all())
 
     async def get_unlinked_clauses(
@@ -101,7 +124,7 @@ class TesRepository:
         if current_only:
             query = query.where(Agreement.is_current == True)
         if union_key:
-            query = query.join(Union).where(Union.key == union_key)
+            query = query.join(Agreement.union).where(Union.key == union_key)
         if sector_fi:
             query = query.where(Agreement.sector_fi.ilike(f"%{sector_fi}%"))
         if is_parsed is not None:
