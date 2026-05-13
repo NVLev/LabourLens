@@ -6,7 +6,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from app.database.db_helper import db_helper
-from app.routers import analyze, laws, parse, topics, translate
+from app.routers import analyze, laws, parse, topics, translate, tes
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(translate.router)
     app.include_router(topics.router)
     app.include_router(analyze.router)
+    app.include_router(tes.router)
     return app
 
 

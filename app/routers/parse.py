@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.db_helper import db_helper
 from app.parsing.finlex import ACTS_CONFIG, FinlexParser
 from app.parsing.tyosuojelu import TYOSUOJELU_PAGES, TyosuojeluParser
+from app.repositories.tes import TesRepository
 from app.services.interpretation_service import InterpretationService
 from app.services.law_service import LawService
 
@@ -151,6 +152,34 @@ async def discover_pam_tes(
     service = TesDiscoveryService(session)
     return await service.discover_pam()
 
+@router.get("/tes/agreements", summary="List discovered TES agreements with parse status")
+async def list_tes_agreements(
+    union_key: str | None = None,
+    is_parsed: bool | None = None,
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    """
+    Список договоров с ключами и статусом парсинга.
+    Используется для выбора что парсить через POST /parse/tes/{key}.
+    is_parsed=false — показать ещё не распарсенные.
+    """
+    repo = TesRepository(session)
+    agreements = await repo.get_all_agreements(
+        current_only=True,
+        union_key=union_key,
+        is_parsed=is_parsed,
+    )
+    return [
+        {
+            "key": a.key,
+            "name_fi": a.name_fi,
+            "sector_fi": a.sector_fi,
+            "is_parsed": a.is_parsed,
+            "parsed_at": str(a.parsed_at) if a.parsed_at else None,
+            "source_url": a.source_url,
+        }
+        for a in agreements
+    ]
 
 @router.post("/tes", summary="Parse all discovered TES")
 async def parse_tes_all(
