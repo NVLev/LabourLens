@@ -226,6 +226,31 @@ class TranslationService:
 
         return translated_count
 
+    async def translate_tes_en_by_key(self, agreement_key: str) -> dict:
+        clauses = await self._get_untranslated_tes_by_key(agreement_key, lang="en")
+        logger.info("EN translation: %d TES clauses for '%s'", len(clauses), agreement_key)
+        translated = await self._translate_tes_clauses(clauses, lang="en")
+        await self.session.commit()
+        return {"agreement": agreement_key, "translated": translated, "skipped": len(clauses) - translated}
+
+    async def translate_tes_ru_by_key(self, agreement_key: str) -> dict:
+        clauses = await self._get_untranslated_tes_by_key(agreement_key, lang="ru")
+        logger.info("RU translation: %d TES clauses for '%s'", len(clauses), agreement_key)
+        translated = await self._translate_tes_clauses(clauses, lang="ru")
+        await self.session.commit()
+        return {"agreement": agreement_key, "translated": translated, "skipped": len(clauses) - translated}
+
+    async def _get_untranslated_tes_by_key(self, agreement_key: str, lang: str) -> list[TesClause]:
+        from app.database.models import Agreement
+        null_col = TesClause.text_en if lang == "en" else TesClause.text_ru
+        result = await self.session.execute(
+            select(TesClause)
+            .join(Agreement)
+            .where(Agreement.key == agreement_key)
+            .where(null_col.is_(None))
+        )
+        return list(result.scalars().all())
+
     def _result(
         self,
         act_key: str | None,
