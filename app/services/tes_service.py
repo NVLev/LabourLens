@@ -79,18 +79,22 @@ class TesService:
             union_id: int,
             sector_fi: str | None = None,
     ) -> tuple[Agreement, str]:
-        current = await self.repo.get_current_agreement(parsed.key)
         existing_by_url = await self.repo.get_agreement_by_url(parsed.source_url)
-        # тот же файл
+        current = await self.repo.get_current_agreement(parsed.key)
+
+        # Тот же URL и тот же хеш — ничего не изменилось
         if existing_by_url and existing_by_url.content_hash == parsed.content_hash:
             return existing_by_url, "skipped"
-        # обновление по тому же url
-        if existing_by_url and existing_by_url.content_hash != parsed.content_hash:
+
+        # Тот же URL, но контент изменился — помечаем старый как неактуальный
+        if existing_by_url:
             existing_by_url.is_current = False
-        # новый url, тот же key
+            status = "updated"
+        # Новый URL, но есть актуальный договор с тем же ключом — вытесняем его
         elif current:
             current.is_current = False
-
+            status = "updated"
+        # Совсем новый договор
         else:
             status = "created"
 
@@ -112,7 +116,7 @@ class TesService:
         self.repo.add_agreement(agreement)
         await self.session.flush()
 
-        return agreement, "created"
+        return agreement, status
 
     # Clauses
 

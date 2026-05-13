@@ -33,10 +33,13 @@ class TesRepository:
             .where(Agreement.is_current == True)
         )
         return result.scalar_one_or_none()
-    
+
     async def get_agreement_by_url(self, source_url: str) -> Agreement | None:
         result = await self.session.execute(
-            select(Agreement).where(Agreement.source_url == source_url)
+            select(Agreement)
+            .where(Agreement.source_url == source_url)
+            .order_by(Agreement.id.desc())
+            .limit(1)
         )
         return result.scalar_one_or_none()
 
