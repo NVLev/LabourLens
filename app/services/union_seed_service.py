@@ -5,15 +5,22 @@ UNION_PORTALS = [
         "union": {
             "key": "pam",
             "name_fi": "Palvelualojen ammattiliitto PAM",
-            "sector_en": "Service sectors",
             "website": "https://www.pam.fi",
         },
         "portal": {
             "catalog_url": "https://www.pam.fi/tyoehtosopimukset/pamin-alojen-tyoehtosopimukset-aakkosjarjestyksessa/",
         },
     },
-    # Сюда добавляем остальные профсоюзы по мере готовности:
-    # teollisuusliitto, rakennusliitto, tek и т.д.
+    {
+        "union": {
+            "key": "rakennusliitto",
+            "name_fi": "Rakennusliitto",
+            "website": "https://rakennusliitto.fi",
+        },
+        "portal": {
+            "catalog_url": "https://rakennusliitto.fi/tyoehtosopimukset/",
+        },
+    },
 ]
 
 

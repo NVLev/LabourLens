@@ -140,17 +140,19 @@ from app.services.tes_service import TesService
 from app.services.tes_discovery_service import TesDiscoveryService
 
 
-@router.post("/tes/discover/pam", summary="Discover all PAM TES and save to DB")
-async def discover_pam_tes(
+@router.post("/tes/discover/{union_key}", summary="Discover TES catalog for a union")
+async def discover_tes(
+    union_key: str,
     session: AsyncSession = Depends(db_helper.session_getter),
 ):
     """
-    Сканирует каталог pam.fi, находит все TES,
+    Сканирует каталог профсоюза, находит все TES,
     сохраняет в БД с ключами. Не парсит PDF.
     Безопасно запускать повторно.
+    Доступные ключи: pam, rakennusliitto.
     """
     service = TesDiscoveryService(session)
-    return await service.discover_pam()
+    return await service.discover(union_key)
 
 @router.get("/tes/agreements", summary="List discovered TES agreements with parse status")
 async def list_tes_agreements(

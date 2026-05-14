@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import Agreement, UnionPortal
-from app.parsing.tes.pam_portal import PamPortalParser
+from app.parsing.tes.pam_portal import UnionPortalParser
 from app.parsing.tes.pam import TesPdfParser
 from app.repositories.tes import TesRepository
 from app.services.tes_service import TesService
@@ -31,18 +31,18 @@ class TesDiscoveryService:
 
     # ── Discovery ─────────────────────────────────────────────────────────────
 
-    async def discover_pam(self) -> dict:
+    async def discover(self, union_key: str) -> dict:
         """
-        Шаг 1: сканирует каталог pam.fi, сохраняет найденные TES в БД.
+        Шаг 1: сканирует каталоги, сохраняет найденные TES в БД.
         Не парсит PDF — только регистрирует договоры с ключами.
         """
-        portal = await self._get_portal("pam")
+        portal = await self._get_portal(union_key)
         if not portal:
-            return {"error": "PAM portal not found. Run POST /parse/unions/seed first."}
+            return {"error": f"Portal for '{union_key}' not found. Run POST /parse/unions/seed first."}
 
-        parser = PamPortalParser()
+        parser = UnionPortalParser(union_key)
         discovered = await parser.discover()
-        logger.info("PAM: discovered %d TES", len(discovered))
+        logger.info("%s: discovered %d TES", union_key, len(discovered))
 
         created = skipped = 0
         for tes in discovered:
@@ -52,6 +52,11 @@ class TesDiscoveryService:
                 continue
 
             key = tes.tes_page_url.rstrip("/").split("/")[-1]
+            if not key or key == "tyoehtosopimukset":
+                logger.warning("Skipping TES with invalid key from URL: %s", tes.tes_page_url)
+                skipped += 1
+                continue
+
             agreement = Agreement(
                 union_id=portal.union_id,
                 key=key,
@@ -66,11 +71,11 @@ class TesDiscoveryService:
             self.repo.add_agreement(agreement)
             created += 1
 
-        # Обновляем время последнего сканирования
         portal.last_scanned_at = datetime.now(timezone.utc)
         await self.session.commit()
 
         return {
+            "union": union_key,
             "discovered": len(discovered),
             "created": created,
             "skipped": skipped,

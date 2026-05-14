@@ -1,7 +1,6 @@
 import logging
-import re
 from dataclasses import dataclass
-
+from enum import Enum
 import httpx
 from bs4 import BeautifulSoup
 
@@ -15,37 +14,89 @@ HEADERS = {
     "Accept-Language": "fi-FI,fi;q=0.9",
 }
 
-PAM_CATALOG_URL = (
-    "https://www.pam.fi/tyoehtosopimukset/"
-    "pamin-alojen-tyoehtosopimukset-aakkosjarjestyksessa/"
-)
-
-# Слова в имени PDF которые означают не основной договор
 _PDF_SKIP_KEYWORDS = ["tasku", "taskutes", "palkkataulukko", "tiivistelma", "lyhyt"]
 
+_FINNISH_REPLACEMENTS = {
+    "tyoehtosopimus": "työehtosopimus",
+    "tyontekijoiden": "työntekijöiden",
+    "esihenkiloiden": "esihenkilöiden",
+    "vahittaiskaupan": "vähittäiskaupan",
+    "palveluautomaattialan": "palveluautomaattialan",
+}
+
+class PdfStrategy(str, Enum):
+    FIRST_PDF = "first_pdf"        # PAM: первый PDF без стоп-слов
+    LINK_TEXT = "link_text"        # Rakennusliitto: по тексту ссылки
 
 @dataclass
 class DiscoveredTes:
-    name_fi: str        # название из slug URL промежуточной страницы
-    sector_fi: str      # то же, чуть почище
-    tes_page_url: str   # промежуточная страница pam.fi/tes/*/
-    pdf_url: str        # прямая ссылка на PDF
+    name_fi: str
+    sector_fi: str
+    tes_page_url: str
+    pdf_url: str
 
 
-class PamPortalParser:
+@dataclass
+class UnionPortalConfig:
     """
-    Двухшаговый парсер каталога TES на pam.fi.
+    Конфиг для одного профсоюза.
 
-    Шаг 1: сканирует каталог → находит ссылки на промежуточные страницы /tes/*/
-    Шаг 2: заходит на каждую промежуточную страницу → находит основной PDF
-
-    Название сектора извлекается из URL slug промежуточной страницы.
+    catalog_url     — страница со списком TES
+    tes_url_marker  — подстрока, которая отличает ссылки на страницы TES
+                      от всех остальных ссылок на каталоге
+                      PAM:          "/tes/"
+                      Rakennusliitto: "/tyoehtosopimukset/" + не сам каталог
+    domain          — домен союза, для фильтрации внешних ссылок
     """
+    catalog_url: str
+    tes_url_marker: str
+    domain: str
+    pdf_strategy: PdfStrategy = PdfStrategy.FIRST_PDF
+
+
+UNION_CONFIGS: dict[str, UnionPortalConfig] = {
+    "pam": UnionPortalConfig(
+        catalog_url=(
+            "https://www.pam.fi/tyoehtosopimukset/"
+            "pamin-alojen-tyoehtosopimukset-aakkosjarjestyksessa/"
+        ),
+        tes_url_marker="/tes/",
+        domain="pam.fi",
+        pdf_strategy=PdfStrategy.FIRST_PDF,
+    ),
+    "rakennusliitto": UnionPortalConfig(
+        catalog_url="https://rakennusliitto.fi/tyoehtosopimukset/",
+        tes_url_marker="/tyoehtosopimukset/",
+        domain="rakennusliitto.fi",
+        pdf_strategy=PdfStrategy.LINK_TEXT,
+    ),
+}
+
+
+class UnionPortalParser:
+    """
+    Универсальный двухшаговый парсер каталогов TES.
+
+    Шаг 1: сканирует catalog_url → находит ссылки на страницы TES
+            по tes_url_marker и domain из конфига
+    Шаг 2: заходит на каждую страницу → находит основной PDF
+    """
+
+    def __init__(self, union_key: str) -> None:
+        if union_key not in UNION_CONFIGS:
+            raise ValueError(
+                f"Unknown union key: {union_key}. "
+                f"Available: {list(UNION_CONFIGS.keys())}"
+            )
+        self.union_key = union_key
+        self.config = UNION_CONFIGS[union_key]
 
     async def discover(self) -> list[DiscoveredTes]:
-        """Возвращает список всех TES с PDF ссылками."""
         tes_page_urls = await self._fetch_catalog()
-        logger.info("Found %d TES pages in PAM catalog", len(tes_page_urls))
+        logger.info(
+            "Found %d TES pages in %s catalog",
+            len(tes_page_urls), self.union_key,
+        )
 
         results = []
         async with httpx.AsyncClient(
@@ -62,48 +113,69 @@ class PamPortalParser:
                             tes_page_url=url,
                             pdf_url=pdf_url,
                         ))
-                        logger.info("Discovered: %s → %s", name_fi, pdf_url.split("/")[-1])
+                        logger.info(
+                            "Discovered: %s → %s",
+                            name_fi, pdf_url.split("/")[-1],
+                        )
                     else:
                         logger.warning("No PDF found on page: %s", url)
                 except Exception as e:
                     logger.error("Failed to fetch TES page %s: %s", url, e)
 
-        logger.info("Discovered %d TES with PDFs", len(results))
+        logger.info(
+            "Discovered %d TES with PDFs for %s",
+            len(results), self.union_key,
+        )
         return results
 
     async def _fetch_catalog(self) -> list[str]:
-        """Шаг 1: возвращает уникальные URL промежуточных страниц из каталога."""
         async with httpx.AsyncClient(
             headers=HEADERS, follow_redirects=True, timeout=20
         ) as client:
-            resp = await client.get(PAM_CATALOG_URL)
+            resp = await client.get(self.config.catalog_url)
             resp.raise_for_status()
 
         soup = BeautifulSoup(resp.text, "html.parser")
         seen = set()
         urls = []
         for a in soup.find_all("a", href=True):
-            href = str(a["href"])  # явное приведение к str
-            if (
-                    "/tes/" in href
-                    and "pam.fi" in href
-                    and href not in seen
-            ):
+            href = str(a["href"])
+            if not self._is_tes_page_url(href):
+                continue
+            # Нормализуем относительные ссылки
+            if href.startswith("/"):
+                href = f"https://{self.config.domain}{href}"
+            if href not in seen:
                 seen.add(href)
                 urls.append(href)
         return urls
 
+    def _is_tes_page_url(self, href: str) -> bool:
+        """Проверяет что ссылка ведёт на страницу TES, а не на каталог."""
+        marker = self.config.tes_url_marker
+        domain = self.config.domain
+        if marker not in href or domain not in href:
+            return False
+        # Исключаем сам каталог — у него href заканчивается на marker
+        if href.rstrip("/").endswith(marker.rstrip("/")):
+            return False
+        return True
+
     async def _fetch_pdf_url(
-        self, client: httpx.AsyncClient, tes_page_url: str
+            self, client: httpx.AsyncClient, tes_page_url: str
     ) -> str | None:
-        """Шаг 2: находит основной PDF на промежуточной странице."""
         resp = await client.get(tes_page_url)
         resp.raise_for_status()
-
         soup = BeautifulSoup(resp.text, "html.parser")
+
+        if self.config.pdf_strategy == PdfStrategy.LINK_TEXT:
+            return self._find_pdf_by_link_text(soup)
+        return self._find_first_pdf(soup)
+
+    def _find_first_pdf(self, soup: BeautifulSoup) -> str | None:
         for a in soup.find_all("a", href=True):
             href = str(a["href"])
-            if not (href.endswith(".pdf") and "wp-content/uploads" in href):
+            if not href.endswith(".pdf"):
                 continue
             filename = href.split("/")[-1].lower()
             if any(kw in filename for kw in _PDF_SKIP_KEYWORDS):
@@ -111,19 +183,23 @@ class PamPortalParser:
             return href
         return None
 
+    def _find_pdf_by_link_text(self, soup: BeautifulSoup) -> str | None:
+        for a in soup.find_all("a", href=True):
+            href = str(a["href"])
+            if not href.endswith(".pdf"):
+                continue
+            filename = href.split("/")[-1].lower()
+            if any(kw in filename for kw in _PDF_SKIP_KEYWORDS):
+                continue
+            link_text = a.get_text(strip=True).lower()
+            if "työehtosopimus" in link_text or "tyoehtosopimus" in link_text:
+                return href
+        return None
+
     @staticmethod
     def _slug_to_name(url: str) -> str:
-        """
-        Извлекает название из URL slug.
-        'pam.fi/tes/kaupan-alan-tyoehtosopimus/' → 'Kaupan alan työehtosopimus'
-        """
         slug = url.rstrip("/").split("/")[-1]
-        # Заменяем дефисы на пробелы, капитализируем
         name = slug.replace("-", " ").capitalize()
-        # Исправляем финские слова
-        name = name.replace("tyoehtosopimus", "työehtosopimus")
-        name = name.replace("tyontekijoiden", "työntekijöiden")
-        name = name.replace("esihenkiloiden", "esihenkilöiden")
-        name = name.replace("vahittaiskaupan", "vähittäiskaupan")
-        name = name.replace("palveluautomaattialan", "palveluautomaattialan")
+        for ascii_form, finnish in _FINNISH_REPLACEMENTS.items():
+            name = name.replace(ascii_form, finnish)
         return name
