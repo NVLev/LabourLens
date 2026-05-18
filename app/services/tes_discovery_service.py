@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models import Agreement, UnionPortal
+from app.database.models import Agreement, UnionPortal, Union
 from app.parsing.tes.pam_portal import UnionPortalParser
 from app.parsing.tes.pam import TesPdfParser
 from app.repositories.tes import TesRepository
@@ -83,15 +83,18 @@ class TesDiscoveryService:
 
     # ── Parsing ───────────────────────────────────────────────────────────────
 
-    async def parse_all(self) -> dict:
+    async def parse_all(self, union_key: str | None = None) -> dict:
         """
         Шаг 2: парсит PDF для всех Agreement где is_parsed=False.
         """
-        result = await self.session.execute(
-            select(Agreement).where(Agreement.is_parsed == False)
-        )
+        query = select(Agreement).where(Agreement.is_parsed == False)
+        if union_key:
+            query = query.join(Agreement.union).where(Union.key == union_key)
+
+        result = await self.session.execute(query)
         agreements = list(result.scalars().all())
-        logger.info("Parsing %d unparsed TES", len(agreements))
+        logger.info("Parsing %d unparsed TES%s", len(agreements),
+                    f" for {union_key}" if union_key else "")
 
         success = errors = 0
         for agreement in agreements:

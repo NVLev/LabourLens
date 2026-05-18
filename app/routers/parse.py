@@ -185,14 +185,15 @@ async def list_tes_agreements(
 
 @router.post("/tes", summary="Parse all discovered TES")
 async def parse_tes_all(
+    union_key: str | None = None,
     session: AsyncSession = Depends(db_helper.session_getter),
 ):
     """
-    Парсит PDF для всех найденных TES.
-    Сначала запустите /parse/tes/discover/pam.
+    Парсит PDF для всех непропаршенных TES.
+    union_key — опционально, ограничить одним союзом (pam, rakennusliitto, teollisuusliitto).
     """
     service = TesDiscoveryService(session)
-    return await service.parse_all()
+    return await service.parse_all(union_key=union_key)
 
 
 @router.post("/tes/{key}", summary="Parse single TES by key")
