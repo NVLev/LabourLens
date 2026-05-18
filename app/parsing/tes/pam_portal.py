@@ -18,6 +18,7 @@ _PDF_SKIP_KEYWORDS = [
     "tasku", "taskutes", "palkkataulukko", "tiivistelma", "lyhyt",
     "yhdistetty",
     "kollektivavtal",   # шведская версия
+    "collective-agreement",
     "korotukset",       # таблицы повышений зарплат
     "tyosopimusmalli",  # шаблон трудового договора
     "työsopimus_",      # шаблон (имя файла)
@@ -176,15 +177,15 @@ class UnionPortalParser:
             return False
         if href.rstrip("/").endswith(marker.rstrip("/")):
             return False
+        # Исключаемые подстроки — проверяем ДО глубины
+        for exclude in self.config.path_exclude:
+            if exclude in href:
+                return False
         # Проверка глубины пути
         if self.config.path_depth is not None:
             path = href.split(domain)[-1].rstrip("/")
             segments = [s for s in path.split("/") if s]
             if len(segments) != self.config.path_depth:
-                return False
-        # Исключаемые подстроки
-        for exclude in self.config.path_exclude:
-            if exclude in href:
                 return False
         return True
 
