@@ -7,6 +7,9 @@ from app.database.models import Agreement, TesClause, Union
 from app.parsing.tes.pam import ParsedAgreement, ParsedTesClause
 from app.repositories.tes import TesRepository
 from app.repositories.topics import TopicRepository
+from app.parsing.tes.pam import SECTION_TOPIC_MAP
+from sqlalchemy import select, update
+from app.database.models import TesClause
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +172,42 @@ class TesService:
             clause_stats["unlinked"],
         )
         return clause_stats
-    
+
+    async def relink_topics(self) -> dict:
+        result = await self.session.execute(select(TesClause))
+        clauses = result.scalars().all()
+
+        linked = unlinked = skipped = 0
+        for clause in clauses:
+            text = clause.text_fi.lower()
+            topic_key = None
+            for keyword, key in SECTION_TOPIC_MAP.items():
+                if keyword.lower() in text:
+                    topic_key = key
+                    break
+
+            if topic_key is None:
+                if clause.topic_id is not None:
+                    clause.topic_id = None
+                    unlinked += 1
+                else:
+                    skipped += 1
+                continue
+
+            topic = await self.topic_repo.get_by_key(topic_key)
+            if topic is None:
+                skipped += 1
+                continue
+
+            if clause.topic_id != topic.id:
+                clause.topic_id = topic.id
+                linked += 1
+            else:
+                skipped += 1
+
+        await self.session.commit()
+        return {"linked": linked, "unlinked": unlinked, "skipped": skipped}
+
     @staticmethod
     def _parse_date(date_str: str | None) -> date | None:
         if not date_str:

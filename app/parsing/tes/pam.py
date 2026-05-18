@@ -37,12 +37,19 @@ SECTION_TOPIC_MAP: dict[str, str] = {
     "ilta- ja yölisä":      "night_and_sunday_work",
     "yölisä":               "night_and_sunday_work",
     "iltalisä":             "night_and_sunday_work",
-    "lisät":                "night_and_sunday_work",
     "pyhätyö":              "night_and_sunday_work",
     "tilapäinen poissaolo": "sick_leave",
     "lääkärintarkastus":    "sick_leave",
     "lapsen syntymä":       "parental_leave",
-    "matkakustannukset":    "working_hours",
+    "matkakustannukset":    "expense_reimbursement",
+    "päiväraha":           "expense_reimbursement",
+    "työkalukorvaus":      "expense_reimbursement",
+    "puhelinkorvaus":      "expense_reimbursement",
+    "suojavaatetus":       "expense_reimbursement",
+    "työasut":             "expense_reimbursement",
+    "työvälineet":         "expense_reimbursement",
+    "matkustaminen":       "expense_reimbursement",
+    "matkakorvaus":        "expense_reimbursement",
     "määräaikainen sopimus":  "contract_types",
     "lepoajat":               "working_hours",
     "myyjät":                   "min_wage",
@@ -57,6 +64,44 @@ SECTION_TOPIC_MAP: dict[str, str] = {
     "suorituspalkkaus":         "min_wage",
     "vuosivapaa":   "annual_leave",
     "työviikko":    "working_hours",
+    # shop_steward
+    "luottamusmies":          "shop_steward",
+    "pääluottamusmies":       "shop_steward",
+    "luottamusmiessopimus":   "shop_steward",
+
+    # safety_representative
+    "työsuojeluvaltuutettu":  "safety_representative",
+    "työsuojelupäällikkö":    "safety_representative",
+    "työsuojeluasiamies":     "safety_representative",
+    "työsuojeluyhteistoiminta": "safety_representative",
+
+    # local_agreement
+    "paikallinen sopiminen":  "local_agreement",
+    "paikallisesti sopimalla": "local_agreement",
+    "työpaikkakohtainen sopiminen": "local_agreement",
+
+    # working_hours_reduction
+    "työajan lyhennys":       "working_hours_reduction",
+    "pekkaspäivät":           "working_hours_reduction",
+    "vuosityöajan lyhentäminen": "working_hours_reduction",
+
+    # warning
+    "varoitus":               "warning",
+
+    # work_certificate
+    "työtodistus":            "work_certificate",
+    "palkkatodistus":         "work_certificate",
+
+    # wages (более точный маппинг чем min_wage)
+    "palkanmaksu":            "wages",
+    "palkanmaksupäivä":       "wages",
+    "tuntipalkka":            "wages",
+    "kuukausipalkka":         "wages",
+    "palkkaryhmä":            "wages",
+    "henkilökohtainen palkka": "wages",
+    "tehtäväkohtainen palkka": "wages",
+    "palkkausjärjestelmä":    "wages",
+    "keskituntiansio":        "wages",
 }
 
 

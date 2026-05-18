@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.db_helper import db_helper
 from app.repositories.tes import TesRepository
+from app.services.tes_service import TesService
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +92,17 @@ async def get_agreement(
         ],
     }
 
+@router.post("/relink-topics", summary="Reassign topic_id for all TES clauses")
+async def relink_tes_topics(
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    """
+    Переназначает topic_id для всех клауз по актуальному SECTION_TOPIC_MAP.
+    Запускать после обновления topic_map.py и пересева топиков.
+    Idempotent.
+    """
+    service = TesService(session)
+    return await service.relink_topics()
 
 @router.get("/agreements/{key}/unlinked", summary="Get unlinked clauses")
 async def get_unlinked_clauses(

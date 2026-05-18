@@ -93,6 +93,15 @@ TOPICS: list[TopicSeed] = [
             {"act": "tyoaikalaki", "chapter": 5, "section": 21, "relevance": 2},
         ],
     },
+    {
+        "key": "working_hours_reduction",
+        "name_en": "Working hours reduction (Pekkas)",
+        "name_ru": "Сокращение рабочего времени (пеккасы)",
+        "description": "Statutory and TES-based annual working hours reduction days",
+        "section_refs": [
+            {"act": "tyoaikalaki", "chapter": 2, "section": 3, "relevance": 2},
+        ],
+    },
     
     # ── ОТПУСК ───────────────────────────────────────────────
     {
@@ -171,6 +180,32 @@ TOPICS: list[TopicSeed] = [
             {"act": "tyosopimuslaki", "chapter": 5, "section": 4, "relevance": 3},
         ],
     },
+    # ── ЗАРПЛАТА И КОМПЕНСАЦИИ──────────────────────────────────────
+    {
+            "key": "min_wage",
+            "name_en": "Minimum wage by sector",
+            "name_ru": "Минимальная зарплата по отрасли",
+            "description": "Sector-specific minimum wages set by collective agreements (TES). "
+                           "Finland has no statutory national minimum wage.",
+            "section_refs": [],
+        },
+    {
+        "key": "wages",
+        "name_en": "Wages and salary",
+        "name_ru": "Заработная плата",
+        "description": "Wage payment rules, pay periods, salary structure in TES",
+        "section_refs": [
+            {"act": "tyosopimuslaki", "chapter": 2, "section": 1, "relevance": 2},
+        ],
+    },
+    {
+        "key": "expense_reimbursement",
+        "name_en": "Expense reimbursement",
+        "name_ru": "Компенсация расходов",
+        "description": "Travel expenses, daily allowances, tools, phone, work clothing provided or reimbursed by employer",
+        "section_refs": [],
+    },
+
     # ── ОСОБЫЕ СИТУАЦИИ ──────────────────────────────────────
     {
         "key": "parental_leave",
@@ -205,12 +240,47 @@ TOPICS: list[TopicSeed] = [
         ],
     },
     {
-            "key": "min_wage",
-            "name_en": "Minimum wage by sector",
-            "name_ru": "Минимальная зарплата по отрасли",
-            "description": "Sector-specific minimum wages set by collective agreements (TES). "
-                           "Finland has no statutory national minimum wage.",
-            "section_refs": [],
-        },
-
+        "key": "warning",
+        "name_en": "Written warning",
+        "name_ru": "Письменное предупреждение",
+        "description": "Conditions and procedure for issuing a formal warning",
+        "section_refs": [
+            {"act": "tyosopimuslaki", "chapter": 7, "section": 2, "relevance": 2},
+        ],
+    },
+    {
+        "key": "work_certificate",
+        "name_en": "Work certificate",
+        "name_ru": "Трудовая справка",
+        "description": "Employer obligation to provide work certificate upon request",
+        "section_refs": [
+            {"act": "tyosopimuslaki", "chapter": 6, "section": 7, "relevance": 3},
+        ],
+    },
+    # ── РАБОТА С ПРОФСОЮЗОМ, ДРУГИЕ ДОГОВОРЫ ──────────────────────────────────────
+    {
+        "key": "shop_steward",
+        "name_en": "Shop steward (luottamusmies)",
+        "name_ru": "Профсоюзный представитель",
+        "description": "Election, rights, duties and protection of workplace union representatives",
+        "section_refs": [
+            {"act": "tyosopimuslaki", "chapter": 7, "section": 10, "relevance": 2},
+        ],
+    },
+    {
+        "key": "safety_representative",
+        "name_en": "Workplace safety representative",
+        "name_ru": "Уполномоченный по охране труда",
+        "description": "Election and rights of työsuojeluvaltuutettu",
+        "section_refs": [
+            {"act": "tyoturvallisuuslaki", "chapter": 2, "section": 10, "relevance": 2},
+        ],
+    },
+    {
+        "key": "local_agreement",
+        "name_en": "Local agreement",
+        "name_ru": "Местное соглашение",
+        "description": "Workplace-level agreements that deviate from TES defaults",
+        "section_refs": [],
+    },
     ]
