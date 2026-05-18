@@ -21,6 +21,16 @@ UNION_PORTALS = [
             "catalog_url": "https://rakennusliitto.fi/tyoehtosopimukset/",
         },
     },
+    {
+            "union": {
+                "key": "teollisuusliitto",
+                "name_fi": "Teollisuusliitto",
+                "website": "https://www.teollisuusliitto.fi",
+            },
+            "portal": {
+                "catalog_url": "https://www.teollisuusliitto.fi/tyoelama/tyoehtosopimukset/",
+            },
+        },
 ]
 
 

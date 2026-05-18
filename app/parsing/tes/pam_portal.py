@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 import httpx
 from bs4 import BeautifulSoup
@@ -14,7 +14,17 @@ HEADERS = {
     "Accept-Language": "fi-FI,fi;q=0.9",
 }
 
-_PDF_SKIP_KEYWORDS = ["tasku", "taskutes", "palkkataulukko", "tiivistelma", "lyhyt"]
+_PDF_SKIP_KEYWORDS = [
+    "tasku", "taskutes", "palkkataulukko", "tiivistelma", "lyhyt",
+    "yhdistetty",
+    "kollektivavtal",   # шведская версия
+    "korotukset",       # таблицы повышений зарплат
+    "tyosopimusmalli",  # шаблон трудового договора
+    "työsopimus_",      # шаблон (имя файла)
+    "tutustu",          # программа для школьников
+    "korvaava",         # инструкция по замещающей работе
+    "silmatapaturmat",  # инструкция по травмам глаз
+]
 
 _FINNISH_REPLACEMENTS = {
     "tyoehtosopimus": "työehtosopimus",
@@ -52,6 +62,8 @@ class UnionPortalConfig:
     tes_url_marker: str
     domain: str
     pdf_strategy: PdfStrategy = PdfStrategy.FIRST_PDF
+    path_depth: int | None = None  # если задан — требуем ровно N сегментов
+    path_exclude: list[str] = field(default_factory=list)  # исключаемые подстроки
 
 
 UNION_CONFIGS: dict[str, UnionPortalConfig] = {
@@ -68,6 +80,12 @@ UNION_CONFIGS: dict[str, UnionPortalConfig] = {
         catalog_url="https://rakennusliitto.fi/tyoehtosopimukset/",
         tes_url_marker="/tyoehtosopimukset/",
         domain="rakennusliitto.fi",
+        pdf_strategy=PdfStrategy.LINK_TEXT,
+    ),
+    "teollisuusliitto": UnionPortalConfig(
+        catalog_url="https://www.teollisuusliitto.fi/tyoelama/tyoehtosopimukset/",
+        tes_url_marker="/tyoehtosopimukset/",
+        domain="teollisuusliitto.fi",
         pdf_strategy=PdfStrategy.LINK_TEXT,
     ),
 }
@@ -156,9 +174,18 @@ class UnionPortalParser:
         domain = self.config.domain
         if marker not in href or domain not in href:
             return False
-        # Исключаем сам каталог — у него href заканчивается на marker
         if href.rstrip("/").endswith(marker.rstrip("/")):
             return False
+        # Проверка глубины пути
+        if self.config.path_depth is not None:
+            path = href.split(domain)[-1].rstrip("/")
+            segments = [s for s in path.split("/") if s]
+            if len(segments) != self.config.path_depth:
+                return False
+        # Исключаемые подстроки
+        for exclude in self.config.path_exclude:
+            if exclude in href:
+                return False
         return True
 
     async def _fetch_pdf_url(
