@@ -167,6 +167,8 @@ class Interpretation(Base):
     source: Mapped[str] = mapped_column(String(50), nullable=False)
     # "tyosuojelu" | "sak" | "pam" | "tek"
     source_url: Mapped[Optional[str]] = mapped_column(String(500))
+    sector_fi: Mapped[Optional[str]] = mapped_column(String(200))
+    # None = применимо ко всем, "Sosiaali- ja terveydenhuolto" = только для этой отрасли
     title_fi: Mapped[Optional[str]] = mapped_column(String(300))
     text_fi: Mapped[str] = mapped_column(Text, nullable=False)
     text_en: Mapped[Optional[str]] = mapped_column(Text)
