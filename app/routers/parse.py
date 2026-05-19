@@ -207,3 +207,62 @@ async def parse_tes_one(
     """
     service = TesDiscoveryService(session)
     return await service.parse_one(key)
+
+@router.post("/tehy", summary="Parse all Tehy TES interpretation pages")
+async def parse_tehy_all(
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    from app.parsing.tehy import TehyParser
+    parser = TehyParser()
+    service = InterpretationService(session)
+    parsed = await parser.parse_all()
+    return await service.upsert_tehy(parsed)
+
+@router.get("/interpretations/sources", summary="List interpretation sources and sectors")
+async def list_interpretation_sources(
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    """
+    Возвращает список источников интерпретаций с секторами.
+    Полезно для понимания какие данные доступны по GET /topics/{key}.
+    """
+    from sqlalchemy import select, distinct
+    from app.database.models import Interpretation
+    result = await session.execute(
+        select(
+            Interpretation.source,
+            Interpretation.sector_fi,
+        ).distinct().order_by(Interpretation.source, Interpretation.sector_fi)
+    )
+    rows = result.all()
+    return [
+        {"source": row.source, "sector_fi": row.sector_fi}
+        for row in rows
+    ]
+
+
+@router.get("/interpretations/tehy-slugs", summary="List available Tehy TES slugs")
+async def list_tehy_slugs():
+    """
+    Возвращает список доступных slug для POST /parse/tehy/{slug}.
+    """
+    from app.parsing.tehy import TEHY_AGREEMENTS
+    return [
+        {
+            "slug": slug,
+            "name_fi": meta["name_fi"],
+            "sector_fi": meta["sector_fi"],
+        }
+        for slug, meta in TEHY_AGREEMENTS.items()
+    ]
+
+@router.post("/tehy/{slug}", summary="Parse single Tehy TES page")
+async def parse_tehy_one(
+    slug: str,
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    from app.parsing.tehy import TehyParser
+    parser = TehyParser()
+    service = InterpretationService(session)
+    parsed = await parser.parse_one(slug)
+    return await service.upsert_tehy(parsed)

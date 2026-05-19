@@ -32,5 +32,17 @@ class InterpretationRepository:
         )
         return list(result.scalars().all())
 
+    async def get_by_topic_and_url(
+            self, topic_id: int, source_url: str, title_fi: str
+    ) -> Interpretation | None:
+        result = await self.session.execute(
+            select(Interpretation).where(
+                Interpretation.topic_id == topic_id,
+                Interpretation.source_url == source_url,
+                Interpretation.title_fi.like(f"%{title_fi[:50]}%"),
+            )
+        )
+        return result.scalar_one_or_none()
+
     def add(self, interpretation: Interpretation) -> None:
         self.session.add(interpretation)

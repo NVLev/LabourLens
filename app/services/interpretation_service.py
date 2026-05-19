@@ -7,6 +7,8 @@ from app.database.models import Interpretation
 from app.parsing.tyosuojelu import ParsedInterpretation
 from app.repositories.interpretations import InterpretationRepository
 from app.repositories.topics import TopicRepository
+from app.parsing.tehy import ParsedTehySection
+
 
 logger = logging.getLogger(__name__)
 
@@ -90,4 +92,60 @@ class InterpretationService:
             )
         )
         logger.debug("Created interpretation for topic '%s'", item.topic_key)
+        return "created"
+
+    async def upsert_tehy(self, parsed: list[ParsedTehySection]) -> dict[str, int]:
+        created = updated = skipped = 0
+
+        for item in parsed:
+            result = await self._upsert_tehy_one(item)
+            if result == "created":
+                created += 1
+            elif result == "updated":
+                updated += 1
+            else:
+                skipped += 1
+
+        await self.session.commit()
+        logger.info(
+            "Tehy interpretations upsert done: %d created, %d updated, %d skipped",
+            created, updated, skipped,
+        )
+        return {"created": created, "updated": updated, "skipped": skipped}
+
+    async def _upsert_tehy_one(self, item: "ParsedTehySection") -> str:
+        from hashlib import sha256
+        topic = await self.topic_repo.get_by_key(item.topic_key)
+        if topic is None:
+            logger.warning("Tehy: topic not found for key '%s', skipping", item.topic_key)
+            return "skipped"
+
+        content_hash = sha256(item.text_fi.encode()).hexdigest()
+
+        # Ключ дедупликации: topic_id + source_url (уникален для каждой секции)
+        existing = await self.repo.get_by_topic_and_url(topic.id, item.source_url, item.title_fi)
+
+        if existing is not None:
+            if existing.content_hash == content_hash:
+                return "skipped"
+            existing.title_fi = item.title_fi
+            existing.text_fi = item.text_fi
+            existing.content_hash = content_hash
+            existing.parsed_at = datetime.now(timezone.utc)
+            existing.text_en = None
+            existing.translated_at = None
+            existing.text_ru = None
+            existing.translated_ru_at = None
+            return "updated"
+
+        self.repo.add(Interpretation(
+            topic_id=topic.id,
+            source="tehy",
+            source_url=item.source_url,
+            title_fi=f"{item.agreement_name_fi}: {item.title_fi}",
+            text_fi=item.text_fi,
+            sector_fi=item.sector_fi,
+            content_hash=content_hash,
+            parsed_at=datetime.now(timezone.utc),
+        ))
         return "created"
