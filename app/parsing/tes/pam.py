@@ -9,115 +9,116 @@ from pathlib import Path
 import tempfile
 
 import pdfplumber
+from app.parsing.topic_keywords import detect_topic
 
 logger = logging.getLogger(__name__)
 
 # Маппинг ключевых слов параграфа → topic_key
 
-SECTION_TOPIC_MAP: dict[str, str] = {
-    "työsopimus":           "contract_types",
-    "koeaika":              "probation_period",
-    "työsuhteen päättyminen": "dismissal_grounds",
-    "lomautus":             "layoff",
-    "irtisanominen":        "dismissal_grounds",
-    "irtisanomisajat":        "notice_period",
-    "irtisanomisaika":        "notice_period",
-    "palvelusvuosilisä":      "wages",
-    "palvelusaikalisä":       "wages",
-    "urakkatyö":              "wages",
-    "arkipyhäkorvaus":        "night_and_sunday_work",
-    "arkipyhä":               "night_and_sunday_work",
-    "työturvallisuus":        "workplace_safety",
-    "sairaan lapsen":         "sick_leave",
-    "luottamushenkilö":       "shop_steward",
-    "hälytysluontoinen":      "working_hours",
-    "työvuorolista":          "working_hours",
-    "vapaapäivät":            "working_hours",
-    "vuorokausilepo":         "working_hours",
-    "siirto":                 "expense_reimbursement",
-    "yötyö":                "night_and_sunday_work",
-    "sunnuntaityö":         "night_and_sunday_work",
-    "lisä- ja ylityö":      "overtime",
-    "ylityö":               "overtime",
-    "työpalkat":            "min_wage",
-    "palkat":               "min_wage",
-    "vähimmäispalkka":      "min_wage",
-    "sairastuminen":        "sick_leave",
-    "sairausajan palkka":   "sick_leave",
-    "vuosiloma":            "annual_leave",
-    "lomaraha":             "holiday_pay",
-    "lomapalkka":           "holiday_pay",
-    "perhevapaat":          "parental_leave",
-    "työaika":              "working_hours",
-    "ilta- ja yölisä":      "night_and_sunday_work",
-    "yölisä":               "night_and_sunday_work",
-    "iltalisä":             "night_and_sunday_work",
-    "pyhätyö":              "night_and_sunday_work",
-    "tilapäinen poissaolo": "sick_leave",
-    "lääkärintarkastus":    "sick_leave",
-    "lapsen syntymä":       "parental_leave",
-    "matkakustannukset":    "expense_reimbursement",
-    "päiväraha":           "expense_reimbursement",
-    "työkalukorvaus":      "expense_reimbursement",
-    "puhelinkorvaus":      "expense_reimbursement",
-    "suojavaatetus":       "expense_reimbursement",
-    "työasut":             "expense_reimbursement",
-    "työvälineet":         "expense_reimbursement",
-    "matkustaminen":       "expense_reimbursement",
-    "matkakorvaus":        "expense_reimbursement",
-    "määräaikainen sopimus":  "contract_types",
-    "lepoajat":               "working_hours",
-    "myyjät":                   "min_wage",
-    "logistiikkatyöntekijät":   "min_wage",
-    "toimihenkilöt":            "min_wage",
-    "muut ammattiryhmät":       "min_wage",
-    "lääkärintarkastukset":     "sick_leave",
-    "sairauspoissaolo":         "sick_leave",
-    "työsuhdeturva":            "dismissal_protection",
-    "provisiopalkka":           "min_wage",
-    "vaativuustasot":           "min_wage",
-    "suorituspalkkaus":         "min_wage",
-    "vuosivapaa":   "annual_leave",
-    "työviikko":    "working_hours",
-    # shop_steward
-    "luottamusmies":          "shop_steward",
-    "pääluottamusmies":       "shop_steward",
-    "luottamusmiessopimus":   "shop_steward",
-
-    # safety_representative
-    "työsuojeluvaltuutettu":  "safety_representative",
-    "työsuojelupäällikkö":    "safety_representative",
-    "työsuojeluasiamies":     "safety_representative",
-    "työsuojeluyhteistoiminta": "safety_representative",
-
-    # local_agreement
-    "paikallinen sopiminen":  "local_agreement",
-    "paikallisesti sopimalla": "local_agreement",
-    "työpaikkakohtainen sopiminen": "local_agreement",
-
-    # working_hours_reduction
-    "työajan lyhennys":       "working_hours_reduction",
-    "pekkaspäivät":           "working_hours_reduction",
-    "vuosityöajan lyhentäminen": "working_hours_reduction",
-
-    # warning
-    "varoitus":               "warning",
-
-    # work_certificate
-    "työtodistus":            "work_certificate",
-    "palkkatodistus":         "work_certificate",
-
-    # wages (более точный маппинг чем min_wage)
-    "palkanmaksu":            "wages",
-    "palkanmaksupäivä":       "wages",
-    "tuntipalkka":            "wages",
-    "kuukausipalkka":         "wages",
-    "palkkaryhmä":            "wages",
-    "henkilökohtainen palkka": "wages",
-    "tehtäväkohtainen palkka": "wages",
-    "palkkausjärjestelmä":    "wages",
-    "keskituntiansio":        "wages",
-}
+# SECTION_TOPIC_MAP: dict[str, str] = {
+#     "työsopimus":           "contract_types",
+#     "koeaika":              "probation_period",
+#     "työsuhteen päättyminen": "dismissal_grounds",
+#     "lomautus":             "layoff",
+#     "irtisanominen":        "dismissal_grounds",
+#     "irtisanomisajat":        "notice_period",
+#     "irtisanomisaika":        "notice_period",
+#     "palvelusvuosilisä":      "wages",
+#     "palvelusaikalisä":       "wages",
+#     "urakkatyö":              "wages",
+#     "arkipyhäkorvaus":        "night_and_sunday_work",
+#     "arkipyhä":               "night_and_sunday_work",
+#     "työturvallisuus":        "workplace_safety",
+#     "sairaan lapsen":         "sick_leave",
+#     "luottamushenkilö":       "shop_steward",
+#     "hälytysluontoinen":      "working_hours",
+#     "työvuorolista":          "working_hours",
+#     "vapaapäivät":            "working_hours",
+#     "vuorokausilepo":         "working_hours",
+#     "siirto":                 "expense_reimbursement",
+#     "yötyö":                "night_and_sunday_work",
+#     "sunnuntaityö":         "night_and_sunday_work",
+#     "lisä- ja ylityö":      "overtime",
+#     "ylityö":               "overtime",
+#     "työpalkat":            "min_wage",
+#     "palkat":               "min_wage",
+#     "vähimmäispalkka":      "min_wage",
+#     "sairastuminen":        "sick_leave",
+#     "sairausajan palkka":   "sick_leave",
+#     "vuosiloma":            "annual_leave",
+#     "lomaraha":             "holiday_pay",
+#     "lomapalkka":           "holiday_pay",
+#     "perhevapaat":          "parental_leave",
+#     "työaika":              "working_hours",
+#     "ilta- ja yölisä":      "night_and_sunday_work",
+#     "yölisä":               "night_and_sunday_work",
+#     "iltalisä":             "night_and_sunday_work",
+#     "pyhätyö":              "night_and_sunday_work",
+#     "tilapäinen poissaolo": "sick_leave",
+#     "lääkärintarkastus":    "sick_leave",
+#     "lapsen syntymä":       "parental_leave",
+#     "matkakustannukset":    "expense_reimbursement",
+#     "päiväraha":           "expense_reimbursement",
+#     "työkalukorvaus":      "expense_reimbursement",
+#     "puhelinkorvaus":      "expense_reimbursement",
+#     "suojavaatetus":       "expense_reimbursement",
+#     "työasut":             "expense_reimbursement",
+#     "työvälineet":         "expense_reimbursement",
+#     "matkustaminen":       "expense_reimbursement",
+#     "matkakorvaus":        "expense_reimbursement",
+#     "määräaikainen sopimus":  "contract_types",
+#     "lepoajat":               "working_hours",
+#     "myyjät":                   "min_wage",
+#     "logistiikkatyöntekijät":   "min_wage",
+#     "toimihenkilöt":            "min_wage",
+#     "muut ammattiryhmät":       "min_wage",
+#     "lääkärintarkastukset":     "sick_leave",
+#     "sairauspoissaolo":         "sick_leave",
+#     "työsuhdeturva":            "dismissal_protection",
+#     "provisiopalkka":           "min_wage",
+#     "vaativuustasot":           "min_wage",
+#     "suorituspalkkaus":         "min_wage",
+#     "vuosivapaa":   "annual_leave",
+#     "työviikko":    "working_hours",
+#     # shop_steward
+#     "luottamusmies":          "shop_steward",
+#     "pääluottamusmies":       "shop_steward",
+#     "luottamusmiessopimus":   "shop_steward",
+#
+#     # safety_representative
+#     "työsuojeluvaltuutettu":  "safety_representative",
+#     "työsuojelupäällikkö":    "safety_representative",
+#     "työsuojeluasiamies":     "safety_representative",
+#     "työsuojeluyhteistoiminta": "safety_representative",
+#
+#     # local_agreement
+#     "paikallinen sopiminen":  "local_agreement",
+#     "paikallisesti sopimalla": "local_agreement",
+#     "työpaikkakohtainen sopiminen": "local_agreement",
+#
+#     # working_hours_reduction
+#     "työajan lyhennys":       "working_hours_reduction",
+#     "pekkaspäivät":           "working_hours_reduction",
+#     "vuosityöajan lyhentäminen": "working_hours_reduction",
+#
+#     # warning
+#     "varoitus":               "warning",
+#
+#     # work_certificate
+#     "työtodistus":            "work_certificate",
+#     "palkkatodistus":         "work_certificate",
+#
+#     # wages (более точный маппинг чем min_wage)
+#     "palkanmaksu":            "wages",
+#     "palkanmaksupäivä":       "wages",
+#     "tuntipalkka":            "wages",
+#     "kuukausipalkka":         "wages",
+#     "palkkaryhmä":            "wages",
+#     "henkilökohtainen palkka": "wages",
+#     "tehtäväkohtainen palkka": "wages",
+#     "palkkausjärjestelmä":    "wages",
+#     "keskituntiansio":        "wages",
+# }
 
 
 @dataclass
@@ -400,11 +401,7 @@ class TesPdfParser:
         return page_num
 
     def _resolve_topic(self, title_fi: str) -> str | None:
-        """Маппит заголовок параграфа на topic_key по ключевым словам."""
-        title_lower = title_fi.lower()
-        for keyword, topic_key in SECTION_TOPIC_MAP.items():
-            if keyword in title_lower:
-                return topic_key
-        return None
+        """Маппит заголовок параграфа на topic_key через общий реестр."""
+        return detect_topic(title_fi)
 
 

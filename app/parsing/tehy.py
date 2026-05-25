@@ -5,6 +5,10 @@ from dataclasses import dataclass
 import httpx
 from bs4 import BeautifulSoup
 
+from sqlalchemy import select
+from app.database.models import Interpretation
+from app.parsing.topic_keywords import detect_topic
+
 logger = logging.getLogger(__name__)
 
 HEADERS = {
@@ -60,40 +64,6 @@ TEHY_AGREEMENTS: dict[str, dict] = {
         "sector_fi": "Työterveyslaitos",
     },
 }
-
-# Маппинг ключевых слов заголовка → topic_key
-TEHY_SECTION_TOPIC_MAP: dict[str, str] = {
-    "imetys":               "parental_leave",
-    "hoitovapaa":           "parental_leave",
-    "vanhempainvapaa":      "parental_leave",
-    "raskaus":              "parental_leave",
-    "perhevapaa":           "parental_leave",
-    "työkyvyttömyys":       "sick_leave",
-    "sairauspoissaolo":     "sick_leave",
-    "hedelmöityshoito":     "sick_leave",
-    "vuosiloma":            "annual_leave",
-    "loma":                 "annual_leave",
-    "työaika":              "working_hours",
-    "jaksotyö":             "working_hours",
-    "yötyö":                "working_hours",
-    "ylityö":               "overtime",
-    "ylityökorvaus":        "overtime",
-    "lomautus":             "layoff",
-    "luottamusedustaja":    "shop_steward",
-    "luottamusmies":        "shop_steward",
-    "palkka":               "wages",
-    "palkkaus":             "wages",
-    "tasopalkkajärjestelmä": "wages",
-    "palkankorotus":        "wages",
-    "irtisanominen":        "dismissal_grounds",
-    "rekrytointikielto":    "dismissal_protection",
-    "opintovapaa":          "parental_leave",
-    "hautajaispäivä":       "parental_leave",
-    "työsuojelu":           "workplace_safety",
-    "tasa-arvo":            "discrimination",
-    "syrjintä":             "discrimination",
-}
-
 
 @dataclass
 class ParsedTehySection:
@@ -199,7 +169,7 @@ class TehyParser:
         text = "\n\n".join(paragraphs)
         if len(text) < 50:
             return None
-        topic_key = self._detect_topic(title)
+        topic_key = self._resolve_topic(title, text)
         if topic_key is None:
             logger.debug("Tehy: no topic for section '%s'", title[:60])
             return None
@@ -212,10 +182,29 @@ class TehyParser:
             agreement_name_fi=meta["name_fi"],
         )
 
-    @staticmethod
-    def _detect_topic(title: str) -> str | None:
-        title_lower = title.lower()
-        for keyword, topic_key in TEHY_SECTION_TOPIC_MAP.items():
-            if keyword.lower() in title_lower:
-                return topic_key
-        return None
+    def _resolve_topic(self, title_fi: str, text_fi: str) -> str | None:
+        # Фильтр мусорных заголовков
+        if not self._is_noise_title(title_fi):
+            title_topic = detect_topic(title_fi)
+        else:
+            title_topic = None
+
+        snippet = text_fi[:1000]
+        text_topic = detect_topic(snippet)
+
+        if title_topic and text_topic:
+            if title_topic == text_topic:
+                return title_topic
+            return title_topic  # приоритет заголовка
+
+        return title_topic or text_topic
+
+    def _is_noise_title(self, title: str) -> bool:
+        title_l = title.lower().strip()
+        return (
+                len(title_l) < 8
+                or title_l.endswith("?")
+                or "liity" in title_l
+                or title_l in {"tehy footer", "tehy footer bottom"}
+                or (title_l.startswith(tuple(f"{i}." for i in range(1, 10))) and len(title_l) < 20)
+        )

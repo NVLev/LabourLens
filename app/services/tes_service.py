@@ -7,7 +7,7 @@ from app.database.models import Agreement, TesClause, Union
 from app.parsing.tes.pam import ParsedAgreement, ParsedTesClause
 from app.repositories.tes import TesRepository
 from app.repositories.topics import TopicRepository
-from app.parsing.tes.pam import SECTION_TOPIC_MAP
+from app.parsing.topic_keywords import detect_topic, TOPIC_KEYWORDS
 from sqlalchemy import select, update
 from app.database.models import TesClause
 
@@ -179,12 +179,7 @@ class TesService:
 
         linked = unlinked = skipped = 0
         for clause in clauses:
-            text = clause.text_fi.lower()
-            topic_key = None
-            for keyword, key in SECTION_TOPIC_MAP.items():
-                if keyword.lower() in text:
-                    topic_key = key
-                    break
+            topic_key = detect_topic(clause.text_fi)
 
             if topic_key is None:
                 if clause.topic_id is not None:

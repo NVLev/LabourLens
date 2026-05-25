@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import Agreement, UnionPortal, Union
-from app.parsing.tes.pam_portal import UnionPortalParser
+from app.parsing.tes.union_portal import UnionPortalParser
 from app.parsing.tes.pam import TesPdfParser
 from app.repositories.tes import TesRepository
 from app.services.tes_service import TesService
