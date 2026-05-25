@@ -2,8 +2,12 @@ import logging
 from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+from hashlib import sha256
 
 from app.database.models import Interpretation
+from app.parsing.topic_keywords import detect_topic
 from app.parsing.tyosuojelu import ParsedInterpretation
 from app.repositories.interpretations import InterpretationRepository
 from app.repositories.topics import TopicRepository
@@ -95,7 +99,7 @@ class InterpretationService:
         return "created"
 
     async def upsert_tehy(self, parsed: list[ParsedTehySection]) -> dict[str, int]:
-        created = updated = skipped = 0
+        created = updated = skipped_no_topic = skipped_unchanged = 0
 
         for item in parsed:
             result = await self._upsert_tehy_one(item)
@@ -103,18 +107,20 @@ class InterpretationService:
                 created += 1
             elif result == "updated":
                 updated += 1
+            elif result == "skipped_unchanged":
+                skipped_unchanged += 1
             else:
-                skipped += 1
+                skipped_no_topic += 1
 
         await self.session.commit()
         logger.info(
-            "Tehy interpretations upsert done: %d created, %d updated, %d skipped",
-            created, updated, skipped,
+            "Tehy upsert done: %d created, %d updated, %d unchanged, %d no_topic",
+            created, updated, skipped_unchanged, skipped_no_topic,
         )
-        return {"created": created, "updated": updated, "skipped": skipped}
+        return {"created": created, "updated": updated,
+                "skipped_unchanged": skipped_unchanged, "skipped_no_topic": skipped_no_topic}
 
     async def _upsert_tehy_one(self, item: "ParsedTehySection") -> str:
-        from hashlib import sha256
         topic = await self.topic_repo.get_by_key(item.topic_key)
         if topic is None:
             logger.warning("Tehy: topic not found for key '%s', skipping", item.topic_key)
@@ -149,3 +155,59 @@ class InterpretationService:
             parsed_at=datetime.now(timezone.utc),
         ))
         return "created"
+
+    async def relink_topics(self, source: str | None = None) -> dict:
+        """
+        Переназначает topic_id для всех интерпретаций по актуальному TOPIC_KEYWORDS.
+        source: фильтр по источнику ("tehy", "tyosuojelu" и т.д.), None = все
+        """
+        stmt = select(Interpretation)
+        if source:
+            stmt = stmt.where(Interpretation.source == source)
+        result = await self.session.execute(stmt)
+        interpretations = result.scalars().all()
+
+        topic_cache: dict[str, int | None] = {}  # topic_key -> topic.id | None
+        linked = unlinked = skipped = 0
+
+        for interp in interpretations:
+            raw_title = interp.title_fi or ""
+            title_for_detect = raw_title.split(": ", 1)[-1] if ": " in raw_title else raw_title
+
+            title_topic = detect_topic(title_for_detect)
+            text_topic = detect_topic((interp.text_fi or "")[:1000])
+
+            if title_topic and text_topic:
+                topic_key = title_topic  # приоритет заголовка
+            else:
+                topic_key = title_topic or text_topic
+
+            if topic_key is None:
+                if interp.topic_id is not None:
+                    interp.topic_id = None
+                    unlinked += 1
+                else:
+                    skipped += 1
+                continue
+
+            if topic_key not in topic_cache:
+                topic = await self.topic_repo.get_by_key(topic_key)
+                topic_cache[topic_key] = topic.id if topic else None
+
+            topic_id = topic_cache[topic_key]
+            if topic_id is None:
+                skipped += 1
+                continue
+
+            if interp.topic_id != topic_id:
+                interp.topic_id = topic_id
+                linked += 1
+            else:
+                skipped += 1
+
+        await self.session.commit()
+        logger.info(
+            "Interpretations relink done: %d linked, %d unlinked, %d skipped",
+            linked, unlinked, skipped,
+        )
+        return {"linked": linked, "unlinked": unlinked, "skipped": skipped}

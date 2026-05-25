@@ -240,6 +240,13 @@ async def list_interpretation_sources(
         for row in rows
     ]
 
+@router.post("/interpretations/relink", summary="Relink interpretation topics by current keywords")
+async def relink_interpretation_topics(
+    source: str | None = None,
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    service = InterpretationService(session)
+    return await service.relink_topics(source=source)
 
 @router.get("/interpretations/tehy-slugs", summary="List available Tehy TES slugs")
 async def list_tehy_slugs():
