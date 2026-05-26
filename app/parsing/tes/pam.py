@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import re
+import requests
 from dataclasses import dataclass, field
 from typing import Sized
 
@@ -12,113 +13,6 @@ import pdfplumber
 from app.parsing.topic_keywords import detect_topic
 
 logger = logging.getLogger(__name__)
-
-# Маппинг ключевых слов параграфа → topic_key
-
-# SECTION_TOPIC_MAP: dict[str, str] = {
-#     "työsopimus":           "contract_types",
-#     "koeaika":              "probation_period",
-#     "työsuhteen päättyminen": "dismissal_grounds",
-#     "lomautus":             "layoff",
-#     "irtisanominen":        "dismissal_grounds",
-#     "irtisanomisajat":        "notice_period",
-#     "irtisanomisaika":        "notice_period",
-#     "palvelusvuosilisä":      "wages",
-#     "palvelusaikalisä":       "wages",
-#     "urakkatyö":              "wages",
-#     "arkipyhäkorvaus":        "night_and_sunday_work",
-#     "arkipyhä":               "night_and_sunday_work",
-#     "työturvallisuus":        "workplace_safety",
-#     "sairaan lapsen":         "sick_leave",
-#     "luottamushenkilö":       "shop_steward",
-#     "hälytysluontoinen":      "working_hours",
-#     "työvuorolista":          "working_hours",
-#     "vapaapäivät":            "working_hours",
-#     "vuorokausilepo":         "working_hours",
-#     "siirto":                 "expense_reimbursement",
-#     "yötyö":                "night_and_sunday_work",
-#     "sunnuntaityö":         "night_and_sunday_work",
-#     "lisä- ja ylityö":      "overtime",
-#     "ylityö":               "overtime",
-#     "työpalkat":            "min_wage",
-#     "palkat":               "min_wage",
-#     "vähimmäispalkka":      "min_wage",
-#     "sairastuminen":        "sick_leave",
-#     "sairausajan palkka":   "sick_leave",
-#     "vuosiloma":            "annual_leave",
-#     "lomaraha":             "holiday_pay",
-#     "lomapalkka":           "holiday_pay",
-#     "perhevapaat":          "parental_leave",
-#     "työaika":              "working_hours",
-#     "ilta- ja yölisä":      "night_and_sunday_work",
-#     "yölisä":               "night_and_sunday_work",
-#     "iltalisä":             "night_and_sunday_work",
-#     "pyhätyö":              "night_and_sunday_work",
-#     "tilapäinen poissaolo": "sick_leave",
-#     "lääkärintarkastus":    "sick_leave",
-#     "lapsen syntymä":       "parental_leave",
-#     "matkakustannukset":    "expense_reimbursement",
-#     "päiväraha":           "expense_reimbursement",
-#     "työkalukorvaus":      "expense_reimbursement",
-#     "puhelinkorvaus":      "expense_reimbursement",
-#     "suojavaatetus":       "expense_reimbursement",
-#     "työasut":             "expense_reimbursement",
-#     "työvälineet":         "expense_reimbursement",
-#     "matkustaminen":       "expense_reimbursement",
-#     "matkakorvaus":        "expense_reimbursement",
-#     "määräaikainen sopimus":  "contract_types",
-#     "lepoajat":               "working_hours",
-#     "myyjät":                   "min_wage",
-#     "logistiikkatyöntekijät":   "min_wage",
-#     "toimihenkilöt":            "min_wage",
-#     "muut ammattiryhmät":       "min_wage",
-#     "lääkärintarkastukset":     "sick_leave",
-#     "sairauspoissaolo":         "sick_leave",
-#     "työsuhdeturva":            "dismissal_protection",
-#     "provisiopalkka":           "min_wage",
-#     "vaativuustasot":           "min_wage",
-#     "suorituspalkkaus":         "min_wage",
-#     "vuosivapaa":   "annual_leave",
-#     "työviikko":    "working_hours",
-#     # shop_steward
-#     "luottamusmies":          "shop_steward",
-#     "pääluottamusmies":       "shop_steward",
-#     "luottamusmiessopimus":   "shop_steward",
-#
-#     # safety_representative
-#     "työsuojeluvaltuutettu":  "safety_representative",
-#     "työsuojelupäällikkö":    "safety_representative",
-#     "työsuojeluasiamies":     "safety_representative",
-#     "työsuojeluyhteistoiminta": "safety_representative",
-#
-#     # local_agreement
-#     "paikallinen sopiminen":  "local_agreement",
-#     "paikallisesti sopimalla": "local_agreement",
-#     "työpaikkakohtainen sopiminen": "local_agreement",
-#
-#     # working_hours_reduction
-#     "työajan lyhennys":       "working_hours_reduction",
-#     "pekkaspäivät":           "working_hours_reduction",
-#     "vuosityöajan lyhentäminen": "working_hours_reduction",
-#
-#     # warning
-#     "varoitus":               "warning",
-#
-#     # work_certificate
-#     "työtodistus":            "work_certificate",
-#     "palkkatodistus":         "work_certificate",
-#
-#     # wages (более точный маппинг чем min_wage)
-#     "palkanmaksu":            "wages",
-#     "palkanmaksupäivä":       "wages",
-#     "tuntipalkka":            "wages",
-#     "kuukausipalkka":         "wages",
-#     "palkkaryhmä":            "wages",
-#     "henkilökohtainen palkka": "wages",
-#     "tehtäväkohtainen palkka": "wages",
-#     "palkkausjärjestelmä":    "wages",
-#     "keskituntiansio":        "wages",
-# }
 
 
 @dataclass
@@ -189,21 +83,130 @@ class TesPdfParser:
             union_key: str,
             is_universally_binding: bool = True,
     ) -> ParsedAgreement:
-        """Скачивает PDF по URL и парсит."""
-        logger.info("Downloading TES PDF: %s", url)
-        async with httpx.AsyncClient(follow_redirects=True, timeout=60) as client:
-            resp = await client.get(url)
-            resp.raise_for_status()
+        """
+        Скачивает PDF по URL с защитой от WAF и парсит.
 
-        # Сохраняем во временный файл — pdfplumber требует файл, не bytes
+        Защиты:
+        - Browser headers
+        - Проверка Content-Type
+        - Проверка сигнатуры PDF (%PDF)
+        - Детект HTML/WAF
+        - fallback на requests
+        """
+
+        HEADERS = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0 Safari/537.36"
+            ),
+            "Accept": "application/pdf,application/octet-stream;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+
+        def is_valid_pdf(content: bytes) -> bool:
+            return content.startswith(b"%PDF")
+
+        def looks_like_html(content: bytes) -> bool:
+            snippet = content[:500].lower()
+            return b"<html" in snippet or b"<!doctype html" in snippet
+
+        def download_with_requests(url: str) -> bytes:
+
+
+            resp = requests.get(url, headers=HEADERS, timeout=60)
+            resp.raise_for_status()
+            return resp.content
+
+        logger.info("Downloading TES PDF: %s", url)
+
+        content: bytes | None = None
+
+        # httpx
+        try:
+            async with httpx.AsyncClient(
+                    headers=HEADERS,
+                    follow_redirects=True,
+                    timeout=60,
+            ) as client:
+                resp = await client.get(url)
+                resp.raise_for_status()
+
+                content_type = resp.headers.get("content-type", "")
+                content = resp.content
+
+                # Проверка: не PDF → fallback
+                if "pdf" not in content_type.lower():
+                    logger.warning(
+                        "Unexpected content-type '%s' for %s",
+                        content_type,
+                        url,
+                    )
+
+                if looks_like_html(content):
+                    raise ValueError("Got HTML instead of PDF (likely WAF)")
+
+                if not is_valid_pdf(content):
+                    raise ValueError("Invalid PDF signature")
+
+        except Exception as e:
+            logger.warning(
+                "httpx failed for %s (%s), retrying with requests",
+                url,
+                str(e),
+            )
+
+            try:
+                content = download_with_requests(url)
+
+                if looks_like_html(content):
+                    raise ValueError("Requests fallback also returned HTML")
+
+                if not is_valid_pdf(content):
+                    raise ValueError("Invalid PDF in fallback")
+
+            except Exception as e2:
+                logger.error(
+                    "Failed to download PDF via both httpx and requests: %s (%s)",
+                    url,
+                    str(e2),
+                )
+                raise
+
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-            tmp.write(resp.content)
+            tmp.write(content)
             tmp_path = Path(tmp.name)
 
         try:
-            return self.parse(tmp_path, union_key, url, is_universally_binding)
+            return self.parse(
+                tmp_path,
+                union_key,
+                url,
+                is_universally_binding,
+            )
         finally:
             tmp_path.unlink(missing_ok=True)
+    # async def parse_from_url(
+    #         self,
+    #         url: str,
+    #         union_key: str,
+    #         is_universally_binding: bool = True,
+    # ) -> ParsedAgreement:
+    #     """Скачивает PDF по URL и парсит."""
+    #     logger.info("Downloading TES PDF: %s", url)
+    #     async with httpx.AsyncClient(follow_redirects=True, timeout=60) as client:
+    #         resp = await client.get(url)
+    #         resp.raise_for_status()
+    #
+    #     # Сохраняем во временный файл — pdfplumber требует файл, не bytes
+    #     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+    #         tmp.write(resp.content)
+    #         tmp_path = Path(tmp.name)
+    #
+    #     try:
+    #         return self.parse(tmp_path, union_key, url, is_universally_binding)
+    #     finally:
+    #         tmp_path.unlink(missing_ok=True)
 
     def parse(
         self,
@@ -257,6 +260,7 @@ class TesPdfParser:
         with pdfplumber.open(path) as pdf:
             for i, page in enumerate(pdf.pages):
                 text = page.extract_text() or ""
+                text = self._clean_text(text)
                 pages.append((i + 1, text))
         return pages
 
@@ -358,6 +362,7 @@ class TesPdfParser:
             start = match.start()
             end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
             clause_text = text[start:end].strip()
+            clause_text = self._clean_text(clause_text)
             MAX_CLAUSE_CHARS = 30000
             if len(clause_text) > MAX_CLAUSE_CHARS:
                 logger.warning("Clause %s '%s' truncated: %d chars",
@@ -371,7 +376,7 @@ class TesPdfParser:
             abs_offset = base_offset + start
             page_num = self._offset_to_page(abs_offset, page_index)
 
-            topic_key = self._resolve_topic(title_fi)
+            topic_key = self._resolve_topic(title_fi, clause_text)
             if title_fi.startswith(":") or title_fi.startswith(")"):
                 continue
             clauses.append(ParsedTesClause(
@@ -400,8 +405,24 @@ class TesPdfParser:
                 break
         return page_num
 
-    def _resolve_topic(self, title_fi: str) -> str | None:
+    def _clean_text(self, text: str) -> str:
+        if not text:
+            return text
+
+        text = text.replace("\x00", "")
+
+        text = re.sub(r"[\x00-\x08\x0B-\x1F\x7F]", "", text)
+
+        return text
+
+    def _resolve_topic(self, title_fi: str, text_fi: str = "") -> str | None:
         """Маппит заголовок параграфа на topic_key через общий реестр."""
-        return detect_topic(title_fi)
+        title_topic = detect_topic(title_fi)
+        if title_topic:
+            return title_topic
+        # Fallback: проверяем тело клаузы (первые 500 символов достаточно)
+        if text_fi:
+            return detect_topic(text_fi[:500])
+        return None
 
 

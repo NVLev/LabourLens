@@ -16,6 +16,10 @@ TOPIC_KEYWORDS: dict[str, list[str]] = {
         "työaika", "säännöllinen työaika", "työvuorolista", "lepoajat",
         "vuorokausilepo", "viikoittainen vapaa", "tauko", "jaksotyö",
         "työvuorokausi", "työviikko", "hälytysluontoinen",
+        "lisätyö",  # additional work (below contract hours)
+        "kolmivuorotyö",  # continuous 3-shift work
+        "varallaolo",  # on-call duty
+        "joustovapaa",  # flex leave earned from overtime
     ],
     "working_hours_reduction": [
         "työajan lyhennys", "pekkaspäivät", "vuosityöajan lyhentäminen",
@@ -57,6 +61,8 @@ TOPIC_KEYWORDS: dict[str, list[str]] = {
     "dismissal_grounds": [
         "irtisanominen", "työsopimuksen päättäminen", "työsuhteen päättyminen",
         "irtisanomisperuste", "purkaminen",
+        "takaisinottaminen",  # rehiring obligation after economic dismissal
+        "perusteettomasta irtisanomisesta",  # wrongful dismissal compensation
     ],
     "notice_period": [
         "irtisanomisaika", "irtisanomisajat",
@@ -70,13 +76,13 @@ TOPIC_KEYWORDS: dict[str, list[str]] = {
 
     # ЗАРПЛАТА
     "wages": [
-    "palkanmaksu", "palkanmaksupäivä", "tuntipalkka", "kuukausipalkka",
-    "palkkaryhmä", "henkilökohtainen palkka", "tehtäväkohtainen palkka",
-    "palkkausjärjestelmä", "keskituntiansio", "palvelusvuosilisä",
-    "palvelusaikalisä", "urakkatyö", "provisiopalkka",
-    "suorituspalkkaus", "tasopalkkajärjestelmä", "palkankorotus",
-    "palkka", "palkkaus",
-    "sopimuskorotus", "palkallisuus", "tasolisä", "palkkahinnoittelu",  
+        "palkanmaksu", "palkanmaksupäivä", "tuntipalkka", "kuukausipalkka",
+        "palkkaryhmä", "henkilökohtainen palkka", "tehtäväkohtainen palkka",
+        "palkkausjärjestelmä", "keskituntiansio", "palvelusvuosilisä",
+        "palvelusaikalisä", "urakkatyö", "provisiopalkka",
+        "suorituspalkkaus", "tasopalkkajärjestelmä", "palkankorotus",
+        "palkka", "palkkaus",
+        "sopimuskorotus", "palkallisuus", "tasolisä", "palkkahinnoittelu",
     ],
     "min_wage": [
         "vähimmäispalkka", "taulukkopalkat", "palkkataulukko",
@@ -87,9 +93,11 @@ TOPIC_KEYWORDS: dict[str, list[str]] = {
 
     # ПРОФСОЮЗЫ
     "shop_steward": [
-    "luottamusmies", "pääluottamusmies", "luottamusmiessopimus",
-    "luottamushenkilö", "luottamusedustaja",
-    "luottamustehtä",
+        "luottamusmies", "pääluottamusmies", "luottamusmiessopimus",
+        "luottamushenkilö", "luottamusedustaja",
+        "luottamustehtä",
+        "ay-koulutus",  # union training rights
+        "kokoontumis",  # assembly right of employees
     ],
     "safety_representative": [
         "työsuojeluvaltuutettu", "työsuojelupäällikkö", "työsuojeluasiamies",
