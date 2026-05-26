@@ -23,12 +23,22 @@ UNION_PORTALS = [
     },
     {
             "union": {
-                "key": "teollisuusliitto",
-                "name_fi": "Teollisuusliitto",
-                "website": "https://www.teollisuusliitto.fi",
+                "key": "kirkonalat",
+                "name_fi": "Kirkon alat",
+                "website": "https://kirkonalat.fi",
             },
             "portal": {
-                "catalog_url": "https://www.teollisuusliitto.fi/tyoelama/tyoehtosopimukset/",
+                "catalog_url": "https://kirkonalat.fi/tyoehtosopimukset/",
+            },
+        },
+        {
+            "union": {
+                "key": "konepaallystoliitto",
+                "name_fi": "Suomen Konepäällystöliitto",
+                "website": "https://www.konepaallystoliitto.fi",
+            },
+            "portal": {
+                "catalog_url": "https://www.konepaallystoliitto.fi/tyoehtosopimukset/",
             },
         },
 ]

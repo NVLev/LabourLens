@@ -89,6 +89,24 @@ UNION_CONFIGS: dict[str, UnionPortalConfig] = {
         domain="teollisuusliitto.fi",
         pdf_strategy=PdfStrategy.LINK_TEXT,
     ),
+    "kirkonalat": UnionPortalConfig(
+    catalog_url="https://kirkonalat.fi/tyoehtosopimukset/",
+    tes_url_marker="/tyoehtosopimukset/",
+    domain="kirkonalat.fi",
+    pdf_strategy=PdfStrategy.LINK_TEXT,
+    path_depth=2,
+    # глубина 2: /tyoehtosopimukset/ortodoksinen-kirkko-tyoehtosopimukset/
+    # сам каталог /tyoehtosopimukset/ тоже глубина 1 — исключается автоматически
+    ),
+    "konepaallystoliitto": UnionPortalConfig(
+        catalog_url="https://www.konepaallystoliitto.fi/tyoehtosopimukset/",
+        tes_url_marker="/tyoehtosopimukset/",
+        domain="konepaallystoliitto.fi",
+        pdf_strategy=PdfStrategy.LINK_TEXT,
+        path_depth=2,
+        path_exclude=["merenkulku", "julkinen"],
+    ),
+
 }
 
 
