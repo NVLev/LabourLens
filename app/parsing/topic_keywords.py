@@ -20,14 +20,15 @@ TOPIC_KEYWORDS: dict[str, list[str]] = {
         "kolmivuorotyö",  # continuous 3-shift work
         "varallaolo",  # on-call duty
         "joustovapaa",  # flex leave earned from overtime
+        "työvuoroluettelo", "viikkolepo", "kolmivuorotyö", "keskeytymätön työ",
     ],
     "working_hours_reduction": [
         "työajan lyhennys", "pekkaspäivät", "vuosityöajan lyhentäminen",
-        "työajantasaaminen",
+        "työajantasaaminen", "joustovapaa",
     ],
     "overtime": [
         "ylityö", "lisä- ja ylityö", "ylityökorvaus", "hätätyö",
-        "ylityöraja",
+        "ylityöraja", "lisätyö",
     ],
     "night_and_sunday_work": [
         "yötyö", "sunnuntaityö", "ilta- ja yölisä", "yölisä", "iltalisä",
@@ -45,16 +46,18 @@ TOPIC_KEYWORDS: dict[str, list[str]] = {
 
     # БОЛЬНИЧНЫЙ
     "sick_leave": [
-    "sairausajan palkka", "sairastuminen", "sairauspoissaolo",
-    "työkyvyttömyys", "työkyvyttömyy",   # ← добавлено
-    "lääkärintarkastus", "tilapäinen poissaolo",
-    "sairaan lapsen", "karenssi", "hedelmöityshoito",
+        "sairausajan palkka", "sairastuminen", "sairauspoissaolo",
+        "työkyvyttömyys", "lääkärintarkastukset", "työkyvyttömyy",
+        "lääkärintarkastus", "tilapäinen poissaolo",
+        "sairaan lapsen", "karenssi", "hedelmöityshoito",
+        "terveystarkastukset",
     ],
 
     # СЕМЬЯ / ДЕКРЕТ
     "parental_leave": [
         "perhevapaa", "vanhempainvapaa", "raskausvapaa", "hoitovapaa",
         "lapsen syntymä", "imetys", "opintovapaa", "hautajaispäivä",
+        "synnytysloma", "raskaus",
     ],
 
     # УВОЛЬНЕНИЕ
@@ -83,6 +86,7 @@ TOPIC_KEYWORDS: dict[str, list[str]] = {
         "suorituspalkkaus", "tasopalkkajärjestelmä", "palkankorotus",
         "palkka", "palkkaus",
         "sopimuskorotus", "palkallisuus", "tasolisä", "palkkahinnoittelu",
+        "työnopastus", "likainen työ", "palkan käsite", "osa-ajan palkka",
     ],
     "min_wage": [
         "vähimmäispalkka", "taulukkopalkat", "palkkataulukko",
@@ -128,7 +132,8 @@ TOPIC_KEYWORDS: dict[str, list[str]] = {
     "expense_reimbursement": [
         "matkakustannukset", "päiväraha", "työkalukorvaus", "puhelinkorvaus",
         "suojavaatetus", "työasut", "työvälineet", "matkustaminen",
-        "matkakorvaus", "siirto",
+        "matkakorvaus", "matkakorvaukset", "siirto",
+        "suojavaatteet",
     ],
 
 
