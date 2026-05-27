@@ -41,6 +41,26 @@ UNION_PORTALS = [
                 "catalog_url": "https://www.konepaallystoliitto.fi/tyoehtosopimukset/",
             },
         },
+        {
+            "union": {
+                "key": "mvl",
+                "name_fi": "Meijerialan",
+                "website": "https://mvl.fi/",
+            },
+            "portal": {
+                "catalog_url": "https://mvl.fi/palvelut-ja-edut/tyoehtosopimus/",
+            },
+        },
+        {
+            "union": {
+                "key": "ria",
+                "name_fi": "Rakennusinsinöörit ja -arkkitehdit",
+                "website": "https://ria.fi/",
+            },
+            "portal": {
+                "catalog_url": "https://ria.fi/tyoelama/rialaisia-koskevat-tyoehtosopimukset/",
+            },
+        },
 ]
 
 

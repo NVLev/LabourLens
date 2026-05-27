@@ -51,12 +51,15 @@ class TesDiscoveryService:
                 skipped += 1
                 continue
 
-            key = tes.tes_page_url.rstrip("/").split("/")[-1]
-            if not key or key == "tyoehtosopimukset":
+            key_source = tes.key_source or tes.tes_page_url
+            key = key_source.rstrip("/").split("/")[-1]
+            if key.endswith(".pdf"):
+                key = key[:-4]
+            catalog_slug = portal.catalog_url.rstrip("/").split("/")[-1]
+            if not key or key == catalog_slug:
                 logger.warning("Skipping TES with invalid key from URL: %s", tes.tes_page_url)
                 skipped += 1
                 continue
-
             agreement = Agreement(
                 union_id=portal.union_id,
                 key=key,

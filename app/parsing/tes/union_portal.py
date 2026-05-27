@@ -25,6 +25,11 @@ _PDF_SKIP_KEYWORDS = [
     "tutustu",          # программа для школьников
     "korvaava",         # инструкция по замещающей работе
     "silmatapaturmat",  # инструкция по травмам глаз
+    "yhteenveto",       # summary (Finnish)
+    "tiivistys",        # summary of changes
+    "sammandrag",       # summary (Swedish)
+    "yrityskohtainen",  # company-specific agreement
+    "harjoittelij",     # trainee wage tables
 ]
 
 _FINNISH_REPLACEMENTS = {
@@ -38,6 +43,7 @@ _FINNISH_REPLACEMENTS = {
 class PdfStrategy(str, Enum):
     FIRST_PDF = "first_pdf"        # PAM: первый PDF без стоп-слов
     LINK_TEXT = "link_text"        # Rakennusliitto: по тексту ссылки
+    ALL_PDFS_ON_PAGE = "all_pdfs_on_page"  # NEW: все PDF прямо с каталога
 
 @dataclass
 class DiscoveredTes:
@@ -45,6 +51,7 @@ class DiscoveredTes:
     sector_fi: str
     tes_page_url: str
     pdf_url: str
+    key_source: str | None = None
 
 
 @dataclass
@@ -106,6 +113,18 @@ UNION_CONFIGS: dict[str, UnionPortalConfig] = {
         path_depth=2,
         path_exclude=["merenkulku", "julkinen"],
     ),
+    "mvl": UnionPortalConfig(
+        catalog_url="https://mvl.fi/palvelut-ja-edut/tyoehtosopimus/",
+        tes_url_marker="/tyoehtosopimus/",
+        domain="mvl.fi",
+        pdf_strategy=PdfStrategy.LINK_TEXT,
+    ),
+    "ria": UnionPortalConfig(
+        catalog_url="https://ria.fi/tyoelama/rialaisia-koskevat-tyoehtosopimukset/",
+        tes_url_marker="/tyoehtosopimus/",
+        domain="ria.fi",
+        pdf_strategy=PdfStrategy.ALL_PDFS_ON_PAGE,
+    )
 
 }
 
@@ -129,7 +148,24 @@ class UnionPortalParser:
         self.config = UNION_CONFIGS[union_key]
 
     async def discover(self) -> list[DiscoveredTes]:
+        if self.config.pdf_strategy == PdfStrategy.ALL_PDFS_ON_PAGE:
+            return await self._discover_all_pdfs_on_catalog()
         tes_page_urls = await self._fetch_catalog()
+        if not tes_page_urls:
+            logger.info(f"No TES pages found in {self.union_key} catalog, trying direct PDF search on catalog page")
+            async with httpx.AsyncClient(
+                    headers=HEADERS, follow_redirects=True, timeout=20
+            ) as client:
+                pdf_url = await self._fetch_pdf_url(client, self.config.catalog_url)
+                if pdf_url:
+                    name_fi = self._slug_to_name(self.config.catalog_url)
+                    return [DiscoveredTes(
+                        name_fi=name_fi,
+                        sector_fi=name_fi,
+                        tes_page_url=self.config.catalog_url,
+                        pdf_url=pdf_url,
+                    )]
+            return []
         logger.info(
             "Found %d TES pages in %s catalog",
             len(tes_page_urls), self.union_key,
@@ -241,6 +277,48 @@ class UnionPortalParser:
             if "työehtosopimus" in link_text or "tyoehtosopimus" in link_text:
                 return href
         return None
+
+    async def _discover_all_pdfs_on_catalog(self) -> list[DiscoveredTes]:
+        """Собирает все PDF прямо со страницы каталога — для порталов без подстраниц."""
+        async with httpx.AsyncClient(
+                headers=HEADERS, follow_redirects=True, timeout=20
+        ) as client:
+            resp = await client.get(self.config.catalog_url)
+            resp.raise_for_status()
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+        results = []
+        seen = set()
+
+        for a in soup.find_all("a", href=True):
+            href = str(a["href"])
+            if not href.endswith(".pdf"):
+                continue
+            filename = href.split("/")[-1].lower()
+            if any(kw in filename for kw in _PDF_SKIP_KEYWORDS):
+                continue
+            if href in seen:
+                continue
+            seen.add(href)
+
+            # Нормализуем относительные ссылки
+            if href.startswith("/"):
+                href = f"https://{self.config.domain}{href}"
+
+            link_text = a.get_text(strip=True)
+            name_fi = link_text if link_text else self._slug_to_name(href)
+
+            results.append(DiscoveredTes(
+                name_fi=name_fi,
+                sector_fi=name_fi,
+                tes_page_url=self.config.catalog_url,
+                pdf_url=href,
+                key_source=href,
+            ))
+            logger.info("Discovered PDF on catalog: %s → %s", name_fi[:50], filename)
+
+        logger.info("Found %d PDFs on catalog page for %s", len(results), self.union_key)
+        return results
 
     @staticmethod
     def _slug_to_name(url: str) -> str:
