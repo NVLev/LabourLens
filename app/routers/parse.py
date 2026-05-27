@@ -2,7 +2,10 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
+from app.database.models import Interpretation
+from app.parsing.tehy import TEHY_AGREEMENTS
 from app.database.db_helper import db_helper
 from app.parsing.finlex import ACTS_CONFIG, FinlexParser
 from app.parsing.tyosuojelu import TYOSUOJELU_PAGES, TyosuojeluParser
@@ -222,23 +225,33 @@ async def parse_tehy_all(
 async def list_interpretation_sources(
     session: AsyncSession = Depends(db_helper.session_getter),
 ):
-    """
-    Возвращает список источников интерпретаций с секторами.
-    Полезно для понимания какие данные доступны по GET /topics/{key}.
-    """
-    from sqlalchemy import select, distinct
-    from app.database.models import Interpretation
+
+    # Источники из БД
     result = await session.execute(
         select(
             Interpretation.source,
             Interpretation.sector_fi,
         ).distinct().order_by(Interpretation.source, Interpretation.sector_fi)
     )
-    rows = result.all()
-    return [
-        {"source": row.source, "sector_fi": row.sector_fi}
-        for row in rows
+    db_rows = [
+        {"source": row.source, "sector_fi": row.sector_fi, "in_db": True}
+        for row in result.all()
     ]
+
+    # Известные источники которых ещё нет в БД
+    db_sources = {row["source"] for row in db_rows}
+
+    static_sources = []
+    if "ilry" not in db_sources:
+        static_sources.append({"source": "ilry", "sector_fi": None, "in_db": False})
+    if "tyosuojelu" not in db_sources:
+        static_sources.append({"source": "tyosuojelu", "sector_fi": None, "in_db": False})
+    for meta in TEHY_AGREEMENTS.values():
+        if "tehy" not in db_sources:
+            static_sources.append({"source": "tehy", "sector_fi": meta["sector_fi"], "in_db": False})
+            break
+
+    return sorted(db_rows + static_sources, key=lambda x: x["source"])
 
 @router.post("/interpretations/relink", summary="Relink interpretation topics by current keywords")
 async def relink_interpretation_topics(
@@ -273,3 +286,42 @@ async def parse_tehy_one(
     service = InterpretationService(session)
     parsed = await parser.parse_one(slug)
     return await service.upsert_tehy(parsed)
+
+@router.post("/ilry", summary="Parse all ILRY labour law FAQ pages")
+async def parse_ilry_all(
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    """
+    Парсит все страницы раздела «Työelämän lakitieto» на ilry.fi.
+    Каждый FAQ-вопрос сохраняется как отдельная Interpretation с source='ilry'.
+    """
+    from app.parsing.ilry import IlryParser
+    parser = IlryParser()
+    service = InterpretationService(session)
+    parsed = await parser.parse_all()
+    return await service.upsert_ilry(parsed)
+
+
+@router.post("/ilry/{slug}", summary="Parse single ILRY FAQ page")
+async def parse_ilry_one(
+    slug: str,
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    """
+    Парсит одну страницу по slug.
+    Доступные slugs: GET /parse/interpretations/ilry-slugs
+    """
+    from app.parsing.ilry import IlryParser
+    parser = IlryParser()
+    service = InterpretationService(session)
+    parsed = await parser.parse_one(slug)
+    return await service.upsert_ilry(parsed)
+
+
+@router.get("/interpretations/ilry-slugs", summary="List available ILRY slugs")
+async def list_ilry_slugs():
+    from app.parsing.ilry import ILRY_PAGES
+    return [
+        {"slug": slug, "topic_key": topic_key}
+        for slug, topic_key in ILRY_PAGES.items()
+    ]
