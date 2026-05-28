@@ -16,26 +16,38 @@ HEADERS = {
 
 ILRY_BASE_URL = "https://www.ilry.fi/tyoelaman-lakitieto"
 
-# Явный маппинг slug → topic_key.
 # ILRY структурирован по темам
 # тема определяется URL страницы, а не содержимым.
-ILRY_PAGES: dict[str, str] = {
-    "palkka":                                   "wages",
-    "tyoaika":                                  "working_hours",
-    "vuosiloma":                                "annual_leave",
-    "sairastuminen":                            "sick_leave",
-    "perhevapaat":                              "parental_leave",
-    "opinto-ja-palkaton-vapaa":                 "parental_leave",
-    "lomauttaminen":                            "layoff",
-    "irtisanominen":                            "dismissal_grounds",
-    "purkaminen":                               "dismissal_grounds",
-    "koeaika":                                  "probation_period",
-    "maaraaikaisen-sopimus-ja-sen-paattyminen": "contract_types",
-    "tyosopimuksen-ehtojen-muuttaminen":        "contract_types",
-    "tasa-arvo-yhdenvertaisuus-ja-hairinta":    "discrimination",
-    "tyoturvallisuus-tyosuojelu-tyoterveys":    "workplace_safety",
-    "matkustaminen":                            "expense_reimbursement",
-    "yhteistoiminta-ja-muutosneuvottelut":      "local_agreement",
+ILRY_PAGES: dict[str, tuple[str, str]] = {
+    # slug (для API) → (путь относительно BASE_URL, topic_key)
+
+    # Прямые дочерние страницы
+    "tyoaika":               ("tyoaika",               "working_hours"),
+    "vuosiloma":             ("vuosiloma",              "annual_leave"),
+    "matkustaminen":         ("matkustaminen",          "expense_reimbursement"),
+    "lomauttaminen":         ("lomauttaminen",          "layoff"),
+
+    # Раздел: tyosopimuksen-tekeminen-ja-muuttaminen
+    "palkka":                        ("tyosopimuksen-tekeminen-ja-muuttaminen/palkka",                         "wages"),
+    "tyosopimuksen-ehtojen-muuttaminen": ("tyosopimuksen-tekeminen-ja-muuttaminen/tyosopimuksen-ehtojen-muuttaminen", "contract_types"),
+
+    # Раздел: perhevapaat-ja-muut-poissaolot
+    "sairastuminen":         ("perhevapaat-ja-muut-poissaolot/sairastuminen",         "sick_leave"),
+    "perhevapaat":           ("perhevapaat-ja-muut-poissaolot/perhevapaat",           "parental_leave"),
+    "opinto-ja-palkaton-vapaa": ("perhevapaat-ja-muut-poissaolot/opinto-ja-palkaton-vapaa", "parental_leave"),
+
+    # Раздел: tyosuhteen-paattaminen-tai-paattyminen
+    "irtisanominen":         ("tyosuhteen-paattaminen-tai-paattyminen/irtisanominen",                            "dismissal_grounds"),
+    "irtisanoutuminen":      ("tyosuhteen-paattaminen-tai-paattyminen/irtisanoutuminen-ja-tyopaikan-vaihtaminen", "notice_period"),
+    "purkaminen":            ("tyosuhteen-paattaminen-tai-paattyminen/purkaminen",                               "dismissal_grounds"),
+    "koeaika":               ("tyosuhteen-paattaminen-tai-paattyminen/koeaika",                                  "probation_period"),
+    "maaraaikainen":         ("tyosuhteen-paattaminen-tai-paattyminen/maaraaikaisen-sopimus-ja-sen-paattyminen", "contract_types"),
+    "paattosopimus":         ("tyosuhteen-paattaminen-tai-paattyminen/paattosopimus-tai-irtisanomispaketti",     "dismissal_grounds"),
+    "yhteistoiminta":        ("tyosuhteen-paattaminen-tai-paattyminen/yhteistoiminta-ja-muutosneuvottelut",      "local_agreement"),
+
+    # Раздел: tyohyvinvointi-ja-turvallisuus
+    "tyoturvallisuus":       ("tyohyvinvointi-ja-turvallisuus/tyoturvallisuus-tyosuojelu-tyoterveys", "workplace_safety"),
+    "tasa-arvo":             ("tyohyvinvointi-ja-turvallisuus/tasa-arvo-yhdenvertaisuus-ja-hairinta", "discrimination"),
 }
 
 
@@ -65,8 +77,9 @@ class IlryParser:
         async with httpx.AsyncClient(
             headers=HEADERS, follow_redirects=True, timeout=20
         ) as client:
-            for slug, topic_key in ILRY_PAGES.items():
-                url = f"{ILRY_BASE_URL}/{slug}/"
+            for slug, (path, topic_key) in ILRY_PAGES.items():
+                url = f"{ILRY_BASE_URL}/{path}/"
+                entries = await self._parse_page(client, url, topic_key)
                 try:
                     entries = await self._parse_page(client, url, topic_key)
                     results.extend(entries)
@@ -83,8 +96,8 @@ class IlryParser:
                 f"Unknown ILRY slug: '{slug}'. "
                 f"Available: {list(ILRY_PAGES.keys())}"
             )
-        topic_key = ILRY_PAGES[slug]
-        url = f"{ILRY_BASE_URL}/{slug}/"
+        path, topic_key = ILRY_PAGES[slug]
+        url = f"{ILRY_BASE_URL}/{path}/"
         async with httpx.AsyncClient(
             headers=HEADERS, follow_redirects=True, timeout=20
         ) as client:

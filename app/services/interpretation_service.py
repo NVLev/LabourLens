@@ -222,37 +222,30 @@ class InterpretationService:
         return "created"
 
     async def relink_topics(self, source: str | None = None) -> dict:
-        """
-        Переназначает topic_id для всех интерпретаций по актуальному TOPIC_KEYWORDS.
-        source: фильтр по источнику ("tehy", "tyosuojelu" и т.д.), None = все
-        """
         stmt = select(Interpretation)
         if source:
             stmt = stmt.where(Interpretation.source == source)
+        else:
+            stmt = stmt.where(Interpretation.source != "ilry")
         result = await self.session.execute(stmt)
         interpretations = result.scalars().all()
 
-        topic_cache: dict[str, int | None] = {}  # topic_key -> topic.id | None
-        linked = unlinked = skipped = 0
+        topic_cache: dict[str, int | None] = {}
+        linked = skipped = 0
 
         for interp in interpretations:
             raw_title = interp.title_fi or ""
             title_for_detect = raw_title.split(": ", 1)[-1] if ": " in raw_title else raw_title
-
             title_topic = detect_topic(title_for_detect)
             text_topic = detect_topic((interp.text_fi or "")[:1000])
 
             if title_topic and text_topic:
-                topic_key = title_topic  # приоритет заголовка
+                topic_key = title_topic
             else:
                 topic_key = title_topic or text_topic
 
             if topic_key is None:
-                if interp.topic_id is not None:
-                    interp.topic_id = None
-                    unlinked += 1
-                else:
-                    skipped += 1
+                skipped += 1
                 continue
 
             if topic_key not in topic_cache:
@@ -272,7 +265,8 @@ class InterpretationService:
 
         await self.session.commit()
         logger.info(
-            "Interpretations relink done: %d linked, %d unlinked, %d skipped",
-            linked, unlinked, skipped,
+            "Interpretations relink done: %d linked, %d skipped",
+            linked, skipped,
         )
-        return {"linked": linked, "unlinked": unlinked, "skipped": skipped}
+        return {"linked": linked, "skipped": skipped}
+
