@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timezone
 
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import Agreement, UnionPortal, Union
@@ -60,6 +61,11 @@ class TesDiscoveryService:
                 logger.warning("Skipping TES with invalid key from URL: %s", tes.tes_page_url)
                 skipped += 1
                 continue
+            GENERIC_NAMES = {"tyoehtosopimus", "teollisuus"}
+            if tes.name_fi.lower().replace(" ", "").replace("-", "") in GENERIC_NAMES:
+                logger.warning("Skipping generic TES name '%s' (key=%s)", tes.name_fi, key)
+                skipped += 1
+                continue
             agreement = Agreement(
                 union_id=portal.union_id,
                 key=key,
@@ -90,7 +96,11 @@ class TesDiscoveryService:
         """
         Шаг 2: парсит PDF для всех Agreement где is_parsed=False.
         """
-        query = select(Agreement).where(Agreement.is_parsed == False)
+        query = (
+            select(Agreement)
+            .options(selectinload(Agreement.union))
+            .where(Agreement.is_parsed == False)
+        )
         if union_key:
             query = query.join(Agreement.union).where(Union.key == union_key)
 
@@ -133,23 +143,30 @@ class TesDiscoveryService:
     # ── Internal ──────────────────────────────────────────────────────────────
 
     async def _parse_agreement(self, agreement: Agreement) -> None:
-        """Скачивает и парсит PDF, сохраняет клаузулы."""
         parser = TesPdfParser()
-        from app.parsing.tes.pam import ParsedAgreement
-
+        union_key = agreement.union.key  # нужен selectinload или отдельный запрос
         parsed = await parser.parse_from_url(
             url=agreement.source_url,
-            union_key="pam",
+            union_key=union_key,
             is_universally_binding=agreement.is_universally_binding,
         )
-        parsed.name_fi = agreement.name_fi
+
+        # Обновляем метаданные из PDF — они точнее чем slug-based значения в БД
+        if parsed.valid_from:
+            agreement.valid_from = self.tes_service._parse_date(parsed.valid_from)
+        if parsed.valid_until:
+            agreement.valid_until = self.tes_service._parse_date(parsed.valid_until)
+        if parsed.name_fi and parsed.name_fi != agreement.name_fi:
+            logger.info("Updating name_fi: '%s' → '%s'", agreement.name_fi, parsed.name_fi)
+            agreement.name_fi = parsed.name_fi
+
+        agreement.is_parsed = True
+        agreement.parsed_at = datetime.now(timezone.utc)
 
         await self.tes_service.upsert_clauses_for_agreement(
             agreement=agreement,
             clauses=parsed.clauses,
         )
-        agreement.is_parsed = True
-        agreement.parsed_at = datetime.now(timezone.utc)
 
     async def _get_portal(self, union_key: str) -> UnionPortal | None:
         result = await self.session.execute(

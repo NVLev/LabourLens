@@ -2,7 +2,10 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update
 
+from app.database.models import Agreement
+from app.parsing.tes.union_portal import _extract_sector_fi
 from app.database.db_helper import db_helper
 from app.repositories.tes import TesRepository
 from app.services.tes_service import TesService
@@ -11,22 +14,53 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/tes", tags=["tes"])
 
-
-@router.get("/unions", summary="List all unions")
-async def list_unions(
+@router.post("/tes/fix-sectors", summary="Recalculate and clean sector_fi")
+async def fix_agreement_sectors(
     session: AsyncSession = Depends(db_helper.session_getter),
 ):
-    """Список всех профсоюзов в БД."""
-    repo = TesRepository(session)
-    unions = await repo.get_all_unions()
-    return [
-        {
-            "key": u.key,
-            "name_fi": u.name_fi,
-            "website": u.website,
-        }
-        for u in unions
-    ]
+    result = await session.execute(select(Agreement))
+    agreements = result.scalars().all()
+
+    updated = 0
+    cleaned = 0
+
+    GARBAGE_KEYS = {
+        "teollisuus",
+        "tyoehtosopimus",
+        "rialaisia-koskevat-tyoehtosopimukset",
+    }
+
+    for agr in agreements:
+        new_sector = _extract_sector_fi(agr.name_fi)
+
+        # обновление сектора
+        if new_sector != agr.sector_fi:
+            logger.info(
+                "Sector update: [%s] '%s' → '%s'",
+                agr.key,
+                agr.sector_fi,
+                new_sector,
+            )
+            agr.sector_fi = new_sector
+            updated += 1
+
+        # очистка мусорных значений
+        if agr.sector_fi and agr.sector_fi.lower() in GARBAGE_KEYS:
+            logger.warning(
+                "Cleaning garbage sector: [%s] '%s' → NULL",
+                agr.key,
+                agr.sector_fi,
+            )
+            agr.sector_fi = None
+            cleaned += 1
+
+    await session.commit()
+
+    return {
+        "updated": updated,
+        "cleaned": cleaned,
+        "total": len(agreements),
+    }
 
 
 @router.get("/agreements", summary="List all current agreements")

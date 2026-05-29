@@ -1,5 +1,5 @@
 import logging
-from datetime import date
+from datetime import date, datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -87,12 +87,28 @@ class TesService:
 
         # Тот же URL и тот же хеш — ничего не изменилось
         if existing_by_url and existing_by_url.content_hash == parsed.content_hash:
-            return existing_by_url, "skipped"
+            changed = False
+            if existing_by_url.valid_from is None and parsed.valid_from:
+                existing_by_url.valid_from = self._parse_date(parsed.valid_from)
+                changed = True
+            if existing_by_url.valid_until is None and parsed.valid_until:
+                existing_by_url.valid_until = self._parse_date(parsed.valid_until)
+                changed = True
+            if existing_by_url.name_fi != parsed.name_fi and parsed.name_fi:
+                existing_by_url.name_fi = parsed.name_fi
+                changed = True
+            if not existing_by_url.is_parsed:
+                existing_by_url.is_parsed = True
+                existing_by_url.parsed_at = datetime.now(timezone.utc)
+                changed = True
+            return existing_by_url, "updated" if changed else "skipped"
 
-        # Тот же URL, но контент изменился — помечаем старый как неактуальный
-        if existing_by_url:
-            existing_by_url.is_current = False
-            status = "updated"
+        # # Тот же URL, но контент изменился — помечаем старый как неактуальный
+        # if existing_by_url:
+        #     existing_by_url.is_current = False
+        #     status = "updated"
+        #
+
         # Новый URL, но есть актуальный договор с тем же ключом — вытесняем его
         elif current:
             current.is_current = False

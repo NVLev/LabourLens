@@ -186,27 +186,6 @@ class TesPdfParser:
             )
         finally:
             tmp_path.unlink(missing_ok=True)
-    # async def parse_from_url(
-    #         self,
-    #         url: str,
-    #         union_key: str,
-    #         is_universally_binding: bool = True,
-    # ) -> ParsedAgreement:
-    #     """Скачивает PDF по URL и парсит."""
-    #     logger.info("Downloading TES PDF: %s", url)
-    #     async with httpx.AsyncClient(follow_redirects=True, timeout=60) as client:
-    #         resp = await client.get(url)
-    #         resp.raise_for_status()
-    #
-    #     # Сохраняем во временный файл — pdfplumber требует файл, не bytes
-    #     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-    #         tmp.write(resp.content)
-    #         tmp_path = Path(tmp.name)
-    #
-    #     try:
-    #         return self.parse(tmp_path, union_key, url, is_universally_binding)
-    #     finally:
-    #         tmp_path.unlink(missing_ok=True)
 
     def parse(
         self,
@@ -295,33 +274,53 @@ class TesPdfParser:
         return 0
 
     # Metadata
-
     def _extract_metadata(
-        self, full_text: str
+            self, full_text: str
     ) -> tuple[str | Sized, str | None, str | None]:
         """Извлекает название и период действия из первых страниц."""
-        header = full_text[:3000]
+        header = full_text[:4000]
 
-        valid_from = valid_until = None
-        m = _VALIDITY_RE.search(header)
-        if m:
-            valid_from = self._parse_fi_date(m.group(1))
-            valid_until = self._parse_fi_date(m.group(2))
+        # --- VALIDITY ---
+        valid_from = None
+        valid_until = None
 
-        # Название — ищем строки ДО первого §, исключая даты и мусор
+        matches = list(_VALIDITY_RE.finditer(header))
+
+        if matches:
+            # Берём самый длинный диапазон (обычно основной TES)
+            def duration_days(m):
+                try:
+                    start = self._parse_fi_date(m.group(1))
+                    end = self._parse_fi_date(m.group(2))
+                    if not start or not end:
+                        return 0
+                    return abs(int(end[:4]) - int(start[:4])) * 365
+                except:
+                    return 0
+
+            best = max(matches, key=duration_days)
+
+            valid_from = self._parse_fi_date(best.group(1))
+            valid_until = self._parse_fi_date(best.group(2))
+
+        # --- NAME ---
         name_fi = ""
         lines = [l.strip() for l in header.split("\n") if l.strip()]
+
         candidates = []
         for line in lines:
             if "§" in line:
                 break
-            if (len(line) > 5
-                    and not re.match(r"^\d", line)  # не начинается с цифры
-                    and "....." not in line  # не оглавление
-                    and "alkaen" not in line.lower()):  # не дата вступления
+
+            if (
+                    len(line) > 5
+                    and not re.match(r"^\d", line)
+                    and "....." not in line
+                    and "alkaen" not in line.lower()
+                    and not _VALIDITY_RE.search(line)  # ← важно!
+            ):
                 candidates.append(line)
 
-        # Берём самую длинную строку-кандидат
         if candidates:
             name_fi = max(candidates, key=len)
 

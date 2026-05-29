@@ -1,4 +1,5 @@
 import logging
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 import httpx
@@ -38,7 +39,45 @@ _FINNISH_REPLACEMENTS = {
     "esihenkiloiden": "esihenkilöiden",
     "vahittaiskaupan": "vähittäiskaupan",
     "palveluautomaattialan": "palveluautomaattialan",
+    "kiinteisto": "kiinteistö",
+    "tyontekijat": "työntekijät",
+    "paallystys": "päällystys",
+    "lattianpaallyst": "lattianpäällyst",
+    "jarjestot": "järjestöt",
+    "jarjestojen": "järjestöjen",
+    "vahittais":         "vähittäis",
+    "kenka":             "kenkä",
+    "ymparisto":         "ympäristö",
+    "oljy":              "öljy",
 }
+
+
+def _extract_sector_fi(name_fi: str) -> str:
+    """
+    Извлекает короткое название сектора из полного имени договора.
+    'Kaupan alan työehtosopimus' → 'Kaupan ala'
+    'Suunnittelu- ja konsulttialan ylempien toimihenkilöiden TES' → 'Suunnittelu- ja konsulttiala'
+    'Talonrakennusala' → 'Talonrakennusala'
+    """
+    suffixes = [
+        r"\s+virka-\s*ja\s+työehtosopimus.*",
+        r"\s+työ-\s*ja\s+virkaehtosopimus.*",
+        r"\s+työehtosopimus.*",
+        r"\s+tyoehtosopimus.*",
+        r"\s+TES\b.*",
+    ]
+    person_qualifiers = [
+        r"\s+ylempien\s+toimihenkilöiden$",
+        r"\s+toimihenkilöiden$",
+        r"\s+työntekijöiden$",
+        r"\s+esihenkilöiden$",
+        r"\s+henkilöstön$",
+        r"\s+koskeva$",
+    ]
+    result = name_fi
+    for pattern in suffixes + person_qualifiers:
+        result = re.sub(pattern, "", result, flags=re.IGNORECASE).strip()
+    return result or name_fi  # fallback: если всё срезали — вернуть оригинал
 
 class PdfStrategy(str, Enum):
     FIRST_PDF = "first_pdf"        # PAM: первый PDF без стоп-слов
@@ -52,6 +91,7 @@ class DiscoveredTes:
     tes_page_url: str
     pdf_url: str
     key_source: str | None = None
+    link_text: str | None = None
 
 
 @dataclass
@@ -102,8 +142,6 @@ UNION_CONFIGS: dict[str, UnionPortalConfig] = {
     domain="kirkonalat.fi",
     pdf_strategy=PdfStrategy.LINK_TEXT,
     path_depth=2,
-    # глубина 2: /tyoehtosopimukset/ortodoksinen-kirkko-tyoehtosopimukset/
-    # сам каталог /tyoehtosopimukset/ тоже глубина 1 — исключается автоматически
     ),
     "konepaallystoliitto": UnionPortalConfig(
         catalog_url="https://www.konepaallystoliitto.fi/tyoehtosopimukset/",
@@ -117,7 +155,7 @@ UNION_CONFIGS: dict[str, UnionPortalConfig] = {
         catalog_url="https://mvl.fi/palvelut-ja-edut/tyoehtosopimus/",
         tes_url_marker="/tyoehtosopimus/",
         domain="mvl.fi",
-        pdf_strategy=PdfStrategy.LINK_TEXT,
+        pdf_strategy=PdfStrategy.ALL_PDFS_ON_PAGE,
     ),
     "ria": UnionPortalConfig(
         catalog_url="https://ria.fi/tyoelama/rialaisia-koskevat-tyoehtosopimukset/",
@@ -152,19 +190,11 @@ class UnionPortalParser:
             return await self._discover_all_pdfs_on_catalog()
         tes_page_urls = await self._fetch_catalog()
         if not tes_page_urls:
-            logger.info(f"No TES pages found in {self.union_key} catalog, trying direct PDF search on catalog page")
-            async with httpx.AsyncClient(
-                    headers=HEADERS, follow_redirects=True, timeout=20
-            ) as client:
-                pdf_url = await self._fetch_pdf_url(client, self.config.catalog_url)
-                if pdf_url:
-                    name_fi = self._slug_to_name(self.config.catalog_url)
-                    return [DiscoveredTes(
-                        name_fi=name_fi,
-                        sector_fi=name_fi,
-                        tes_page_url=self.config.catalog_url,
-                        pdf_url=pdf_url,
-                    )]
+            logger.warning(
+                "No TES pages found in %s catalog. "
+                "Consider using PdfStrategy.ALL_PDFS_ON_PAGE for this portal.",
+                self.union_key,
+            )
             return []
         logger.info(
             "Found %d TES pages in %s catalog",
@@ -173,35 +203,70 @@ class UnionPortalParser:
 
         results = []
         async with httpx.AsyncClient(
-            headers=HEADERS, follow_redirects=True, timeout=20
+                headers=HEADERS, follow_redirects=True, timeout=20
         ) as client:
-            for url in tes_page_urls:
+            for url, link_text in tes_page_urls:
                 try:
                     pdf_url = await self._fetch_pdf_url(client, url)
                     if pdf_url:
-                        name_fi = self._slug_to_name(url)
+                        raw_name = link_text if link_text else self._slug_to_name(url)
                         results.append(DiscoveredTes(
-                            name_fi=name_fi,
-                            sector_fi=name_fi,
+                            name_fi=raw_name,
+                            sector_fi=_extract_sector_fi(raw_name),
                             tes_page_url=url,
                             pdf_url=pdf_url,
+                            link_text=link_text,
                         ))
-                        logger.info(
-                            "Discovered: %s → %s",
-                            name_fi, pdf_url.split("/")[-1],
-                        )
+                        logger.info("Discovered: %s → %s",
+                                    raw_name[:50], pdf_url.split("/")[-1])
                     else:
                         logger.warning("No PDF found on page: %s", url)
                 except Exception as e:
                     logger.error("Failed to fetch TES page %s: %s", url, e)
-
-        logger.info(
-            "Discovered %d TES with PDFs for %s",
-            len(results), self.union_key,
-        )
         return results
 
-    async def _fetch_catalog(self) -> list[str]:
+    async def _fetch_pdf_from_page(
+            self, client: httpx.AsyncClient, page_url: str
+    ) -> tuple[str | None, str | None]:
+        """
+        Загружает страницу и находит на ней PDF с учётом стратегии.
+
+        Returns:
+            tuple[str | None, str | None]: (pdf_url, link_text) или (None, None)
+        """
+        resp = await client.get(page_url)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        # Выбираем стратегию поиска PDF
+        if self.config.pdf_strategy == PdfStrategy.LINK_TEXT:
+            pdf_url = self._find_pdf_by_link_text(soup)
+        elif self.config.pdf_strategy == PdfStrategy.ALL_PDFS_ON_PAGE:
+            # Для ALL_PDFS_ON_PAGE эта логика будет в другом месте
+            pdf_url = self._find_first_pdf(soup)
+        else:  # FIRST_PDF
+            pdf_url = self._find_first_pdf(soup)
+
+        if not pdf_url:
+            return None, None
+
+        # Нормализуем URL
+        if pdf_url.startswith("/"):
+            pdf_url = f"https://{self.config.domain}{pdf_url}"
+
+        # Ищем текст ссылки для этого PDF
+        link_text = None
+        pdf_filename = pdf_url.split("/")[-1]
+        for a in soup.find_all("a", href=True):
+            href = str(a["href"])
+            if href.endswith(pdf_filename):
+                link_text = a.get_text(strip=True)
+                break
+
+        return pdf_url, link_text
+
+    async def _fetch_catalog(self) -> list[tuple[str, str]]:
+        """Возвращает список (url, link_text)."""
         async with httpx.AsyncClient(
             headers=HEADERS, follow_redirects=True, timeout=20
         ) as client:
@@ -220,7 +285,8 @@ class UnionPortalParser:
                 href = f"https://{self.config.domain}{href}"
             if href not in seen:
                 seen.add(href)
-                urls.append(href)
+                link_text = a.get_text(strip=True)
+                urls.append((href, link_text))
         return urls
 
     def _is_tes_page_url(self, href: str) -> bool:
@@ -301,16 +367,14 @@ class UnionPortalParser:
                 continue
             seen.add(href)
 
-            # Нормализуем относительные ссылки
             if href.startswith("/"):
                 href = f"https://{self.config.domain}{href}"
 
             link_text = a.get_text(strip=True)
             name_fi = link_text if link_text else self._slug_to_name(href)
-
             results.append(DiscoveredTes(
                 name_fi=name_fi,
-                sector_fi=name_fi,
+                sector_fi=_extract_sector_fi(name_fi),
                 tes_page_url=self.config.catalog_url,
                 pdf_url=href,
                 key_source=href,
