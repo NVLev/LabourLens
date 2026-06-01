@@ -53,6 +53,9 @@ _SECTION_HEADER = re.compile(
 _VALIDITY_RE = re.compile(
     r"(\d{1,2}\.\d{1,2}\.\d{4})\s*[–-]\s*(\d{1,2}\.\d{1,2}\.\d{4})"
 )
+
+YEAR_RANGE_RE = re.compile(r"(20\d{2})\s*[–—-]\s*(20\d{2})")
+
 def build_key(union_key: str, name_fi: str) -> str:
     import re
 
@@ -273,21 +276,33 @@ class TesPdfParser:
             return matches[0].start()
         return 0
 
-    # Metadata
     def _extract_metadata(
             self, full_text: str
-    ) -> tuple[str | Sized, str | None, str | None]:
-        """Извлекает название и период действия из первых страниц."""
-        header = full_text[:4000]
+    ) -> tuple[str, str | None, str | None]:
+        """Извлекает название и период действия из первых страниц TES."""
 
-        # --- VALIDITY ---
+        logger.warning("=== METADATA DEBUG START ===")
+
+        header = full_text[:4000]
+        logger.warning(
+            "HEADER (first 500 chars): %s",
+            header[:500].replace("\n", " | "),
+        )
+
+        # validity (даты)
+
         valid_from = None
         valid_until = None
 
         matches = list(_VALIDITY_RE.finditer(header))
+        if not matches:
+            matches = list(_VALIDITY_RE.finditer(full_text[:20000]))
 
         if matches:
-            # Берём самый длинный диапазон (обычно основной TES)
+            logger.warning("VALIDITY MATCHES FOUND: %d", len(matches))
+            for m in matches[:5]:
+                logger.warning("MATCH: %s", m.group(0))
+
             def duration_days(m):
                 try:
                     start = self._parse_fi_date(m.group(1))
@@ -295,7 +310,7 @@ class TesPdfParser:
                     if not start or not end:
                         return 0
                     return abs(int(end[:4]) - int(start[:4])) * 365
-                except:
+                except Exception:
                     return 0
 
             best = max(matches, key=duration_days)
@@ -303,28 +318,101 @@ class TesPdfParser:
             valid_from = self._parse_fi_date(best.group(1))
             valid_until = self._parse_fi_date(best.group(2))
 
-        # --- NAME ---
-        name_fi = ""
+        # fallback: только годы
+        if not valid_from or not valid_until:
+            year_matches = list(YEAR_RANGE_RE.finditer(header))
+            if year_matches:
+                logger.warning(
+                    "YEAR RANGE MATCHES: %s",
+                    [m.group(0) for m in year_matches],
+                )
+                y1, y2 = year_matches[0].groups()
+                valid_from = f"{y1}-01-01"
+                valid_until = f"{y2}-12-31"
+
+
+        # name_fi (название)
+
         lines = [l.strip() for l in header.split("\n") if l.strip()]
 
-        candidates = []
+        STOPWORDS = {
+            "isbn",
+            "kustantaja",
+            "paino",
+            "taitto",
+            "sisältö",
+            "sisällys",
+        }
+
+        filtered = []
         for line in lines:
             if "§" in line:
                 break
 
+            l = line.lower()
+
             if (
-                    len(line) > 5
+                    len(line) > 3
                     and not re.match(r"^\d", line)
                     and "....." not in line
-                    and "alkaen" not in line.lower()
-                    and not _VALIDITY_RE.search(line)  # ← важно!
+                    and "alkaen" not in l
+                    and not _VALIDITY_RE.search(line)
+                    and l not in {"työntekijät", "palkkaliite", "liite"}
             ):
-                candidates.append(line)
+                filtered.append(line)
 
-        if candidates:
-            name_fi = max(candidates, key=len)
+        logger.warning("FILTERED LINES: %s", filtered[:10])
+
+        # --- берём только верхний блок до мусора ---
+        name_lines = []
+
+        for line in filtered:
+            l = line.lower()
+            # мусор
+            if any(word in l for word in STOPWORDS):
+                break
+
+            # слишком длинная строка
+            if len(line) > 80:
+                break
+
+            name_lines.append(line)
+
+            if len(name_lines) >= 6:
+                break
+
+        # склейка
+        name_fi = " ".join(name_lines).strip()
+
+        # --- нормализация ---
+        name_fi = re.sub(r"\s+", " ", name_fi)
+
+        # удалим дубли подряд (частая проблема PDF)
+        parts = name_fi.split()
+        deduped = []
+        for p in parts:
+            if not deduped or deduped[-1] != p:
+                deduped.append(p)
+        name_fi = " ".join(deduped)
+
+        # fallback
+        if not name_fi and lines:
+            name_fi = lines[0]
+
+        words = name_fi.split()
+        half = len(words) // 2
+        if len(words) > 4 and words[:half] == words[half:]:
+            name_fi = " ".join(words[:half])
+
+        if name_fi:
+            name_fi = self._clean_agreement_name(name_fi)
+
+        logger.warning("SELECTED NAME: %s", name_fi)
+        logger.warning("VALID FROM: %s | VALID UNTIL: %s", valid_from, valid_until)
+        logger.warning("=== METADATA DEBUG END ===")
 
         return name_fi, valid_from, valid_until
+
 
     def _parse_fi_date(self, date_str: str) -> str | None:
         """Конвертирует "1.2.2025" → "2025-02-01"."""
@@ -403,6 +491,15 @@ class TesPdfParser:
             else:
                 break
         return page_num
+
+    def _clean_agreement_name(self, name: str) -> str:
+        """Обрезает name_fi до первого 'ehtosopimus', убирает PDF-артефакты."""
+        name = re.sub(r'-\s+', '-', name)  # "RAKENNUSTUOTE- TEOLLISUUDEN" → "RAKENNUSTUOTE-TEOLLISUUDEN"
+        lower = name.lower()
+        idx = lower.find("ehtosopimus")
+        if idx != -1:
+            name = name[:idx + len("ehtosopimus")]
+        return name.strip()
 
     def _clean_text(self, text: str) -> str:
         if not text:

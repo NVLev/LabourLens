@@ -144,21 +144,26 @@ class TesDiscoveryService:
 
     async def _parse_agreement(self, agreement: Agreement) -> None:
         parser = TesPdfParser()
-        union_key = agreement.union.key  # нужен selectinload или отдельный запрос
+        union_key = agreement.union.key
         parsed = await parser.parse_from_url(
             url=agreement.source_url,
             union_key=union_key,
             is_universally_binding=agreement.is_universally_binding,
         )
 
-        # Обновляем метаданные из PDF — они точнее чем slug-based значения в БД
+        # Обновляем name_fi из PDF только если оно содержит "työehtosopimus"
+        # и лучше того что в БД (slug-based без Finnish chars)
+        pdf_name = parsed.name_fi or ""
+        if pdf_name and "ehtosopimus" in pdf_name.lower():
+            agreement.name_fi = pdf_name
+            # Пересчитываем sector_fi из нового имени
+            from app.parsing.tes.union_portal import _extract_sector_fi
+            agreement.sector_fi = _extract_sector_fi(pdf_name)
+
         if parsed.valid_from:
             agreement.valid_from = self.tes_service._parse_date(parsed.valid_from)
         if parsed.valid_until:
             agreement.valid_until = self.tes_service._parse_date(parsed.valid_until)
-        if parsed.name_fi and parsed.name_fi != agreement.name_fi:
-            logger.info("Updating name_fi: '%s' → '%s'", agreement.name_fi, parsed.name_fi)
-            agreement.name_fi = parsed.name_fi
 
         agreement.is_parsed = True
         agreement.parsed_at = datetime.now(timezone.utc)
