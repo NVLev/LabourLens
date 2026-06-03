@@ -1,15 +1,15 @@
 import hashlib
 import logging
 import re
-import requests
+import tempfile
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Sized
 
 import httpx
-from pathlib import Path
-import tempfile
-
 import pdfplumber
+import requests
+
 from app.parsing.topic_keywords import detect_topic
 
 logger = logging.getLogger(__name__)
@@ -17,11 +17,12 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ParsedTesClause:
-    section_ref: str        # "§ 13"
-    title_fi: str           # "Työpalkat"
-    text_fi: str            # полный текст параграфа
+    section_ref: str  # "§ 13"
+    title_fi: str  # "Työpalkat"
+    text_fi: str  # полный текст параграфа
     topic_key: str | None
-    page_start: int         # номер страницы (1-based)
+    page_start: int  # номер страницы (1-based)
+
     @property
     def needs_manual_linking(self) -> bool:
         """True если клаузула не залинкована к теме и содержит существенный текст."""
@@ -30,11 +31,11 @@ class ParsedTesClause:
 
 @dataclass
 class ParsedAgreement:
-    union_key: str          # "pam"
+    union_key: str  # "pam"
     key: str
-    name_fi: str            # "Kaupan työehtosopimus"
+    name_fi: str  # "Kaupan työehtosopimus"
     valid_from: str | None  # "2025-02-01"
-    valid_until: str | None # "2028-01-31"
+    valid_until: str | None  # "2028-01-31"
     source_url: str
     content_hash: str
     is_universally_binding: bool = True
@@ -56,6 +57,7 @@ _VALIDITY_RE = re.compile(
 
 YEAR_RANGE_RE = re.compile(r"(20\d{2})\s*[–—-]\s*(20\d{2})")
 
+
 def build_key(union_key: str, name_fi: str) -> str:
     import re
 
@@ -64,9 +66,12 @@ def build_key(union_key: str, name_fi: str) -> str:
     slug = slug.strip("-")
 
     return f"{union_key}-{slug}"
+
+
 def build_content_hash(clauses: list[ParsedTesClause]) -> str:
     raw = "\n".join(c.text_fi.strip() for c in clauses if c.text_fi)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
 
 class TesPdfParser:
     """
@@ -81,10 +86,10 @@ class TesPdfParser:
     """
 
     async def parse_from_url(
-            self,
-            url: str,
-            union_key: str,
-            is_universally_binding: bool = True,
+        self,
+        url: str,
+        union_key: str,
+        is_universally_binding: bool = True,
     ) -> ParsedAgreement:
         """
         Скачивает PDF по URL с защитой от WAF и парсит.
@@ -116,7 +121,6 @@ class TesPdfParser:
 
         def download_with_requests(url: str) -> bytes:
 
-
             resp = requests.get(url, headers=HEADERS, timeout=60)
             resp.raise_for_status()
             return resp.content
@@ -128,9 +132,9 @@ class TesPdfParser:
         # httpx
         try:
             async with httpx.AsyncClient(
-                    headers=HEADERS,
-                    follow_redirects=True,
-                    timeout=60,
+                headers=HEADERS,
+                follow_redirects=True,
+                timeout=60,
             ) as client:
                 resp = await client.get(url)
                 resp.raise_for_status()
@@ -210,11 +214,13 @@ class TesPdfParser:
         content_hash = build_content_hash(clauses)
         logger.info(
             "Parsed %s: %d clauses, valid %s–%s",
-            path.name, len(clauses), valid_from, valid_until,
+            path.name,
+            len(clauses),
+            valid_from,
+            valid_until,
         )
 
-        unlinked = [c for c in clauses
-                    if c.topic_key is None and len(c.text_fi) > 300]
+        unlinked = [c for c in clauses if c.topic_key is None and len(c.text_fi) > 300]
         if unlinked:
             logger.warning(
                 "%s: %d clauses need manual topic linking: %s",
@@ -276,9 +282,7 @@ class TesPdfParser:
             return matches[0].start()
         return 0
 
-    def _extract_metadata(
-            self, full_text: str
-    ) -> tuple[str, str | None, str | None]:
+    def _extract_metadata(self, full_text: str) -> tuple[str, str | None, str | None]:
         """Извлекает название и период действия из первых страниц TES."""
 
         logger.warning("=== METADATA DEBUG START ===")
@@ -330,7 +334,6 @@ class TesPdfParser:
                 valid_from = f"{y1}-01-01"
                 valid_until = f"{y2}-12-31"
 
-
         # name_fi (название)
 
         lines = [l.strip() for l in header.split("\n") if l.strip()]
@@ -352,12 +355,12 @@ class TesPdfParser:
             l = line.lower()
 
             if (
-                    len(line) > 3
-                    and not re.match(r"^\d", line)
-                    and "....." not in line
-                    and "alkaen" not in l
-                    and not _VALIDITY_RE.search(line)
-                    and l not in {"työntekijät", "palkkaliite", "liite"}
+                len(line) > 3
+                and not re.match(r"^\d", line)
+                and "....." not in line
+                and "alkaen" not in l
+                and not _VALIDITY_RE.search(line)
+                and l not in {"työntekijät", "palkkaliite", "liite"}
             ):
                 filtered.append(line)
 
@@ -413,7 +416,6 @@ class TesPdfParser:
 
         return name_fi, valid_from, valid_until
 
-
     def _parse_fi_date(self, date_str: str) -> str | None:
         """Конвертирует "1.2.2025" → "2025-02-01"."""
         try:
@@ -452,8 +454,12 @@ class TesPdfParser:
             clause_text = self._clean_text(clause_text)
             MAX_CLAUSE_CHARS = 30000
             if len(clause_text) > MAX_CLAUSE_CHARS:
-                logger.warning("Clause %s '%s' truncated: %d chars",
-                               section_num, title_fi, len(clause_text))
+                logger.warning(
+                    "Clause %s '%s' truncated: %d chars",
+                    section_num,
+                    title_fi,
+                    len(clause_text),
+                )
                 clause_text = clause_text[:MAX_CLAUSE_CHARS]
             # Пропускаем слишком короткие (артефакты оглавления)
             if len(clause_text) < 100:
@@ -466,13 +472,15 @@ class TesPdfParser:
             topic_key = self._resolve_topic(title_fi, clause_text)
             if title_fi.startswith(":") or title_fi.startswith(")"):
                 continue
-            clauses.append(ParsedTesClause(
-                section_ref=f"§ {section_num}",
-                title_fi=title_fi,
-                text_fi=clause_text,
-                topic_key=topic_key,
-                page_start=page_num,
-            ))
+            clauses.append(
+                ParsedTesClause(
+                    section_ref=f"§ {section_num}",
+                    title_fi=title_fi,
+                    text_fi=clause_text,
+                    topic_key=topic_key,
+                    page_start=page_num,
+                )
+            )
 
         return clauses
 
@@ -480,9 +488,7 @@ class TesPdfParser:
         """True если заголовок содержит точки оглавления."""
         return bool(re.search(r"\.{3,}", title_fi))
 
-    def _offset_to_page(
-        self, offset: int, page_index: list[tuple[int, int]]
-    ) -> int:
+    def _offset_to_page(self, offset: int, page_index: list[tuple[int, int]]) -> int:
         """Возвращает номер страницы по символьному смещению."""
         page_num = 1
         for page_offset, pnum in page_index:
@@ -494,11 +500,13 @@ class TesPdfParser:
 
     def _clean_agreement_name(self, name: str) -> str:
         """Обрезает name_fi до первого 'ehtosopimus', убирает PDF-артефакты."""
-        name = re.sub(r'-\s+', '-', name)  # "RAKENNUSTUOTE- TEOLLISUUDEN" → "RAKENNUSTUOTE-TEOLLISUUDEN"
+        name = re.sub(
+            r"-\s+", "-", name
+        )  # "RAKENNUSTUOTE- TEOLLISUUDEN" → "RAKENNUSTUOTE-TEOLLISUUDEN"
         lower = name.lower()
         idx = lower.find("ehtosopimus")
         if idx != -1:
-            name = name[:idx + len("ehtosopimus")]
+            name = name[: idx + len("ehtosopimus")]
         return name.strip()
 
     def _clean_text(self, text: str) -> str:
@@ -520,5 +528,3 @@ class TesPdfParser:
         if text_fi:
             return detect_topic(text_fi[:500])
         return None
-
-

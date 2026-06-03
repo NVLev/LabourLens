@@ -1,16 +1,16 @@
 import logging
-from datetime import datetime, timezone, date
+from datetime import date, datetime, timezone
 
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.database.models import Agreement, UnionPortal, Union
-from app.parsing.tes.union_portal import UnionPortalParser
+from app.database.models import Agreement, Union, UnionPortal
+from app.parsing.tes.kt import KtParser
 from app.parsing.tes.pam import TesPdfParser
+from app.parsing.tes.union_portal import UnionPortalParser
 from app.repositories.tes import TesRepository
 from app.services.tes_service import TesService
-from app.parsing.tes.kt import KtParser
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +40,12 @@ class TesDiscoveryService:
         """
         portal = await self._get_portal(union_key)
         if not portal:
-            return {"error": f"Portal for '{union_key}' not found. Run POST /parse/unions/seed first."}
+            return {
+                "error": f"Portal for '{union_key}' not found. Run POST /parse/unions/seed first."
+            }
         if union_key == "kt":
             from app.parsing.tes.kt import KtParser
+
             parser = KtParser()
             discovered = await parser.discover()
             created = skipped = 0
@@ -65,15 +68,23 @@ class TesDiscoveryService:
                     is_current=True,
                     is_universally_binding=True,
                     is_parsed=False,
-                    valid_from=date.fromisoformat(tes.valid_from) if tes.valid_from else None,
-                    valid_until=date.fromisoformat(tes.valid_until) if tes.valid_until else None,
+                    valid_from=(
+                        date.fromisoformat(tes.valid_from) if tes.valid_from else None
+                    ),
+                    valid_until=(
+                        date.fromisoformat(tes.valid_until) if tes.valid_until else None
+                    ),
                 )
                 self.repo.add_agreement(agreement)
                 created += 1
             portal.last_scanned_at = datetime.now(timezone.utc)
             await self.session.commit()
-            return {"union": union_key, "discovered": len(discovered),
-                    "created": created, "skipped": skipped}
+            return {
+                "union": union_key,
+                "discovered": len(discovered),
+                "created": created,
+                "skipped": skipped,
+            }
 
         parser = UnionPortalParser(union_key)
         discovered = await parser.discover()
@@ -92,12 +103,16 @@ class TesDiscoveryService:
                 key = key[:-4]
             catalog_slug = portal.catalog_url.rstrip("/").split("/")[-1]
             if not key or key == catalog_slug:
-                logger.warning("Skipping TES with invalid key from URL: %s", tes.tes_page_url)
+                logger.warning(
+                    "Skipping TES with invalid key from URL: %s", tes.tes_page_url
+                )
                 skipped += 1
                 continue
             GENERIC_NAMES = {"tyoehtosopimus", "teollisuus"}
             if tes.name_fi.lower().replace(" ", "").replace("-", "") in GENERIC_NAMES:
-                logger.warning("Skipping generic TES name '%s' (key=%s)", tes.name_fi, key)
+                logger.warning(
+                    "Skipping generic TES name '%s' (key=%s)", tes.name_fi, key
+                )
                 skipped += 1
                 continue
             agreement = Agreement(
@@ -140,8 +155,11 @@ class TesDiscoveryService:
 
         result = await self.session.execute(query)
         agreements = list(result.scalars().all())
-        logger.info("Parsing %d unparsed TES%s", len(agreements),
-                    f" for {union_key}" if union_key else "")
+        logger.info(
+            "Parsing %d unparsed TES%s",
+            len(agreements),
+            f" for {union_key}" if union_key else "",
+        )
 
         success = errors = 0
         for agreement in agreements:
@@ -179,6 +197,7 @@ class TesDiscoveryService:
     async def _parse_agreement(self, agreement: Agreement) -> None:
         if agreement.union.key == "kt":
             from app.parsing.tes.kt import KtParser
+
             parser = KtParser()
             clauses = await parser.fetch_and_parse(agreement.source_url)
             agreement.is_parsed = True
@@ -203,6 +222,7 @@ class TesDiscoveryService:
             agreement.name_fi = pdf_name
             # Пересчитываем sector_fi из нового имени
             from app.parsing.tes.union_portal import _extract_sector_fi
+
             agreement.sector_fi = _extract_sector_fi(pdf_name)
 
         if parsed.valid_from:

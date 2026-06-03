@@ -18,7 +18,6 @@ TYOSUOJELU_PAGES = {
     # Обязанности работодателя и работника
     "employer_obligations": "https://tyosuojelu.fi/tyosuhde/oikeudet-ja-velvollisuudet-tyossa",
     "employee_obligations": "https://tyosuojelu.fi/tyosuhde/oikeudet-ja-velvollisuudet-tyossa",
-
     # Рабочее время
     "working_hours": "https://tyosuojelu.fi/tyosuhde/tyoaika/saannollinen",
     "overtime": "https://tyosuojelu.fi/tyosuhde/tyoaika/lisa-jaylityot",

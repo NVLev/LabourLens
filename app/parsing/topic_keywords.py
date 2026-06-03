@@ -1,156 +1,243 @@
 import re
 
-
 TOPIC_KEYWORDS: dict[str, list[str]] = {
     # ТРУДОВОЙ ДОГОВОР
     "contract_types": [
-    "työsopimus", "määräaikainen sopimus", "toistaiseksi voimassa",
-    "työsuhteen ehto", "määräaikais",
+        "työsopimus",
+        "määräaikainen sopimus",
+        "toistaiseksi voimassa",
+        "työsuhteen ehto",
+        "määräaikais",
     ],
     "probation_period": [
         "koeaika",
     ],
-
     # РАБОЧЕЕ ВРЕМЯ
     "working_hours": [
-        "työaika", "säännöllinen työaika", "työvuorolista", "lepoajat",
-        "vuorokausilepo", "viikoittainen vapaa", "tauko", "jaksotyö",
-        "työvuorokausi", "työviikko", "hälytysluontoinen",
+        "työaika",
+        "säännöllinen työaika",
+        "työvuorolista",
+        "lepoajat",
+        "vuorokausilepo",
+        "viikoittainen vapaa",
+        "tauko",
+        "jaksotyö",
+        "työvuorokausi",
+        "työviikko",
+        "hälytysluontoinen",
         "lisätyö",  # additional work (below contract hours)
         "kolmivuorotyö",  # continuous 3-shift work
         "varallaolo",  # on-call duty
         "joustovapaa",  # flex leave earned from overtime
-        "työvuoroluettelo", "viikkolepo", "kolmivuorotyö", "keskeytymätön työ",
+        "työvuoroluettelo",
+        "viikkolepo",
+        "kolmivuorotyö",
+        "keskeytymätön työ",
     ],
     "working_hours_reduction": [
-        "työajan lyhennys", "pekkaspäivät", "vuosityöajan lyhentäminen",
-        "työajantasaaminen", "joustovapaa",
+        "työajan lyhennys",
+        "pekkaspäivät",
+        "vuosityöajan lyhentäminen",
+        "työajantasaaminen",
+        "joustovapaa",
     ],
     "overtime": [
-        "ylityö", "lisä- ja ylityö", "ylityökorvaus", "hätätyö",
-        "ylityöraja", "lisätyö",
+        "ylityö",
+        "lisä- ja ylityö",
+        "ylityökorvaus",
+        "hätätyö",
+        "ylityöraja",
+        "lisätyö",
     ],
     "night_and_sunday_work": [
-        "yötyö", "sunnuntaityö", "ilta- ja yölisä", "yölisä", "iltalisä",
-        "pyhätyö", "sunnuntaikorotus", "arkipyhäkorvaus", "arkipyhä",
+        "yötyö",
+        "sunnuntaityö",
+        "ilta- ja yölisä",
+        "yölisä",
+        "iltalisä",
+        "pyhätyö",
+        "sunnuntaikorotus",
+        "arkipyhäkorvaus",
+        "arkipyhä",
     ],
-
     # ОТПУСК
     "annual_leave": [
-        "vuosiloma", "vuosivapaa", "lomakausi", "lomanmääräytymisvuosi",
-        "lomapäivä", "loma",
+        "vuosiloma",
+        "vuosivapaa",
+        "lomakausi",
+        "lomanmääräytymisvuosi",
+        "lomapäivä",
+        "loma",
     ],
     "holiday_pay": [
-        "lomaraha", "lomapalkka", "lomaltapaluuraha", "lomakorvaus",
+        "lomaraha",
+        "lomapalkka",
+        "lomaltapaluuraha",
+        "lomakorvaus",
     ],
-
     # БОЛЬНИЧНЫЙ
     "sick_leave": [
-        "sairausajan palkka", "sairastuminen", "sairauspoissaolo",
-        "työkyvyttömyys", "lääkärintarkastukset", "työkyvyttömyy",
-        "lääkärintarkastus", "tilapäinen poissaolo",
-        "sairaan lapsen", "karenssi", "hedelmöityshoito",
+        "sairausajan palkka",
+        "sairastuminen",
+        "sairauspoissaolo",
+        "työkyvyttömyys",
+        "lääkärintarkastukset",
+        "työkyvyttömyy",
+        "lääkärintarkastus",
+        "tilapäinen poissaolo",
+        "sairaan lapsen",
+        "karenssi",
+        "hedelmöityshoito",
         "terveystarkastukset",
     ],
-
     # СЕМЬЯ / ДЕКРЕТ
     "parental_leave": [
-        "perhevapaa", "vanhempainvapaa", "raskausvapaa", "hoitovapaa",
-        "lapsen syntymä", "imetys", "opintovapaa", "hautajaispäivä",
-        "synnytysloma", "raskaus",
+        "perhevapaa",
+        "vanhempainvapaa",
+        "raskausvapaa",
+        "hoitovapaa",
+        "lapsen syntymä",
+        "imetys",
+        "opintovapaa",
+        "hautajaispäivä",
+        "synnytysloma",
+        "raskaus",
     ],
-
     # УВОЛЬНЕНИЕ
     "dismissal_grounds": [
-        "irtisanominen", "työsopimuksen päättäminen", "työsuhteen päättyminen",
-        "irtisanomisperuste", "purkaminen",
+        "irtisanominen",
+        "työsopimuksen päättäminen",
+        "työsuhteen päättyminen",
+        "irtisanomisperuste",
+        "purkaminen",
         "takaisinottaminen",  # rehiring obligation after economic dismissal
         "perusteettomasta irtisanomisesta",  # wrongful dismissal compensation
     ],
     "notice_period": [
-        "irtisanomisaika", "irtisanomisajat",
+        "irtisanomisaika",
+        "irtisanomisajat",
     ],
     "dismissal_protection": [
-        "työsuhdeturva", "rekrytointikielto", "irtisanomissuoja",
+        "työsuhdeturva",
+        "rekrytointikielto",
+        "irtisanomissuoja",
     ],
     "layoff": [
-        "lomautus", "lomauttaminen", "lomautusilmoitus",
+        "lomautus",
+        "lomauttaminen",
+        "lomautusilmoitus",
     ],
-
     # ЗАРПЛАТА
     "wages": [
-        "palkanmaksu", "palkanmaksupäivä", "tuntipalkka", "kuukausipalkka",
-        "palkkaryhmä", "henkilökohtainen palkka", "tehtäväkohtainen palkka",
-        "palkkausjärjestelmä", "keskituntiansio", "palvelusvuosilisä",
-        "palvelusaikalisä", "urakkatyö", "provisiopalkka",
-        "suorituspalkkaus", "tasopalkkajärjestelmä", "palkankorotus",
-        "palkka", "palkkaus",
-        "sopimuskorotus", "palkallisuus", "tasolisä", "palkkahinnoittelu",
-        "työnopastus", "likainen työ", "palkan käsite", "osa-ajan palkka",
+        "palkanmaksu",
+        "palkanmaksupäivä",
+        "tuntipalkka",
+        "kuukausipalkka",
+        "palkkaryhmä",
+        "henkilökohtainen palkka",
+        "tehtäväkohtainen palkka",
+        "palkkausjärjestelmä",
+        "keskituntiansio",
+        "palvelusvuosilisä",
+        "palvelusaikalisä",
+        "urakkatyö",
+        "provisiopalkka",
+        "suorituspalkkaus",
+        "tasopalkkajärjestelmä",
+        "palkankorotus",
+        "palkka",
+        "palkkaus",
+        "sopimuskorotus",
+        "palkallisuus",
+        "tasolisä",
+        "palkkahinnoittelu",
+        "työnopastus",
+        "likainen työ",
+        "palkan käsite",
+        "osa-ajan palkka",
     ],
     "min_wage": [
-        "vähimmäispalkka", "taulukkopalkat", "palkkataulukko",
-        "vaativuustasot", "työpalkat", "palkat",
-        "myyjät", "logistiikkatyöntekijät", "toimihenkilöt",
+        "vähimmäispalkka",
+        "taulukkopalkat",
+        "palkkataulukko",
+        "vaativuustasot",
+        "työpalkat",
+        "palkat",
+        "myyjät",
+        "logistiikkatyöntekijät",
+        "toimihenkilöt",
         "muut ammattiryhmät",
     ],
-
     # ПРОФСОЮЗЫ
     "shop_steward": [
-        "luottamusmies", "pääluottamusmies", "luottamusmiessopimus",
-        "luottamushenkilö", "luottamusedustaja",
+        "luottamusmies",
+        "pääluottamusmies",
+        "luottamusmiessopimus",
+        "luottamushenkilö",
+        "luottamusedustaja",
         "luottamustehtä",
         "ay-koulutus",  # union training rights
         "kokoontumis",  # assembly right of employees
     ],
     "safety_representative": [
-        "työsuojeluvaltuutettu", "työsuojelupäällikkö", "työsuojeluasiamies",
+        "työsuojeluvaltuutettu",
+        "työsuojelupäällikkö",
+        "työsuojeluasiamies",
         "työsuojeluyhteistoiminta",
     ],
     "local_agreement": [
-        "paikallinen sopiminen", "paikallisesti sopimalla",
+        "paikallinen sopiminen",
+        "paikallisesti sopimalla",
         "työpaikkakohtainen sopiminen",
     ],
-
-
     # БЕЗОПАСНОСТЬ
     "workplace_safety": [
-        "työturvallisuus", "tapaturma", "ammattitauti", "työsuojelu",
+        "työturvallisuus",
+        "tapaturma",
+        "ammattitauti",
+        "työsuojelu",
     ],
-
-
     # ДОКУМЕНТЫ / САНКЦИИ
     "warning": [
         "varoitus",
     ],
     "work_certificate": [
-        "työtodistus", "palkkatodistus",
+        "työtodistus",
+        "palkkatodistus",
     ],
-
-
     # КОМПЕНСАЦИИ
     "expense_reimbursement": [
-        "matkakustannukset", "päiväraha", "työkalukorvaus", "puhelinkorvaus",
-        "suojavaatetus", "työasut", "työvälineet", "matkustaminen",
-        "matkakorvaus", "matkakorvaukset", "siirto",
+        "matkakustannukset",
+        "päiväraha",
+        "työkalukorvaus",
+        "puhelinkorvaus",
+        "suojavaatetus",
+        "työasut",
+        "työvälineet",
+        "matkustaminen",
+        "matkakorvaus",
+        "matkakorvaukset",
+        "siirto",
         "suojavaatteet",
     ],
-
-
     # ДИСКРИМИНАЦИЯ
     "discrimination": [
-        "tasa-arvo", "syrjintä", "yhdenvertaisuus", "tasapuolinen kohtelu",
+        "tasa-arvo",
+        "syrjintä",
+        "yhdenvertaisuus",
+        "tasapuolinen kohtelu",
     ],
-
     # ОБЯЗАННОСТИ
     "employer_obligations": [
-        "työnantajan velvollisuus", "työnjohtooikeus",
+        "työnantajan velvollisuus",
+        "työnjohtooikeus",
     ],
     "employee_obligations": [
-        "työntekijän velvollisuus", "kilpaileva toiminta", "salassapito",
+        "työntekijän velvollisuus",
+        "kilpaileva toiminta",
+        "salassapito",
     ],
 }
-
 
 
 def detect_topic(text: str) -> str | None:
@@ -175,6 +262,6 @@ def detect_topic(text: str) -> str | None:
 
 def _keyword_matches(keyword: str, text: str) -> bool:
     if len(keyword) < 6:
-        pattern = r'(?<!\w)' + re.escape(keyword) + r'(?!\w)'
+        pattern = r"(?<!\w)" + re.escape(keyword) + r"(?!\w)"
         return bool(re.search(pattern, text, re.IGNORECASE))
     return keyword in text

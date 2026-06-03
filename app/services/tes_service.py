@@ -1,15 +1,14 @@
 import logging
 from datetime import date, datetime, timezone
 
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import Agreement, TesClause, Union
 from app.parsing.tes.pam import ParsedAgreement, ParsedTesClause
+from app.parsing.topic_keywords import TOPIC_KEYWORDS, detect_topic
 from app.repositories.tes import TesRepository
 from app.repositories.topics import TopicRepository
-from app.parsing.topic_keywords import detect_topic, TOPIC_KEYWORDS
-from sqlalchemy import select, update
-from app.database.models import TesClause
 
 logger = logging.getLogger(__name__)
 
@@ -32,9 +31,9 @@ class TesService:
         self.topic_repo = TopicRepository(session)
 
     async def upsert(
-            self,
-            parsed: ParsedAgreement,
-            sector_fi: str | None = None,
+        self,
+        parsed: ParsedAgreement,
+        sector_fi: str | None = None,
     ) -> dict:
         """
         Сохраняет или обновляет договор и все его клаузулы.
@@ -49,7 +48,8 @@ class TesService:
 
         logger.info(
             "TES upsert done: %s %s — %d clauses (%d linked, %d unlinked)",
-            parsed.name_fi, status,
+            parsed.name_fi,
+            status,
             clause_stats["total"],
             clause_stats["linked"],
             clause_stats["unlinked"],
@@ -77,10 +77,10 @@ class TesService:
     # Agreement
 
     async def _upsert_agreement(
-            self,
-            parsed: ParsedAgreement,
-            union_id: int,
-            sector_fi: str | None = None,
+        self,
+        parsed: ParsedAgreement,
+        union_id: int,
+        sector_fi: str | None = None,
     ) -> tuple[Agreement, str]:
         existing_by_url = await self.repo.get_agreement_by_url(parsed.source_url)
         current = await self.repo.get_current_agreement(parsed.key)
@@ -151,17 +151,17 @@ class TesService:
                 if topic:
                     topic_id = topic.id
                 else:
-                    logger.warning(
-                        "Topic not found for key '%s'", clause.topic_key
-                    )
+                    logger.warning("Topic not found for key '%s'", clause.topic_key)
 
-            self.repo.add_clause(TesClause(
-                agreement_id=agreement_id,
-                topic_id=topic_id,
-                section_ref=clause.section_ref,
-                text_fi=clause.text_fi,
-                priority_over_law=False,
-            ))
+            self.repo.add_clause(
+                TesClause(
+                    agreement_id=agreement_id,
+                    topic_id=topic_id,
+                    section_ref=clause.section_ref,
+                    text_fi=clause.text_fi,
+                    priority_over_law=False,
+                )
+            )
 
             if topic_id:
                 linked += 1
@@ -175,9 +175,9 @@ class TesService:
         }
 
     async def upsert_clauses_for_agreement(
-            self,
-            agreement: Agreement,
-            clauses: list,
+        self,
+        agreement: Agreement,
+        clauses: list,
     ) -> dict:
         """Сохраняет клаузулы для уже существующего agreement."""
         clause_stats = await self._upsert_clauses(clauses, agreement.id)

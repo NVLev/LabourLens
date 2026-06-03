@@ -33,7 +33,7 @@ class InterpretationRepository:
         return list(result.scalars().all())
 
     async def get_by_topic_and_url(
-            self, topic_id: int, source_url: str, title_fi: str
+        self, topic_id: int, source_url: str, title_fi: str
     ) -> Interpretation | None:
         result = await self.session.execute(
             select(Interpretation).where(

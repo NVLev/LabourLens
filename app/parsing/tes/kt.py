@@ -52,26 +52,27 @@ _VERSION_URL_RE = re.compile(
 _VOIMASSA_RE = re.compile(r"voimassa\s+(\d{1,2})\.(\d{1,2})\.(\d{4})", re.IGNORECASE)
 
 _SLUG_SECTOR: dict[str, str] = {
-    "kvtes":          "Kunta-ala, yleinen",
-    "hyvtes":         "Hyvinvointiala, yleinen",
-    "sote":           "Sosiaali- ja terveydenhuolto",
-    "otes":           "Opetusala, tuntipalkkaiset",
-    "ovtes":          "Opetusala",
-    "ytes":           "Yliopistoala",
-    "tekniset":       "Tekniset",
-    "tuntipalkkaiset":"Tuntipalkkaiset",
-    "laakarit":       "Lääkärit",
-    "vuokra-tes":     "Henkilöstövuokrausala",
+    "kvtes": "Kunta-ala, yleinen",
+    "hyvtes": "Hyvinvointiala, yleinen",
+    "sote": "Sosiaali- ja terveydenhuolto",
+    "otes": "Opetusala, tuntipalkkaiset",
+    "ovtes": "Opetusala",
+    "ytes": "Yliopistoala",
+    "tekniset": "Tekniset",
+    "tuntipalkkaiset": "Tuntipalkkaiset",
+    "laakarit": "Lääkärit",
+    "vuokra-tes": "Henkilöstövuokrausala",
 }
 
 
 @dataclass
 class KtDiscoveredTes:
     """Найденный договор — до загрузки полного текста."""
+
     slug: str
     period: str
     index_url: str
-    full_url: str           # URL kokoteksti
+    full_url: str  # URL kokoteksti
     name_fi: str
     valid_from: str | None
     valid_until: str | None
@@ -81,8 +82,9 @@ class KtDiscoveredTes:
 @dataclass
 class KtParsedClause:
     """Одна клаузура (§) договора."""
-    section_ref: str        # "§ 22"
-    title_fi: str           # "Työaika"
+
+    section_ref: str  # "§ 22"
+    title_fi: str  # "Työaika"
     text_fi: str
     topic_key: str | None
 
@@ -90,8 +92,9 @@ class KtParsedClause:
 @dataclass
 class KtParsedAgreement:
     """Полностью распарсенный договор, готовый к сохранению."""
-    union_key: str          # "kt"
-    key: str                # "kt-kvtes-2025-2028"
+
+    union_key: str  # "kt"
+    key: str  # "kt-kvtes-2025-2028"
     name_fi: str
     valid_from: str | None
     valid_until: str | None
@@ -149,7 +152,9 @@ class KtParser:
                     d = await self._fetch_index_page(client, slug, period, index_url)
                     if d:
                         results.append(d)
-                        logger.info("KT discovered: %s/%s — %s", slug, period, d.name_fi[:50])
+                        logger.info(
+                            "KT discovered: %s/%s — %s", slug, period, d.name_fi[:50]
+                        )
                 except Exception as e:
                     logger.error("KT: failed index %s/%s: %s", slug, period, e)
 
@@ -171,12 +176,13 @@ class KtParser:
         name_fi = og.get("content", "").strip() if og else slug.upper()
         # Убираем мусорный суффикс
         name_fi = re.sub(
-            r"\s*[-–]\s*sähköinen sopimuskirja\s*[>»]?\s*$", "",
-            name_fi, flags=re.IGNORECASE,
+            r"\s*[-–]\s*sähköinen sopimuskirja\s*[>»]?\s*$",
+            "",
+            name_fi,
+            flags=re.IGNORECASE,
         ).strip()
         name_fi = (
-            name_fi
-            .replace("–", "-")
+            name_fi.replace("–", "-")
             .replace("—", "-")
             .replace("?", "-")
             .replace("−", "-")
@@ -257,18 +263,20 @@ class KtParser:
                     content_hash = hashlib.sha256(
                         "\n".join(c.text_fi for c in clauses).encode()
                     ).hexdigest()
-                    results.append(KtParsedAgreement(
-                        union_key="kt",
-                        key=f"kt-{d.slug}-{d.period}",
-                        name_fi=d.name_fi,
-                        valid_from=d.valid_from,
-                        valid_until=d.valid_until,
-                        source_url=d.full_url,
-                        content_hash=content_hash,
-                        sector_fi=d.sector_fi,
-                        is_universally_binding=True,
-                        clauses=clauses,
-                    ))
+                    results.append(
+                        KtParsedAgreement(
+                            union_key="kt",
+                            key=f"kt-{d.slug}-{d.period}",
+                            name_fi=d.name_fi,
+                            valid_from=d.valid_from,
+                            valid_until=d.valid_until,
+                            source_url=d.full_url,
+                            content_hash=content_hash,
+                            sector_fi=d.sector_fi,
+                            is_universally_binding=True,
+                            clauses=clauses,
+                        )
+                    )
                     logger.info(
                         "KT: parsed %-40s — %d clauses", d.name_fi[:40], len(clauses)
                     )
@@ -313,7 +321,9 @@ class KtParser:
 
             # Текст: все siblings до следующего h3 с §
             text_parts: list[str] = []
-            next_header = section_headers[i + 1] if i + 1 < len(section_headers) else None
+            next_header = (
+                section_headers[i + 1] if i + 1 < len(section_headers) else None
+            )
             for sib in header.find_next_siblings():
                 if sib == next_header:
                     break
@@ -328,12 +338,14 @@ class KtParser:
                 continue  # слишком короткие — артефакты
 
             topic_key = self._resolve_topic(title_fi, clause_text)
-            clauses.append(KtParsedClause(
-                section_ref=section_ref,
-                title_fi=title_fi,
-                text_fi=clause_text,
-                topic_key=topic_key,
-            ))
+            clauses.append(
+                KtParsedClause(
+                    section_ref=section_ref,
+                    title_fi=title_fi,
+                    text_fi=clause_text,
+                    topic_key=topic_key,
+                )
+            )
 
         logger.debug("KT: extracted %d clauses", len(clauses))
         return clauses
@@ -368,7 +380,7 @@ class KtParser:
 
     async def fetch_and_parse(self, url: str) -> list[KtParsedClause]:
         async with httpx.AsyncClient(
-                headers=HEADERS, follow_redirects=True, timeout=self.timeout
+            headers=HEADERS, follow_redirects=True, timeout=self.timeout
         ) as client:
             html = await self._fetch(client, url)
         return self._extract_clauses(html)

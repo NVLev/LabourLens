@@ -102,7 +102,6 @@ TOPICS: list[TopicSeed] = [
             {"act": "tyoaikalaki", "chapter": 2, "section": 3, "relevance": 2},
         ],
     },
-    
     # ── ОТПУСК ───────────────────────────────────────────────
     {
         "key": "annual_leave",
@@ -182,13 +181,13 @@ TOPICS: list[TopicSeed] = [
     },
     # ── ЗАРПЛАТА И КОМПЕНСАЦИИ──────────────────────────────────────
     {
-            "key": "min_wage",
-            "name_en": "Minimum wage by sector",
-            "name_ru": "Минимальная зарплата по отрасли",
-            "description": "Sector-specific minimum wages set by collective agreements (TES). "
-                           "Finland has no statutory national minimum wage.",
-            "section_refs": [],
-        },
+        "key": "min_wage",
+        "name_en": "Minimum wage by sector",
+        "name_ru": "Минимальная зарплата по отрасли",
+        "description": "Sector-specific minimum wages set by collective agreements (TES). "
+        "Finland has no statutory national minimum wage.",
+        "section_refs": [],
+    },
     {
         "key": "wages",
         "name_en": "Wages and salary",
@@ -205,7 +204,6 @@ TOPICS: list[TopicSeed] = [
         "description": "Travel expenses, daily allowances, tools, phone, work clothing provided or reimbursed by employer",
         "section_refs": [],
     },
-
     # ── ОСОБЫЕ СИТУАЦИИ ──────────────────────────────────────
     {
         "key": "parental_leave",
@@ -283,4 +281,4 @@ TOPICS: list[TopicSeed] = [
         "description": "Workplace-level agreements that deviate from TES defaults",
         "section_refs": [],
     },
-    ]
+]

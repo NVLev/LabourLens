@@ -6,7 +6,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from app.database.db_helper import db_helper
-from app.routers import analyze, laws, parse, topics, translate, tes
+from app.routers import analyze, laws, parse, tes, topics, translate
 
 logger = logging.getLogger(__name__)
 

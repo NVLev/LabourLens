@@ -1,19 +1,17 @@
 import logging
 from datetime import datetime, timezone
-
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-
 from hashlib import sha256
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.database.models import Interpretation
+from app.parsing.ilry import ParsedIlryEntry
+from app.parsing.tehy import ParsedTehySection
 from app.parsing.topic_keywords import detect_topic
 from app.parsing.tyosuojelu import ParsedInterpretation
 from app.repositories.interpretations import InterpretationRepository
 from app.repositories.topics import TopicRepository
-from app.parsing.tehy import ParsedTehySection
-from app.parsing.ilry import ParsedIlryEntry
-
 
 logger = logging.getLogger(__name__)
 
@@ -116,21 +114,32 @@ class InterpretationService:
         await self.session.commit()
         logger.info(
             "Tehy upsert done: %d created, %d updated, %d unchanged, %d no_topic",
-            created, updated, skipped_unchanged, skipped_no_topic,
+            created,
+            updated,
+            skipped_unchanged,
+            skipped_no_topic,
         )
-        return {"created": created, "updated": updated,
-                "skipped_unchanged": skipped_unchanged, "skipped_no_topic": skipped_no_topic}
+        return {
+            "created": created,
+            "updated": updated,
+            "skipped_unchanged": skipped_unchanged,
+            "skipped_no_topic": skipped_no_topic,
+        }
 
     async def _upsert_tehy_one(self, item: "ParsedTehySection") -> str:
         topic = await self.topic_repo.get_by_key(item.topic_key)
         if topic is None:
-            logger.warning("Tehy: topic not found for key '%s', skipping", item.topic_key)
+            logger.warning(
+                "Tehy: topic not found for key '%s', skipping", item.topic_key
+            )
             return "skipped"
 
         content_hash = sha256(item.text_fi.encode()).hexdigest()
 
         # Ключ дедупликации: topic_id + source_url (уникален для каждой секции)
-        existing = await self.repo.get_by_topic_and_url(topic.id, item.source_url, item.title_fi)
+        existing = await self.repo.get_by_topic_and_url(
+            topic.id, item.source_url, item.title_fi
+        )
 
         if existing is not None:
             if existing.content_hash == content_hash:
@@ -145,16 +154,18 @@ class InterpretationService:
             existing.translated_ru_at = None
             return "updated"
 
-        self.repo.add(Interpretation(
-            topic_id=topic.id,
-            source="tehy",
-            source_url=item.source_url,
-            title_fi=f"{item.agreement_name_fi}: {item.title_fi}",
-            text_fi=item.text_fi,
-            sector_fi=item.sector_fi,
-            content_hash=content_hash,
-            parsed_at=datetime.now(timezone.utc),
-        ))
+        self.repo.add(
+            Interpretation(
+                topic_id=topic.id,
+                source="tehy",
+                source_url=item.source_url,
+                title_fi=f"{item.agreement_name_fi}: {item.title_fi}",
+                text_fi=item.text_fi,
+                sector_fi=item.sector_fi,
+                content_hash=content_hash,
+                parsed_at=datetime.now(timezone.utc),
+            )
+        )
         return "created"
 
     async def upsert_ilry(self, parsed: list["ParsedIlryEntry"]) -> dict[str, int]:
@@ -179,7 +190,9 @@ class InterpretationService:
         await self.session.commit()
         logger.info(
             "ILRY interpretations upsert done: %d created, %d updated, %d skipped",
-            created, updated, skipped,
+            created,
+            updated,
+            skipped,
         )
         return {"created": created, "updated": updated, "skipped": skipped}
 
@@ -188,7 +201,9 @@ class InterpretationService:
 
         topic = await self.topic_repo.get_by_key(item.topic_key)
         if topic is None:
-            logger.warning("ILRY: topic not found for key '%s', skipping", item.topic_key)
+            logger.warning(
+                "ILRY: topic not found for key '%s', skipping", item.topic_key
+            )
             return "skipped"
 
         content_hash = sha256(item.answer_fi.encode()).hexdigest()
@@ -210,15 +225,17 @@ class InterpretationService:
             existing.translated_ru_at = None
             return "updated"
 
-        self.repo.add(Interpretation(
-            topic_id=topic.id,
-            source="ilry",
-            source_url=item.source_url,
-            title_fi=item.question_fi,
-            text_fi=item.answer_fi,
-            content_hash=content_hash,
-            parsed_at=datetime.now(timezone.utc),
-        ))
+        self.repo.add(
+            Interpretation(
+                topic_id=topic.id,
+                source="ilry",
+                source_url=item.source_url,
+                title_fi=item.question_fi,
+                text_fi=item.answer_fi,
+                content_hash=content_hash,
+                parsed_at=datetime.now(timezone.utc),
+            )
+        )
         return "created"
 
     async def relink_topics(self, source: str | None = None) -> dict:
@@ -235,7 +252,9 @@ class InterpretationService:
 
         for interp in interpretations:
             raw_title = interp.title_fi or ""
-            title_for_detect = raw_title.split(": ", 1)[-1] if ": " in raw_title else raw_title
+            title_for_detect = (
+                raw_title.split(": ", 1)[-1] if ": " in raw_title else raw_title
+            )
             title_topic = detect_topic(title_for_detect)
             text_topic = detect_topic((interp.text_fi or "")[:1000])
 
@@ -266,7 +285,7 @@ class InterpretationService:
         await self.session.commit()
         logger.info(
             "Interpretations relink done: %d linked, %d skipped",
-            linked, skipped,
+            linked,
+            skipped,
         )
         return {"linked": linked, "skipped": skipped}
-

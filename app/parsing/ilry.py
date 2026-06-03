@@ -20,42 +20,68 @@ ILRY_BASE_URL = "https://www.ilry.fi/tyoelaman-lakitieto"
 # тема определяется URL страницы, а не содержимым.
 ILRY_PAGES: dict[str, tuple[str, str]] = {
     # slug (для API) → (путь относительно BASE_URL, topic_key)
-
     # Прямые дочерние страницы
-    "tyoaika":               ("tyoaika",               "working_hours"),
-    "vuosiloma":             ("vuosiloma",              "annual_leave"),
-    "matkustaminen":         ("matkustaminen",          "expense_reimbursement"),
-    "lomauttaminen":         ("lomauttaminen",          "layoff"),
-
+    "tyoaika": ("tyoaika", "working_hours"),
+    "vuosiloma": ("vuosiloma", "annual_leave"),
+    "matkustaminen": ("matkustaminen", "expense_reimbursement"),
+    "lomauttaminen": ("lomauttaminen", "layoff"),
     # Раздел: tyosopimuksen-tekeminen-ja-muuttaminen
-    "palkka":                        ("tyosopimuksen-tekeminen-ja-muuttaminen/palkka",                         "wages"),
-    "tyosopimuksen-ehtojen-muuttaminen": ("tyosopimuksen-tekeminen-ja-muuttaminen/tyosopimuksen-ehtojen-muuttaminen", "contract_types"),
-
+    "palkka": ("tyosopimuksen-tekeminen-ja-muuttaminen/palkka", "wages"),
+    "tyosopimuksen-ehtojen-muuttaminen": (
+        "tyosopimuksen-tekeminen-ja-muuttaminen/tyosopimuksen-ehtojen-muuttaminen",
+        "contract_types",
+    ),
     # Раздел: perhevapaat-ja-muut-poissaolot
-    "sairastuminen":         ("perhevapaat-ja-muut-poissaolot/sairastuminen",         "sick_leave"),
-    "perhevapaat":           ("perhevapaat-ja-muut-poissaolot/perhevapaat",           "parental_leave"),
-    "opinto-ja-palkaton-vapaa": ("perhevapaat-ja-muut-poissaolot/opinto-ja-palkaton-vapaa", "parental_leave"),
-
+    "sairastuminen": ("perhevapaat-ja-muut-poissaolot/sairastuminen", "sick_leave"),
+    "perhevapaat": ("perhevapaat-ja-muut-poissaolot/perhevapaat", "parental_leave"),
+    "opinto-ja-palkaton-vapaa": (
+        "perhevapaat-ja-muut-poissaolot/opinto-ja-palkaton-vapaa",
+        "parental_leave",
+    ),
     # Раздел: tyosuhteen-paattaminen-tai-paattyminen
-    "irtisanominen":         ("tyosuhteen-paattaminen-tai-paattyminen/irtisanominen",                            "dismissal_grounds"),
-    "irtisanoutuminen":      ("tyosuhteen-paattaminen-tai-paattyminen/irtisanoutuminen-ja-tyopaikan-vaihtaminen", "notice_period"),
-    "purkaminen":            ("tyosuhteen-paattaminen-tai-paattyminen/purkaminen",                               "dismissal_grounds"),
-    "koeaika":               ("tyosuhteen-paattaminen-tai-paattyminen/koeaika",                                  "probation_period"),
-    "maaraaikainen":         ("tyosuhteen-paattaminen-tai-paattyminen/maaraaikaisen-sopimus-ja-sen-paattyminen", "contract_types"),
-    "paattosopimus":         ("tyosuhteen-paattaminen-tai-paattyminen/paattosopimus-tai-irtisanomispaketti",     "dismissal_grounds"),
-    "yhteistoiminta":        ("tyosuhteen-paattaminen-tai-paattyminen/yhteistoiminta-ja-muutosneuvottelut",      "local_agreement"),
-
+    "irtisanominen": (
+        "tyosuhteen-paattaminen-tai-paattyminen/irtisanominen",
+        "dismissal_grounds",
+    ),
+    "irtisanoutuminen": (
+        "tyosuhteen-paattaminen-tai-paattyminen/irtisanoutuminen-ja-tyopaikan-vaihtaminen",
+        "notice_period",
+    ),
+    "purkaminen": (
+        "tyosuhteen-paattaminen-tai-paattyminen/purkaminen",
+        "dismissal_grounds",
+    ),
+    "koeaika": ("tyosuhteen-paattaminen-tai-paattyminen/koeaika", "probation_period"),
+    "maaraaikainen": (
+        "tyosuhteen-paattaminen-tai-paattyminen/maaraaikaisen-sopimus-ja-sen-paattyminen",
+        "contract_types",
+    ),
+    "paattosopimus": (
+        "tyosuhteen-paattaminen-tai-paattyminen/paattosopimus-tai-irtisanomispaketti",
+        "dismissal_grounds",
+    ),
+    "yhteistoiminta": (
+        "tyosuhteen-paattaminen-tai-paattyminen/yhteistoiminta-ja-muutosneuvottelut",
+        "local_agreement",
+    ),
     # Раздел: tyohyvinvointi-ja-turvallisuus
-    "tyoturvallisuus":       ("tyohyvinvointi-ja-turvallisuus/tyoturvallisuus-tyosuojelu-tyoterveys", "workplace_safety"),
-    "tasa-arvo":             ("tyohyvinvointi-ja-turvallisuus/tasa-arvo-yhdenvertaisuus-ja-hairinta", "discrimination"),
+    "tyoturvallisuus": (
+        "tyohyvinvointi-ja-turvallisuus/tyoturvallisuus-tyosuojelu-tyoterveys",
+        "workplace_safety",
+    ),
+    "tasa-arvo": (
+        "tyohyvinvointi-ja-turvallisuus/tasa-arvo-yhdenvertaisuus-ja-hairinta",
+        "discrimination",
+    ),
 }
 
 
 @dataclass
 class ParsedIlryEntry:
     """Одна FAQ-запись: вопрос + развёрнутый ответ."""
-    question_fi: str   # текст <summary>
-    answer_fi: str     # текст <details> без <summary>
+
+    question_fi: str  # текст <summary>
+    answer_fi: str  # текст <details> без <summary>
     topic_key: str
     source_url: str
 
@@ -83,9 +109,7 @@ class IlryParser:
                 try:
                     entries = await self._parse_page(client, url, topic_key)
                     results.extend(entries)
-                    logger.info(
-                        "ILRY: parsed %d entries from %s", len(entries), slug
-                    )
+                    logger.info("ILRY: parsed %d entries from %s", len(entries), slug)
                 except Exception as e:
                     logger.error("ILRY: failed to parse %s: %s", slug, e)
         return results
@@ -93,8 +117,7 @@ class IlryParser:
     async def parse_one(self, slug: str) -> list[ParsedIlryEntry]:
         if slug not in ILRY_PAGES:
             raise ValueError(
-                f"Unknown ILRY slug: '{slug}'. "
-                f"Available: {list(ILRY_PAGES.keys())}"
+                f"Unknown ILRY slug: '{slug}'. " f"Available: {list(ILRY_PAGES.keys())}"
             )
         path, topic_key = ILRY_PAGES[slug]
         url = f"{ILRY_BASE_URL}/{path}/"
@@ -132,11 +155,13 @@ class IlryParser:
                 logger.debug("ILRY: skipping short entry '%s'", question[:60])
                 continue
 
-            entries.append(ParsedIlryEntry(
-                question_fi=question,
-                answer_fi=answer,
-                topic_key=topic_key,
-                source_url=url,
-            ))
+            entries.append(
+                ParsedIlryEntry(
+                    question_fi=question,
+                    answer_fi=answer,
+                    topic_key=topic_key,
+                    source_url=url,
+                )
+            )
 
         return entries

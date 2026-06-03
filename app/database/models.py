@@ -199,17 +199,17 @@ class Union(Base):
 
     agreements: Mapped[list["Agreement"]] = relationship(back_populates="union")
 
+
 class UnionPortal(Base):
     """
     Каталог TES на сайте профсоюза — точка входа для автообнаружения.
     Вводится вручную один раз, далее всё автоматически.
     """
+
     __tablename__ = "union_portals"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    union_id: Mapped[int] = mapped_column(
-        ForeignKey("unions.id", ondelete="CASCADE")
-    )
+    union_id: Mapped[int] = mapped_column(ForeignKey("unions.id", ondelete="CASCADE"))
     catalog_url: Mapped[str] = mapped_column(String(500), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_scanned_at: Mapped[Optional[datetime]] = mapped_column(
@@ -271,7 +271,9 @@ class TesClause(Base):
     text_en: Mapped[Optional[str]] = mapped_column(Text)
     text_ru: Mapped[Optional[str]] = mapped_column(Text)
     translated_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))
-    translated_ru_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))
+    translated_ru_at: Mapped[Optional[datetime]] = mapped_column(
+        TIMESTAMP(timezone=True)
+    )
     priority_over_law: Mapped[bool] = mapped_column(Boolean, default=False)
     priority_note: Mapped[Optional[str]] = mapped_column(Text)
     # объяснение почему TES лучше закона

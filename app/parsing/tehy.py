@@ -4,8 +4,8 @@ from dataclasses import dataclass
 
 import httpx
 from bs4 import BeautifulSoup
-
 from sqlalchemy import select
+
 from app.database.models import Interpretation
 from app.parsing.topic_keywords import detect_topic
 
@@ -65,6 +65,7 @@ TEHY_AGREEMENTS: dict[str, dict] = {
     },
 }
 
+
 @dataclass
 class ParsedTehySection:
     title_fi: str
@@ -96,9 +97,7 @@ class TehyParser:
                 try:
                     sections = await self._parse_page(client, url, meta)
                     results.extend(sections)
-                    logger.info(
-                        "Tehy: parsed %d sections from %s", len(sections), slug
-                    )
+                    logger.info("Tehy: parsed %d sections from %s", len(sections), slug)
                 except Exception as e:
                     logger.error("Tehy: failed to parse %s: %s", slug, e)
         return results
@@ -151,9 +150,7 @@ class TehyParser:
 
         # Последняя секция
         if current_title and current_paragraphs:
-            section = self._build_section(
-                current_title, current_paragraphs, url, meta
-            )
+            section = self._build_section(current_title, current_paragraphs, url, meta)
             if section:
                 sections.append(section)
 
@@ -202,9 +199,12 @@ class TehyParser:
     def _is_noise_title(self, title: str) -> bool:
         title_l = title.lower().strip()
         return (
-                len(title_l) < 8
-                or title_l.endswith("?")
-                or "liity" in title_l
-                or title_l in {"tehy footer", "tehy footer bottom"}
-                or (title_l.startswith(tuple(f"{i}." for i in range(1, 10))) and len(title_l) < 20)
+            len(title_l) < 8
+            or title_l.endswith("?")
+            or "liity" in title_l
+            or title_l in {"tehy footer", "tehy footer bottom"}
+            or (
+                title_l.startswith(tuple(f"{i}." for i in range(1, 10)))
+                and len(title_l) < 20
+            )
         )

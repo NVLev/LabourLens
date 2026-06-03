@@ -2,6 +2,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum
+
 import httpx
 from bs4 import BeautifulSoup
 
@@ -16,21 +17,25 @@ HEADERS = {
 }
 
 _PDF_SKIP_KEYWORDS = [
-    "tasku", "taskutes", "palkkataulukko", "tiivistelma", "lyhyt",
+    "tasku",
+    "taskutes",
+    "palkkataulukko",
+    "tiivistelma",
+    "lyhyt",
     "yhdistetty",
-    "kollektivavtal",   # шведская версия
+    "kollektivavtal",  # шведская версия
     "collective-agreement",
-    "korotukset",       # таблицы повышений зарплат
+    "korotukset",  # таблицы повышений зарплат
     "tyosopimusmalli",  # шаблон трудового договора
-    "työsopimus_",      # шаблон (имя файла)
-    "tutustu",          # программа для школьников
-    "korvaava",         # инструкция по замещающей работе
+    "työsopimus_",  # шаблон (имя файла)
+    "tutustu",  # программа для школьников
+    "korvaava",  # инструкция по замещающей работе
     "silmatapaturmat",  # инструкция по травмам глаз
-    "yhteenveto",       # summary (Finnish)
-    "tiivistys",        # summary of changes
-    "sammandrag",       # summary (Swedish)
+    "yhteenveto",  # summary (Finnish)
+    "tiivistys",  # summary of changes
+    "sammandrag",  # summary (Swedish)
     "yrityskohtainen",  # company-specific agreement
-    "harjoittelij",     # trainee wage tables
+    "harjoittelij",  # trainee wage tables
 ]
 
 _FINNISH_REPLACEMENTS = {
@@ -45,10 +50,10 @@ _FINNISH_REPLACEMENTS = {
     "lattianpaallyst": "lattianpäällyst",
     "jarjestot": "järjestöt",
     "jarjestojen": "järjestöjen",
-    "vahittais":         "vähittäis",
-    "kenka":             "kenkä",
-    "ymparisto":         "ympäristö",
-    "oljy":              "öljy",
+    "vahittais": "vähittäis",
+    "kenka": "kenkä",
+    "ymparisto": "ympäristö",
+    "oljy": "öljy",
 }
 
 
@@ -79,10 +84,12 @@ def _extract_sector_fi(name_fi: str) -> str:
         result = re.sub(pattern, "", result, flags=re.IGNORECASE).strip()
     return result or name_fi  # fallback: если всё срезали — вернуть оригинал
 
+
 class PdfStrategy(str, Enum):
-    FIRST_PDF = "first_pdf"        # PAM: первый PDF без стоп-слов
-    LINK_TEXT = "link_text"        # Rakennusliitto: по тексту ссылки
+    FIRST_PDF = "first_pdf"  # PAM: первый PDF без стоп-слов
+    LINK_TEXT = "link_text"  # Rakennusliitto: по тексту ссылки
     ALL_PDFS_ON_PAGE = "all_pdfs_on_page"  # NEW: все PDF прямо с каталога
+
 
 @dataclass
 class DiscoveredTes:
@@ -106,6 +113,7 @@ class UnionPortalConfig:
                       Rakennusliitto: "/tyoehtosopimukset/" + не сам каталог
     domain          — домен союза, для фильтрации внешних ссылок
     """
+
     catalog_url: str
     tes_url_marker: str
     domain: str
@@ -137,11 +145,11 @@ UNION_CONFIGS: dict[str, UnionPortalConfig] = {
         pdf_strategy=PdfStrategy.LINK_TEXT,
     ),
     "kirkonalat": UnionPortalConfig(
-    catalog_url="https://kirkonalat.fi/tyoehtosopimukset/",
-    tes_url_marker="/tyoehtosopimukset/",
-    domain="kirkonalat.fi",
-    pdf_strategy=PdfStrategy.LINK_TEXT,
-    path_depth=2,
+        catalog_url="https://kirkonalat.fi/tyoehtosopimukset/",
+        tes_url_marker="/tyoehtosopimukset/",
+        domain="kirkonalat.fi",
+        pdf_strategy=PdfStrategy.LINK_TEXT,
+        path_depth=2,
     ),
     "konepaallystoliitto": UnionPortalConfig(
         catalog_url="https://www.konepaallystoliitto.fi/tyoehtosopimukset/",
@@ -164,14 +172,13 @@ UNION_CONFIGS: dict[str, UnionPortalConfig] = {
         pdf_strategy=PdfStrategy.ALL_PDFS_ON_PAGE,
     ),
     "jyty": UnionPortalConfig(
-    catalog_url="https://jytyliitto.fi/tyoelama/tyoehtosopimukset/yksityinen/",
-    tes_url_marker="/tyoehtosopimukset/yksityinen/",
-    domain="jytyliitto.fi",
-    pdf_strategy=PdfStrategy.LINK_TEXT,
-    path_depth=4,
-    path_exclude=["ytes"],
-),
-
+        catalog_url="https://jytyliitto.fi/tyoelama/tyoehtosopimukset/yksityinen/",
+        tes_url_marker="/tyoehtosopimukset/yksityinen/",
+        domain="jytyliitto.fi",
+        pdf_strategy=PdfStrategy.LINK_TEXT,
+        path_depth=4,
+        path_exclude=["ytes"],
+    ),
 }
 
 
@@ -206,27 +213,31 @@ class UnionPortalParser:
             return []
         logger.info(
             "Found %d TES pages in %s catalog",
-            len(tes_page_urls), self.union_key,
+            len(tes_page_urls),
+            self.union_key,
         )
 
         results = []
         async with httpx.AsyncClient(
-                headers=HEADERS, follow_redirects=True, timeout=20
+            headers=HEADERS, follow_redirects=True, timeout=20
         ) as client:
             for url, link_text in tes_page_urls:
                 try:
                     pdf_url = await self._fetch_pdf_url(client, url)
                     if pdf_url:
                         raw_name = link_text if link_text else self._slug_to_name(url)
-                        results.append(DiscoveredTes(
-                            name_fi=raw_name,
-                            sector_fi=_extract_sector_fi(raw_name),
-                            tes_page_url=url,
-                            pdf_url=pdf_url,
-                            link_text=link_text,
-                        ))
-                        logger.info("Discovered: %s → %s",
-                                    raw_name[:50], pdf_url.split("/")[-1])
+                        results.append(
+                            DiscoveredTes(
+                                name_fi=raw_name,
+                                sector_fi=_extract_sector_fi(raw_name),
+                                tes_page_url=url,
+                                pdf_url=pdf_url,
+                                link_text=link_text,
+                            )
+                        )
+                        logger.info(
+                            "Discovered: %s → %s", raw_name[:50], pdf_url.split("/")[-1]
+                        )
                     else:
                         logger.warning("No PDF found on page: %s", url)
                 except Exception as e:
@@ -234,7 +245,7 @@ class UnionPortalParser:
         return results
 
     async def _fetch_pdf_from_page(
-            self, client: httpx.AsyncClient, page_url: str
+        self, client: httpx.AsyncClient, page_url: str
     ) -> tuple[str | None, str | None]:
         """
         Загружает страницу и находит на ней PDF с учётом стратегии.
@@ -318,7 +329,7 @@ class UnionPortalParser:
         return True
 
     async def _fetch_pdf_url(
-            self, client: httpx.AsyncClient, tes_page_url: str
+        self, client: httpx.AsyncClient, tes_page_url: str
     ) -> str | None:
         resp = await client.get(tes_page_url)
         resp.raise_for_status()
@@ -355,7 +366,7 @@ class UnionPortalParser:
     async def _discover_all_pdfs_on_catalog(self) -> list[DiscoveredTes]:
         """Собирает все PDF прямо со страницы каталога — для порталов без подстраниц."""
         async with httpx.AsyncClient(
-                headers=HEADERS, follow_redirects=True, timeout=20
+            headers=HEADERS, follow_redirects=True, timeout=20
         ) as client:
             resp = await client.get(self.config.catalog_url)
             resp.raise_for_status()
@@ -380,16 +391,20 @@ class UnionPortalParser:
 
             link_text = a.get_text(strip=True)
             name_fi = link_text if link_text else self._slug_to_name(href)
-            results.append(DiscoveredTes(
-                name_fi=name_fi,
-                sector_fi=_extract_sector_fi(name_fi),
-                tes_page_url=self.config.catalog_url,
-                pdf_url=href,
-                key_source=href,
-            ))
+            results.append(
+                DiscoveredTes(
+                    name_fi=name_fi,
+                    sector_fi=_extract_sector_fi(name_fi),
+                    tes_page_url=self.config.catalog_url,
+                    pdf_url=href,
+                    key_source=href,
+                )
+            )
             logger.info("Discovered PDF on catalog: %s → %s", name_fi[:50], filename)
 
-        logger.info("Found %d PDFs on catalog page for %s", len(results), self.union_key)
+        logger.info(
+            "Found %d PDFs on catalog page for %s", len(results), self.union_key
+        )
         return results
 
     @staticmethod

@@ -1,18 +1,19 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database.db_helper import db_helper
 from app.database.models import Agreement
 from app.parsing.tes.union_portal import _extract_sector_fi
-from app.database.db_helper import db_helper
 from app.repositories.tes import TesRepository
 from app.services.tes_service import TesService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/tes", tags=["tes"])
+
 
 @router.post("/tes/fix-sectors", summary="Recalculate and clean sector_fi")
 async def fix_agreement_sectors(
@@ -126,6 +127,7 @@ async def get_agreement(
         ],
     }
 
+
 @router.post("/relink-topics", summary="Reassign topic_id for all TES clauses")
 async def relink_tes_topics(
     session: AsyncSession = Depends(db_helper.session_getter),
@@ -137,6 +139,7 @@ async def relink_tes_topics(
     """
     service = TesService(session)
     return await service.relink_topics()
+
 
 @router.get("/agreements/{key}/unlinked", summary="Get unlinked clauses")
 async def get_unlinked_clauses(

@@ -1,13 +1,13 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models import Interpretation
-from app.parsing.tehy import TEHY_AGREEMENTS
 from app.database.db_helper import db_helper
+from app.database.models import Interpretation
 from app.parsing.finlex import ACTS_CONFIG, FinlexParser
+from app.parsing.tehy import TEHY_AGREEMENTS
 from app.parsing.tyosuojelu import TYOSUOJELU_PAGES, TyosuojeluParser
 from app.repositories.tes import TesRepository
 from app.services.interpretation_service import InterpretationService
@@ -131,16 +131,19 @@ async def parse_tyosuojelu_topic(
         **stats,
     }
 
+
 @router.post("/unions/seed", summary="Seed union portals")
 async def seed_union_portals(
     session: AsyncSession = Depends(db_helper.session_getter),
 ):
     """Создаёт записи UnionPortal для всех поддерживаемых профсоюзов."""
     from app.services.union_seed_service import seed_unions_and_portals
+
     return await seed_unions_and_portals(session)
 
-from app.services.tes_service import TesService
+
 from app.services.tes_discovery_service import TesDiscoveryService
+from app.services.tes_service import TesService
 
 
 @router.post("/tes/discover/{union_key}", summary="Discover TES catalog for a union")
@@ -157,7 +160,10 @@ async def discover_tes(
     service = TesDiscoveryService(session)
     return await service.discover(union_key)
 
-@router.get("/tes/agreements", summary="List discovered TES agreements with parse status")
+
+@router.get(
+    "/tes/agreements", summary="List discovered TES agreements with parse status"
+)
 async def list_tes_agreements(
     union_key: str | None = None,
     is_parsed: bool | None = None,
@@ -186,6 +192,7 @@ async def list_tes_agreements(
         for a in agreements
     ]
 
+
 @router.post("/tes", summary="Parse all discovered TES")
 async def parse_tes_all(
     union_key: str | None = None,
@@ -211,17 +218,22 @@ async def parse_tes_one(
     service = TesDiscoveryService(session)
     return await service.parse_one(key)
 
+
 @router.post("/tehy", summary="Parse all Tehy TES interpretation pages")
 async def parse_tehy_all(
     session: AsyncSession = Depends(db_helper.session_getter),
 ):
     from app.parsing.tehy import TehyParser
+
     parser = TehyParser()
     service = InterpretationService(session)
     parsed = await parser.parse_all()
     return await service.upsert_tehy(parsed)
 
-@router.get("/interpretations/sources", summary="List interpretation sources and sectors")
+
+@router.get(
+    "/interpretations/sources", summary="List interpretation sources and sectors"
+)
 async def list_interpretation_sources(
     session: AsyncSession = Depends(db_helper.session_getter),
 ):
@@ -231,7 +243,9 @@ async def list_interpretation_sources(
         select(
             Interpretation.source,
             Interpretation.sector_fi,
-        ).distinct().order_by(Interpretation.source, Interpretation.sector_fi)
+        )
+        .distinct()
+        .order_by(Interpretation.source, Interpretation.sector_fi)
     )
     db_rows = [
         {"source": row.source, "sector_fi": row.sector_fi, "in_db": True}
@@ -245,15 +259,23 @@ async def list_interpretation_sources(
     if "ilry" not in db_sources:
         static_sources.append({"source": "ilry", "sector_fi": None, "in_db": False})
     if "tyosuojelu" not in db_sources:
-        static_sources.append({"source": "tyosuojelu", "sector_fi": None, "in_db": False})
+        static_sources.append(
+            {"source": "tyosuojelu", "sector_fi": None, "in_db": False}
+        )
     for meta in TEHY_AGREEMENTS.values():
         if "tehy" not in db_sources:
-            static_sources.append({"source": "tehy", "sector_fi": meta["sector_fi"], "in_db": False})
+            static_sources.append(
+                {"source": "tehy", "sector_fi": meta["sector_fi"], "in_db": False}
+            )
             break
 
     return sorted(db_rows + static_sources, key=lambda x: x["source"])
 
-@router.post("/interpretations/relink", summary="Relink interpretation topics by current keywords")
+
+@router.post(
+    "/interpretations/relink",
+    summary="Relink interpretation topics by current keywords",
+)
 async def relink_interpretation_topics(
     source: str | None = None,
     session: AsyncSession = Depends(db_helper.session_getter),
@@ -261,12 +283,14 @@ async def relink_interpretation_topics(
     service = InterpretationService(session)
     return await service.relink_topics(source=source)
 
+
 @router.get("/interpretations/tehy-slugs", summary="List available Tehy TES slugs")
 async def list_tehy_slugs():
     """
     Возвращает список доступных slug для POST /parse/tehy/{slug}.
     """
     from app.parsing.tehy import TEHY_AGREEMENTS
+
     return [
         {
             "slug": slug,
@@ -276,16 +300,19 @@ async def list_tehy_slugs():
         for slug, meta in TEHY_AGREEMENTS.items()
     ]
 
+
 @router.post("/tehy/{slug}", summary="Parse single Tehy TES page")
 async def parse_tehy_one(
     slug: str,
     session: AsyncSession = Depends(db_helper.session_getter),
 ):
     from app.parsing.tehy import TehyParser
+
     parser = TehyParser()
     service = InterpretationService(session)
     parsed = await parser.parse_one(slug)
     return await service.upsert_tehy(parsed)
+
 
 @router.post("/ilry", summary="Parse all ILRY labour law FAQ pages")
 async def parse_ilry_all(
@@ -296,6 +323,7 @@ async def parse_ilry_all(
     Каждый FAQ-вопрос сохраняется как отдельная Interpretation с source='ilry'.
     """
     from app.parsing.ilry import IlryParser
+
     parser = IlryParser()
     service = InterpretationService(session)
     parsed = await parser.parse_all()
@@ -312,6 +340,7 @@ async def parse_ilry_one(
     Доступные slugs: GET /parse/interpretations/ilry-slugs
     """
     from app.parsing.ilry import IlryParser
+
     parser = IlryParser()
     service = InterpretationService(session)
     parsed = await parser.parse_one(slug)
@@ -321,7 +350,7 @@ async def parse_ilry_one(
 @router.get("/interpretations/ilry-slugs", summary="List available ILRY slugs")
 async def list_ilry_slugs():
     from app.parsing.ilry import ILRY_PAGES
+
     return [
-        {"slug": slug, "topic_key": topic_key}
-        for slug, topic_key in ILRY_PAGES.items()
+        {"slug": slug, "topic_key": topic_key} for slug, topic_key in ILRY_PAGES.items()
     ]

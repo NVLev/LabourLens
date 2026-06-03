@@ -22,71 +22,71 @@ UNION_PORTALS = [
         },
     },
     {
-            "union": {
-                "key": "kirkonalat",
-                "name_fi": "Kirkon alat",
-                "website": "https://kirkonalat.fi",
-            },
-            "portal": {
-                "catalog_url": "https://kirkonalat.fi/tyoehtosopimukset/",
-            },
+        "union": {
+            "key": "kirkonalat",
+            "name_fi": "Kirkon alat",
+            "website": "https://kirkonalat.fi",
         },
-        {
-            "union": {
-                "key": "konepaallystoliitto",
-                "name_fi": "Suomen Konepäällystöliitto",
-                "website": "https://www.konepaallystoliitto.fi",
-            },
-            "portal": {
-                "catalog_url": "https://www.konepaallystoliitto.fi/tyoehtosopimukset/",
-            },
+        "portal": {
+            "catalog_url": "https://kirkonalat.fi/tyoehtosopimukset/",
         },
-        {
-            "union": {
-                "key": "mvl",
-                "name_fi": "Meijerialan",
-                "website": "https://mvl.fi/",
-            },
-            "portal": {
-                "catalog_url": "https://mvl.fi/palvelut-ja-edut/tyoehtosopimus/",
-            },
+    },
+    {
+        "union": {
+            "key": "konepaallystoliitto",
+            "name_fi": "Suomen Konepäällystöliitto",
+            "website": "https://www.konepaallystoliitto.fi",
         },
-        {
-            "union": {
-                "key": "ria",
-                "name_fi": "Rakennusinsinöörit ja -arkkitehdit",
-                "website": "https://ria.fi/",
-            },
-            "portal": {
-                "catalog_url": "https://ria.fi/tyoelama/rialaisia-koskevat-tyoehtosopimukset/",
-            },
+        "portal": {
+            "catalog_url": "https://www.konepaallystoliitto.fi/tyoehtosopimukset/",
         },
-        {
-            "union": {
-                "key": "kt",
-                "name_fi": "Kunta- ja hyvinvointialuetyönantajat KT",
-                 "website": "https://www.kt.fi"
-            },
-            "portal":{
-                "catalog_url": "https://www.kt.fi/sopimukset",
-            }
+    },
+    {
+        "union": {
+            "key": "mvl",
+            "name_fi": "Meijerialan",
+            "website": "https://mvl.fi/",
         },
-{
-            "union": {
-                "key": "jyty",
-                "name_fi": "Ammattiliitto Jyty",
-                 "website": "https://jytyliitto.fi/"
-            },
-            "portal":{
-                "catalog_url": "https://jytyliitto.fi/tyoelama/tyoehtosopimukset/yksityinen/",
-            }
+        "portal": {
+            "catalog_url": "https://mvl.fi/palvelut-ja-edut/tyoehtosopimus/",
         },
-
+    },
+    {
+        "union": {
+            "key": "ria",
+            "name_fi": "Rakennusinsinöörit ja -arkkitehdit",
+            "website": "https://ria.fi/",
+        },
+        "portal": {
+            "catalog_url": "https://ria.fi/tyoelama/rialaisia-koskevat-tyoehtosopimukset/",
+        },
+    },
+    {
+        "union": {
+            "key": "kt",
+            "name_fi": "Kunta- ja hyvinvointialuetyönantajat KT",
+            "website": "https://www.kt.fi",
+        },
+        "portal": {
+            "catalog_url": "https://www.kt.fi/sopimukset",
+        },
+    },
+    {
+        "union": {
+            "key": "jyty",
+            "name_fi": "Ammattiliitto Jyty",
+            "website": "https://jytyliitto.fi/",
+        },
+        "portal": {
+            "catalog_url": "https://jytyliitto.fi/tyoelama/tyoehtosopimukset/yksityinen/",
+        },
+    },
 ]
 
 
 async def seed_unions_and_portals(session) -> dict:
     from sqlalchemy import select
+
     created_unions = created_portals = skipped = 0
 
     for entry in UNION_PORTALS:
@@ -110,10 +110,12 @@ async def seed_unions_and_portals(session) -> dict:
         )
         portal = result.scalar_one_or_none()
         if portal is None:
-            session.add(UnionPortal(
-                union_id=union.id,
-                catalog_url=entry["portal"]["catalog_url"],
-            ))
+            session.add(
+                UnionPortal(
+                    union_id=union.id,
+                    catalog_url=entry["portal"]["catalog_url"],
+                )
+            )
             created_portals += 1
         else:
             skipped += 1

@@ -17,9 +17,7 @@ class TesRepository:
     # Union
 
     async def get_union_by_key(self, key: str) -> Union | None:
-        result = await self.session.execute(
-            select(Union).where(Union.key == key)
-        )
+        result = await self.session.execute(select(Union).where(Union.key == key))
         return result.scalar_one_or_none()
 
     def add_union(self, union: Union) -> None:
@@ -52,9 +50,7 @@ class TesRepository:
         )
         return list(result.scalars().all())
 
-    async def get_agreement_with_clauses(
-        self, agreement_id: int
-    ) -> Agreement | None:
+    async def get_agreement_with_clauses(self, agreement_id: int) -> Agreement | None:
         result = await self.session.execute(
             select(Agreement)
             .options(selectinload(Agreement.clauses))
@@ -74,10 +70,10 @@ class TesRepository:
         return list(result.scalars().all())
 
     async def get_clauses_by_topic_key(
-            self,
-            topic_key: str,
-            union_key: str | None = None,
-            sector_fi: str | None = None,
+        self,
+        topic_key: str,
+        union_key: str | None = None,
+        sector_fi: str | None = None,
     ) -> list[TesClause]:
 
         query = (
@@ -97,9 +93,7 @@ class TesRepository:
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
-    async def get_unlinked_clauses(
-        self, agreement_id: int
-    ) -> list[TesClause]:
+    async def get_unlinked_clauses(self, agreement_id: int) -> list[TesClause]:
         """Клаузулы без topic_id — для ручной линковки."""
         result = await self.session.execute(
             select(TesClause).where(
@@ -117,11 +111,11 @@ class TesRepository:
         return list(result.scalars().all())
 
     async def get_all_agreements(
-            self,
-            current_only: bool = True,
-            union_key: str | None = None,
-            sector_fi: str | None = None,
-            is_parsed: bool | None = None,
+        self,
+        current_only: bool = True,
+        union_key: str | None = None,
+        sector_fi: str | None = None,
+        is_parsed: bool | None = None,
     ) -> list[Agreement]:
         query = select(Agreement)
         if current_only:
