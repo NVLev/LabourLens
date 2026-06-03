@@ -61,6 +61,17 @@ UNION_PORTALS = [
                 "catalog_url": "https://ria.fi/tyoelama/rialaisia-koskevat-tyoehtosopimukset/",
             },
         },
+        {
+            "union": {
+                "key": "kt",
+                "name_fi": "Kunta- ja hyvinvointialuetyönantajat KT",
+                 "website": "https://www.kt.fi"
+            },
+            "portal":{
+                "catalog_url": "https://www.kt.fi/sopimukset",
+            }
+        },
+
 ]
 
 

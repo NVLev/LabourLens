@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -10,6 +10,7 @@ from app.parsing.tes.union_portal import UnionPortalParser
 from app.parsing.tes.pam import TesPdfParser
 from app.repositories.tes import TesRepository
 from app.services.tes_service import TesService
+from app.parsing.tes.kt import KtParser
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,39 @@ class TesDiscoveryService:
         portal = await self._get_portal(union_key)
         if not portal:
             return {"error": f"Portal for '{union_key}' not found. Run POST /parse/unions/seed first."}
+        if union_key == "kt":
+            from app.parsing.tes.kt import KtParser
+            parser = KtParser()
+            discovered = await parser.discover()
+            created = skipped = 0
+            for tes in discovered:
+                existing = await self.repo.get_agreement_by_url(tes.full_url)
+                if existing is not None:
+                    if existing.valid_from is None and tes.valid_from:
+                        existing.valid_from = date.fromisoformat(tes.valid_from)
+                    if existing.valid_until is None and tes.valid_until:
+                        existing.valid_until = date.fromisoformat(tes.valid_until)
+                    skipped += 1
+                    continue
+                agreement = Agreement(
+                    union_id=portal.union_id,
+                    key=f"kt-{tes.slug}-{tes.period}",
+                    name_fi=tes.name_fi,
+                    sector_fi=tes.sector_fi,
+                    source_url=tes.full_url,
+                    source_type="html",
+                    is_current=True,
+                    is_universally_binding=True,
+                    is_parsed=False,
+                    valid_from=date.fromisoformat(tes.valid_from) if tes.valid_from else None,
+                    valid_until=date.fromisoformat(tes.valid_until) if tes.valid_until else None,
+                )
+                self.repo.add_agreement(agreement)
+                created += 1
+            portal.last_scanned_at = datetime.now(timezone.utc)
+            await self.session.commit()
+            return {"union": union_key, "discovered": len(discovered),
+                    "created": created, "skipped": skipped}
 
         parser = UnionPortalParser(union_key)
         discovered = await parser.discover()
@@ -143,6 +177,17 @@ class TesDiscoveryService:
     # ── Internal ──────────────────────────────────────────────────────────────
 
     async def _parse_agreement(self, agreement: Agreement) -> None:
+        if agreement.union.key == "kt":
+            from app.parsing.tes.kt import KtParser
+            parser = KtParser()
+            clauses = await parser.fetch_and_parse(agreement.source_url)
+            agreement.is_parsed = True
+            agreement.parsed_at = datetime.now(timezone.utc)
+            await self.tes_service.upsert_clauses_for_agreement(
+                agreement=agreement,
+                clauses=clauses,
+            )
+            return
         parser = TesPdfParser()
         union_key = agreement.union.key
         parsed = await parser.parse_from_url(
