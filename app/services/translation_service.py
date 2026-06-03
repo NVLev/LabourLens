@@ -1,11 +1,19 @@
 import asyncio
+import gc
 import logging
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models import Act, Chapter, Interpretation, Section, SectionParagraph
+from app.database.models import (
+    Act,
+    Chapter,
+    Interpretation,
+    Section,
+    SectionParagraph,
+    TesClause,
+)
 from app.translation.nllb import MAX_CHUNK_CHARS, translate_batch_fi_en, translate_fi_en
 
 logger = logging.getLogger(__name__)
@@ -184,6 +192,142 @@ class TranslationService:
                 )
 
         return translated_count
+
+    async def translate_tes_en(self) -> dict:
+        """NLLB fi→en для всех TesClause."""
+        clauses = await self._get_untranslated_tes(lang="en")
+        logger.info("EN translation: %d TES clauses to translate", len(clauses))
+        translated = await self._translate_tes_clauses(clauses, lang="en")
+        await self.session.commit()
+        return {"translated": translated, "skipped": len(clauses) - translated}
+
+    async def translate_tes_ru(self) -> dict:
+        """NLLB fi→ru для всех TesClause."""
+        clauses = await self._get_untranslated_tes(lang="ru")
+        logger.info("RU translation: %d TES clauses to translate", len(clauses))
+        translated = await self._translate_tes_clauses(clauses, lang="ru")
+        await self.session.commit()
+        return {"translated": translated, "skipped": len(clauses) - translated}
+
+    async def _get_untranslated_tes(self, lang: str) -> list[TesClause]:
+        from app.database.models import TesClause
+
+        null_col = TesClause.text_en if lang == "en" else TesClause.text_ru
+        result = await self.session.execute(select(TesClause).where(null_col.is_(None)))
+        return list(result.scalars().all())
+
+    async def _translate_tes_clauses(self, clauses: list[TesClause], lang: str) -> int:
+        from app.translation.nllb import translate_batch_fi_en, translate_batch_fi_ru
+
+        BATCH_SIZE = 8
+        COMMIT_EVERY = 32  # коммит реже, чем перевод
+
+        translate_batch = (
+            translate_batch_fi_en if lang == "en" else translate_batch_fi_ru
+        )
+
+        text_field = "text_en" if lang == "en" else "text_ru"
+        now_field = "translated_at" if lang == "en" else "translated_ru_at"
+
+        translated_count = 0
+
+        # извлекаем только данные, НЕ держим ORM
+        data = [(c.id, c.text_fi) for c in clauses if c.text_fi]
+
+        buffer = []
+
+        for i in range(0, len(data), BATCH_SIZE):
+            batch = data[i : i + BATCH_SIZE]
+            ids = [x[0] for x in batch]
+            texts = [x[1] for x in batch]
+
+            try:
+                translations = translate_batch(texts)
+            except Exception as e:
+                logger.error("TES batch failed: %s", e)
+                continue
+
+            now = datetime.now(timezone.utc)
+
+            for clause_id, translation in zip(ids, translations):
+                buffer.append(
+                    {
+                        "id": clause_id,
+                        text_field: translation,
+                        now_field: now,
+                    }
+                )
+                translated_count += 1
+
+            # массовый update
+            if len(buffer) >= COMMIT_EVERY:
+                await self._flush_updates(buffer, text_field, now_field)
+                buffer.clear()
+                gc.collect()
+                logger.info(
+                    "TES translation progress: %d/%d", i + len(batch), len(data)
+                )
+
+        # остатки
+        if buffer:
+            await self._flush_updates(buffer, text_field, now_field)
+
+        return translated_count
+
+    async def _flush_updates(self, buffer, text_field, now_field):
+        for row in buffer:
+            await self.session.execute(
+                update(TesClause)
+                .where(TesClause.id == row["id"])
+                .values(
+                    {
+                        text_field: row[text_field],
+                        now_field: row[now_field],
+                    }
+                )
+            )
+
+        await self.session.commit()
+
+    async def translate_tes_en_by_key(self, agreement_key: str) -> dict:
+        clauses = await self._get_untranslated_tes_by_key(agreement_key, lang="en")
+        logger.info(
+            "EN translation: %d TES clauses for '%s'", len(clauses), agreement_key
+        )
+        translated = await self._translate_tes_clauses(clauses, lang="en")
+        await self.session.commit()
+        return {
+            "agreement": agreement_key,
+            "translated": translated,
+            "skipped": len(clauses) - translated,
+        }
+
+    async def translate_tes_ru_by_key(self, agreement_key: str) -> dict:
+        clauses = await self._get_untranslated_tes_by_key(agreement_key, lang="ru")
+        logger.info(
+            "RU translation: %d TES clauses for '%s'", len(clauses), agreement_key
+        )
+        translated = await self._translate_tes_clauses(clauses, lang="ru")
+        await self.session.commit()
+        return {
+            "agreement": agreement_key,
+            "translated": translated,
+            "skipped": len(clauses) - translated,
+        }
+
+    async def _get_untranslated_tes_by_key(
+        self, agreement_key: str, lang: str
+    ) -> list[TesClause]:
+        from app.database.models import Agreement
+
+        null_col = TesClause.text_en if lang == "en" else TesClause.text_ru
+        result = await self.session.execute(
+            select(TesClause)
+            .join(Agreement)
+            .where(Agreement.key == agreement_key)
+            .where(null_col.is_(None))
+        )
+        return list(result.scalars().all())
 
     def _result(
         self,
