@@ -162,7 +162,15 @@ UNION_CONFIGS: dict[str, UnionPortalConfig] = {
         tes_url_marker="/tyoehtosopimus/",
         domain="ria.fi",
         pdf_strategy=PdfStrategy.ALL_PDFS_ON_PAGE,
-    )
+    ),
+    "jyty": UnionPortalConfig(
+    catalog_url="https://jytyliitto.fi/tyoelama/tyoehtosopimukset/yksityinen/",
+    tes_url_marker="/tyoehtosopimukset/yksityinen/",
+    domain="jytyliitto.fi",
+    pdf_strategy=PdfStrategy.LINK_TEXT,
+    path_depth=4,
+    path_exclude=["ytes"],
+),
 
 }
 

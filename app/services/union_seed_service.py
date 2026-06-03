@@ -71,6 +71,16 @@ UNION_PORTALS = [
                 "catalog_url": "https://www.kt.fi/sopimukset",
             }
         },
+{
+            "union": {
+                "key": "jyty",
+                "name_fi": "Ammattiliitto Jyty",
+                 "website": "https://jytyliitto.fi/"
+            },
+            "portal":{
+                "catalog_url": "https://jytyliitto.fi/tyoelama/tyoehtosopimukset/yksityinen/",
+            }
+        },
 
 ]
 
