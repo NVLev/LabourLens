@@ -15,6 +15,7 @@ from app.database.models import (
     TesClause,
 )
 from app.translation.nllb import MAX_CHUNK_CHARS, translate_batch_fi_en, translate_fi_en
+from app.repositories.tes import TesRepository
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ class TranslationService:
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+        self.repo = TesRepository(session)
 
     # Публичные методы
 
@@ -195,7 +197,7 @@ class TranslationService:
 
     async def translate_tes_en(self) -> dict:
         """NLLB fi→en для всех TesClause."""
-        clauses = await self._get_untranslated_tes(lang="en")
+        clauses = await self.repo.get_untranslated_tes(lang="en")
         logger.info("EN translation: %d TES clauses to translate", len(clauses))
         translated = await self._translate_tes_clauses(clauses, lang="en")
         await self.session.commit()
@@ -203,18 +205,12 @@ class TranslationService:
 
     async def translate_tes_ru(self) -> dict:
         """NLLB fi→ru для всех TesClause."""
-        clauses = await self._get_untranslated_tes(lang="ru")
+        clauses = await self.repo.get_untranslated_tes(lang="ru")
         logger.info("RU translation: %d TES clauses to translate", len(clauses))
         translated = await self._translate_tes_clauses(clauses, lang="ru")
         await self.session.commit()
         return {"translated": translated, "skipped": len(clauses) - translated}
 
-    async def _get_untranslated_tes(self, lang: str) -> list[TesClause]:
-        from app.database.models import TesClause
-
-        null_col = TesClause.text_en if lang == "en" else TesClause.text_ru
-        result = await self.session.execute(select(TesClause).where(null_col.is_(None)))
-        return list(result.scalars().all())
 
     async def _translate_tes_clauses(self, clauses: list[TesClause], lang: str) -> int:
         from app.translation.nllb import translate_batch_fi_en, translate_batch_fi_ru
@@ -290,7 +286,7 @@ class TranslationService:
         await self.session.commit()
 
     async def translate_tes_en_by_key(self, agreement_key: str) -> dict:
-        clauses = await self._get_untranslated_tes_by_key(agreement_key, lang="en")
+        clauses = await self.repo.get_untranslated_tes_by_key(agreement_key, lang="en")
         logger.info(
             "EN translation: %d TES clauses for '%s'", len(clauses), agreement_key
         )
@@ -303,7 +299,7 @@ class TranslationService:
         }
 
     async def translate_tes_ru_by_key(self, agreement_key: str) -> dict:
-        clauses = await self._get_untranslated_tes_by_key(agreement_key, lang="ru")
+        clauses = await self.repo.get_untranslated_tes_by_key(agreement_key, lang="ru")
         logger.info(
             "RU translation: %d TES clauses for '%s'", len(clauses), agreement_key
         )
@@ -315,19 +311,22 @@ class TranslationService:
             "skipped": len(clauses) - translated,
         }
 
-    async def _get_untranslated_tes_by_key(
-        self, agreement_key: str, lang: str
-    ) -> list[TesClause]:
-        from app.database.models import Agreement
+    async def translate_tes_en_by_union(self, union_key: str) -> dict:
+        clauses = await self.repo.get_untranslated_clauses_by_union(union_key, lang="en")
+        translated = await self._translate_tes_clauses(clauses, lang="en")
+        await self.session.commit()
+        return {"union": union_key, "translated": translated, "skipped": len(clauses) - translated}
 
-        null_col = TesClause.text_en if lang == "en" else TesClause.text_ru
-        result = await self.session.execute(
-            select(TesClause)
-            .join(Agreement)
-            .where(Agreement.key == agreement_key)
-            .where(null_col.is_(None))
-        )
-        return list(result.scalars().all())
+    async def translate_tes_ru_by_union(self, union_key: str) -> dict:
+        clauses = await self.repo.get_untranslated_clauses_by_union(union_key, lang="ru")
+        translated = await self._translate_tes_clauses(clauses, lang="ru")
+        await self.session.commit()
+        return {
+            "union": union_key,
+            "translated": translated,
+            "skipped": len(clauses) - translated,
+        }
+
 
     def _result(
         self,

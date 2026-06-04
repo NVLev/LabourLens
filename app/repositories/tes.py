@@ -142,3 +142,49 @@ class TesRepository:
             .where(Agreement.key == key)
         )
         return result.scalar_one_or_none()
+
+    async def get_clauses_by_union(self, union_key: str) -> list[TesClause]:
+        result = await self.session.execute(
+            select(TesClause)
+            .join(Agreement)
+            .join(Union)
+            .where(Union.key == union_key)
+        )
+        clauses = list(result.scalars().all())
+        return clauses
+
+    async def get_untranslated_tes_by_key(
+        self, agreement_key: str, lang: str
+    ) -> list[TesClause]:
+        from app.database.models import Agreement
+
+        null_col = TesClause.text_en if lang == "en" else TesClause.text_ru
+        result = await self.session.execute(
+            select(TesClause)
+            .join(Agreement)
+            .where(Agreement.key == agreement_key)
+            .where(null_col.is_(None))
+        )
+        return list(result.scalars().all())
+
+    async def get_untranslated_tes(self, lang: str) -> list[TesClause]:
+
+        null_col = TesClause.text_en if lang == "en" else TesClause.text_ru
+        result = await self.session.execute(select(TesClause).where(null_col.is_(None)))
+        return list(result.scalars().all())
+
+    async def get_untranslated_clauses_by_union(
+            self,
+            union_key: str,
+            lang: str,
+    ) -> list[TesClause]:
+        null_col = TesClause.text_en if lang == "en" else TesClause.text_ru
+
+        result = await self.session.execute(
+            select(TesClause)
+            .join(Agreement, TesClause.agreement_id == Agreement.id)
+            .join(Union, Agreement.union_id == Union.id)
+            .where(Union.key == union_key)
+            .where(null_col.is_(None))
+        )
+        return list(result.scalars().all())
