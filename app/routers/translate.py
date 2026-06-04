@@ -219,10 +219,24 @@ async def translate_tes_by_key_en(
 ):
     return await service.translate_tes_en_by_key(key)
 
-
 @router.post("/tes/{key}/ru", summary="Translate single TES fi→ru")
 async def translate_tes_by_key_ru(
     key: str,
     service: TranslationService = Depends(get_translation_service),
 ):
     return await service.translate_tes_ru_by_key(key)
+
+@router.post("/tes/{union_key}/en", summary="Translate all TES of particular union fi→en")
+async def translate_tes_by_union_en(
+    union_key: str,
+    service: TranslationService = Depends(get_translation_service),
+):
+    return await service.translate_tes_en_by_union(union_key)
+
+@router.post("/tes/{union_key}/ru", summary="Translate all TES of particular union fi→ru")
+async def translate_tes_by_union_ru(
+    union_key: str,
+    service: TranslationService = Depends(get_translation_service),
+):
+    return await service.translate_tes_ru_by_union(union_key)
+
