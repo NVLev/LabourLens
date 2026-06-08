@@ -68,8 +68,11 @@ class AnalyzeService:
             for link in sections
         ]
 
-        # 2. Интерпретации (tyosuojelu + профсоюзы)
-        interpretations = await self.interpretation_repo.get_by_topic_key(topic_key)
+        # 2. Интерпретации (tyosuojelu + профсоюзы, фильтр по sector_fi)
+        sector_fi = user_input.get("sector_fi")
+        interpretations = await self.interpretation_repo.get_by_topic_key_filtered(
+            topic_key, sector_fi=sector_fi
+        )
         interpretation_data = [
             {
                 "source": i.source,
