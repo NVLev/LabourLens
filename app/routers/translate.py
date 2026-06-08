@@ -240,3 +240,16 @@ async def translate_tes_by_union_ru(
 ):
     return await service.translate_tes_ru_by_union(union_key)
 
+@router.post("/agreements/sectors/en", summary="Translate sector_fi → sector_en for all agreements")
+async def translate_sectors_en(
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    """
+    Переводит уникальные значения sector_fi → sector_en через NLLB.
+    Использует стратегию "перевести один раз, применить ко всем":
+    75 уникальных значений → один проход модели.
+    Безопасно запускать повторно — пропускает уже переведённые.
+    """
+    service = TranslationService(session)
+    return await service.translate_sectors_en()
+

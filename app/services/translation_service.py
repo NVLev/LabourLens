@@ -13,6 +13,7 @@ from app.database.models import (
     Section,
     SectionParagraph,
     TesClause,
+    Agreement
 )
 from app.translation.nllb import MAX_CHUNK_CHARS, translate_batch_fi_en, translate_fi_en
 from app.repositories.tes import TesRepository
@@ -327,7 +328,32 @@ class TranslationService:
             "skipped": len(clauses) - translated,
         }
 
+    async def translate_sectors_en(self) -> dict:
+        """
+        NLLB fi→en для sector_fi во всех agreements.
 
+        Стратегия: переводим уникальные значения sector_fi,
+        затем одним UPDATE заполняем sector_en для всех agreements
+        с тем же sector_fi. Так 75 уникальных значений дают
+        один проход модели вместо N переводов.
+        """
+        unique_sectors = await self.repo.get_distinct_untranslated_sectors()
+        if not unique_sectors:
+            return {"translated": 0, "skipped": 0}
+
+        translated = skipped = 0
+        for sector_fi in unique_sectors:
+            try:
+                sector_en = translate_fi_en(sector_fi)
+                await self.repo.set_sector_en(sector_fi, sector_en)
+                translated += 1
+            except Exception as e:
+                logger.error("Failed to translate sector '%s': %s", sector_fi, e)
+                skipped += 1
+
+        await self.session.commit()
+        return {"unique_sectors": len(unique_sectors), "translated": translated, "skipped": skipped}
+    
     def _result(
         self,
         act_key: str | None,

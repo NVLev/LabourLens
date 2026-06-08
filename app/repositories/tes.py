@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -188,3 +188,21 @@ class TesRepository:
             .where(null_col.is_(None))
         )
         return list(result.scalars().all())
+
+    async def get_distinct_untranslated_sectors(self) -> list[str]:
+        """Уникальные sector_fi где sector_en IS NULL."""
+        result = await self.session.execute(
+            select(Agreement.sector_fi)
+            .where(Agreement.sector_fi.is_not(None))
+            .where(Agreement.sector_en.is_(None))
+            .distinct()
+        )
+        return [row[0] for row in result.all()]
+
+    async def set_sector_en(self, sector_fi: str, sector_en: str) -> None:
+        """Заполняет sector_en для всех agreements с данным sector_fi."""
+        await self.session.execute(
+            update(Agreement)
+            .where(Agreement.sector_fi == sector_fi)
+            .values(sector_en=sector_en)
+        )
