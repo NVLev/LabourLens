@@ -20,6 +20,10 @@ class TesRepository:
         result = await self.session.execute(select(Union).where(Union.key == key))
         return result.scalar_one_or_none()
 
+    async def get_all_unions(self) -> list[Union] | None:
+        result = await self.session.execute(select(Union))
+        return list(result.scalars().all())
+
     def add_union(self, union: Union) -> None:
         self.session.add(union)
 

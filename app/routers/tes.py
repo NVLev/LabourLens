@@ -62,7 +62,23 @@ async def fix_agreement_sectors(
         "cleaned": cleaned,
         "total": len(agreements),
     }
-
+@router.get("/unions", summary="List all current unions")
+async def list_agreements(
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    """
+    Список порталов профсоюзов.
+    """
+    repo = TesRepository(session)
+    unions = await repo.get_all_unions()
+    return [
+        {
+            "key": u.key,
+            "name_fi": u.name_fi,
+            "website": u.website,
+        }
+        for u in unions
+    ]
 
 @router.get("/agreements", summary="List all current agreements")
 async def list_agreements(
