@@ -58,9 +58,8 @@ class InterpretationRepository:
             query = query.where(
                 or_(
                     Interpretation.sector_fi == sector_fi,
-                    Interpretation.sector_fi == null(),
                     Interpretation.source == "tyosuojelu",
-    )
+                )
             )
         result = await self.session.execute(query)
         return list(result.scalars().all())
