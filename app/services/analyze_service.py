@@ -6,6 +6,7 @@ from app.repositories.interpretations import InterpretationRepository
 from app.repositories.laws import LawRepository
 from app.repositories.topics import TopicRepository
 from app.services.faq_service import FaqService
+from app.application.sector_mapping import SECTOR_GROUPS
 
 logger = logging.getLogger(__name__)
 
@@ -69,9 +70,13 @@ class AnalyzeService:
         ]
 
         # 2. Интерпретации (tyosuojelu + профсоюзы, фильтр по sector_fi)
-        sector_fi = user_input.get("sector_fi")
+        sector_group = user_input.get("sector_group")
+        sector_list = None
+        if sector_group:
+            sector_list = SECTOR_GROUPS.get(sector_group)
+        # sector_fi = user_input.get("sector_fi")
         interpretations = await self.interpretation_repo.get_by_topic_key_filtered(
-            topic_key, sector_fi=sector_fi
+            topic_key, sector_fi_list= sector_list
         )
         interpretation_data = [
             {

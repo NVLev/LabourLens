@@ -47,17 +47,17 @@ class InterpretationRepository:
     async def get_by_topic_key_filtered(
             self,
             topic_key: str,
-            sector_fi: str | None = None,
+            sector_fi_list: list[str] | None,
     ) -> list[Interpretation]:
         query = (
             select(Interpretation)
             .join(Topic)
             .where(Topic.key == topic_key)
         )
-        if sector_fi:
+        if sector_fi_list:
             query = query.where(
                 or_(
-                    Interpretation.sector_fi == sector_fi,
+                    Interpretation.sector_fi.in_(sector_fi_list),
                     Interpretation.source == "tyosuojelu",
                 )
             )
