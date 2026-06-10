@@ -282,3 +282,82 @@ TOPICS: list[TopicSeed] = [
         "section_refs": [],
     },
 ]
+
+TOPIC_LABELS: dict[str, str] = {
+    # Contract & basics
+    "contract_types": "Contract types",
+    "probation_period": "Probation period",
+    "employer_obligations": "Employer obligations",
+    "employee_obligations": "Employee obligations",
+    # Work hours
+    "working_hours": "Working hours",
+    "overtime": "Overtime",
+    "night_and_sunday_work": "Night & Sunday work",
+    "working_hours_reduction": "Hours reduction (Pekkas)",
+    # Leave
+    "annual_leave": "Annual leave",
+    "holiday_pay": "Holiday pay",
+    "parental_leave": "Parental & family leave",
+    # Pay
+    "wages": "Wages & salary",
+    "min_wage": "Minimum wage",
+    "expense_reimbursement": "Expense reimbursement",
+    # Dismissal
+    "dismissal_grounds": "Grounds for dismissal",
+    "notice_period": "Notice period",
+    "dismissal_protection": "Dismissal protection",
+    "layoff": "Temporary layoff",
+    # Workplace
+    "sick_leave": "Sick leave & pay",
+    "workplace_safety": "Workplace safety",
+    "discrimination": "Discrimination",
+    "warning": "Written warning",
+    "work_certificate": "Work certificate",
+    # Union & agreements
+    "shop_steward": "Shop steward",
+    "safety_representative": "Safety representative",
+    "local_agreement": "Local agreement",
+}
+
+TOPIC_CATEGORIES: list[tuple[str, list[str]]] = [
+    ("📄 Contract & basics", [
+        "contract_types",
+        "probation_period",
+        "employer_obligations",
+        "employee_obligations",
+    ]),
+    ("⏰ Work hours", [
+        "working_hours",
+        "overtime",
+        "night_and_sunday_work",
+        "working_hours_reduction",
+    ]),
+    ("🏖️ Leave", [
+        "annual_leave",
+        "holiday_pay",
+        "parental_leave",
+    ]),
+    ("💰 Pay", [
+        "wages",
+        "min_wage",
+        "expense_reimbursement",
+    ]),
+    ("⚖️ Dismissal", [
+        "dismissal_grounds",
+        "notice_period",
+        "dismissal_protection",
+        "layoff",
+    ]),
+    ("🏢 Workplace", [
+        "sick_leave",
+        "workplace_safety",
+        "discrimination",
+        "warning",
+        "work_certificate",
+    ]),
+    ("🤝 Union & agreements", [
+        "shop_steward",
+        "safety_representative",
+        "local_agreement",
+    ]),
+]

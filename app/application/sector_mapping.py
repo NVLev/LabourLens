@@ -59,7 +59,7 @@ SECTOR_GROUPS = {
         "Yksityisen opetusalan hallinto-ja tukipalveluhenkilöstön",
     ],
 
-    "church and culture": [
+    "church_culture": [
         "Evankelisluterilainen kirkko",
         "Ortodoksinen kirkko, työehtosopimukset",
         "Kristilliset järjestöt, virka- ja työehtosopimukset",
@@ -75,7 +75,77 @@ SECTOR_GROUPS = {
             "Huvi-, teema-elämyspuistoja",
         ],
 
-    "parks": [
-            "Huvi-, teema-elämyspuistoja",
-        ],
+}
+
+GROUP_LABELS: dict[str, str] = {
+    "healthcare": "🏥 Healthcare & Social Services",
+    "construction": "🏗️ Construction & Infrastructure",
+    "retail_services": "🛒 Retail & Hospitality",
+    "industry": "🏭 Manufacturing & Industry",
+    "transport_logistics": "🚛 Transport & Logistics",
+    "education_public": "🎓 Education & Public Sector",
+    "church_culture": "🎭 Church, Culture & Arts",
+    "sport": "⚽ Sports & Recreation",
+}
+
+SECTOR_LABELS_EN: dict[str, str] = {
+    # Healthcare
+    "Sosiaali- ja terveydenhuolto": "Social & healthcare",
+    "Hyvinvointiala, yleinen": "Wellbeing services (general)",
+    "Lääkärit": "Physicians",
+    # Construction
+    "Rakennusalan": "Construction",
+    "Infra-ala": "Infrastructure",
+    "Talotekniikka-alan LVI-toimiala": "HVAC & building services",
+    "Rakennustuote-teollisuuden": "Building products",
+    "Viher- ja ympäristörakentamisala": "Landscaping & environmental construction",
+    "Maalausalan ja lattianpäällystysalan": "Painting & flooring",
+    # Retail & Hospitality
+    "Kaupan": "Trade",
+    "Vähittäiskaupan": "Retail trade",
+    "Matkailu-, ravintola- ja vapaa-ajan palveluita": "Tourism, restaurants & leisure",
+    "Asiakaspalvelu-telemarkkinointialaa": "Customer service & telemarketing",
+    "Jakeluala": "Distribution",
+    "Suorajakelua": "Direct delivery",
+    "Muuttopalvelualaa": "Moving services",
+    # Industry
+    "Teknologiateollisuuden": "Technology industry",
+    "Kemian perusteollisuuden": "Chemical industry",
+    "Muovituote-teollisuuden ja kemian tuoteteollisuuden": "Plastics & chemical products",
+    "Kumiteollisuuden työntekijöitä": "Rubber industry",
+    "Lasikeraamisen teollisuuden": "Glass & ceramics",
+    "Hirsitaloteollisuuden": "Log house industry",
+    "Puusepänteollisuuden": "Woodworking",
+    "Tekstiili- ja muotiala": "Textiles & fashion",
+    "Tekstiilihuoltoala": "Textile maintenance",
+    "Harja- ja sivellinalojen": "Brush & paint roller industry",
+    "Kenkä- ja nahkateollisuuden": "Footwear & leather",
+    "Jalometallialan": "Precious metals",
+    "Malmikaivosten": "Mining",
+    "Turvetuotantoalan": "Peat production",
+    "Öljy-, maakaasu-ja petrokemian teollisuuden": "Oil, gas & petrochemicals",
+    # Transport & Logistics
+    "Kaupan logistiikan": "Retail logistics",
+    "Autoalan kaupan ja korjaamotoiminnan": "Automotive trade & repair",
+    "Autonrengasala": "Tyre industry",
+    "Metsäkoneala": "Forestry machinery",
+    "Tekninen huolto ja kunnossapito": "Technical maintenance",
+    # Education & Public
+    "Kunta-ala, yleinen": "Municipal sector",
+    "Opetusala": "Education",
+    "Opetusala, tuntipalkkaiset": "Education (hourly-paid)",
+    "Yliopistoala": "Universities",
+    "Ammatillisten aikuiskoulutuskeskusten hallinto-ja tukipalveluhenkilöstön": "Vocational adult education — admin & support",
+    "Yksityisen opetusalan hallinto-ja tukipalveluhenkilöstön": "Private education — admin & support",
+    # Church, Culture & Arts
+    "Evankelisluterilainen kirkko": "Evangelical Lutheran Church",
+    "Ortodoksinen kirkko, työehtosopimukset": "Orthodox Church",
+    "Kristilliset järjestöt, virka- ja työehtosopimukset": "Christian organisations",
+    "Kansallisteatteri": "National Theatre",
+    "Muusikot": "Musicians",
+    "Näyttelijät": "Actors",
+    # Sport & Recreation
+    "Golf-ala": "Golf",
+    "Hiihtokeskusalan": "Ski resorts",
+    "Huvi-, teema-elämyspuistoja": "Amusement & theme parks",
 }
