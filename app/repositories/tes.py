@@ -110,10 +110,6 @@ class TesRepository:
     def add_clause(self, clause: TesClause) -> None:
         self.session.add(clause)
 
-    async def get_all_unions(self) -> list[Union]:
-        result = await self.session.execute(select(Union))
-        return list(result.scalars().all())
-
     async def get_all_agreements(
         self,
         current_only: bool = True,
