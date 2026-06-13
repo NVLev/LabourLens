@@ -65,7 +65,7 @@ def contract_type_keyboard() -> InlineKeyboardMarkup:
         ("📋 Fixed-term", "fixed"),
     ]
     for label, data in types:
-        builder.button(text=label, callback_data=f"types:{data}")
+        builder.button(text=label, callback_data=f"employment:{data}")
     builder.button(text="⏭️ Skip", callback_data="back:sector")
     builder.adjust(2)
     return builder.as_markup()
@@ -81,7 +81,7 @@ def tenure_keyboard() -> InlineKeyboardMarkup:
         ("12+ years", "144"),
     ]
     for label, data in periods:
-        builder.button(text=label, callback_data=f"periods:{data}")
+        builder.button(text=label, callback_data=f"tenure:{data}")
     builder.button(text="⏭️ Skip", callback_data="skip:details")
     builder.adjust(2)
     return builder.as_markup()
@@ -93,7 +93,7 @@ def salary_type_keyboard() -> InlineKeyboardMarkup:
         ("Hourly", "hourly")
     ]
     for label, data in salaries:
-        builder.button(text=label, callback_data=f"salaries:{data}")
+        builder.button(text=label, callback_data=f"salary:{data}")
     builder.button(text="⏭️ Skip", callback_data="skip:details")
     builder.adjust(2)
     return builder.as_markup()
