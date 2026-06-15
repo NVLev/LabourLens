@@ -35,6 +35,7 @@ def sector_choosing_keyboard(group_key: str) -> InlineKeyboardMarkup:
     for sector_fi in SECTOR_GROUPS.get(group_key, []):
         label = SECTOR_LABELS_EN.get(sector_fi, sector_fi)
         builder.button(text=label, callback_data=f"sector:{sector_fi}")
+    builder.button(text="🔍 Other / Not sure", callback_data="group:ANY")
     builder.button(text="⬅️ Back", callback_data="back:group")
     builder.adjust(2)
     return builder.as_markup()
