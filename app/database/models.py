@@ -301,6 +301,7 @@ class FaqRule(Base):
     # {"employment_type": "fixed", "tenure_months": {"lt": 6}}
     answer_en: Mapped[str] = mapped_column(Text, nullable=False)
     answer_ru: Mapped[Optional[str]] = mapped_column(Text)
+    answer_fi: Mapped[Optional[str]] = mapped_column(Text)
     priority: Mapped[int] = mapped_column(SmallInteger, default=0)
 
     topic: Mapped["Topic"] = relationship(back_populates="faq_rules")

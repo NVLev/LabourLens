@@ -31,9 +31,11 @@ class FaqRuleSeed(TypedDict):
     conditions: dict
     answer_en: str
     answer_ru: str
+    answer_fi:str
     priority: int
     section_refs: list[SectionRefSeed]
-
+    priority: int
+    section_refs: list[SectionRefSeed]
 
 FAQ_RULES: list[FaqRuleSeed] = [
 
@@ -58,6 +60,11 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "если трудовые отношения длились менее 1 года, работодатель обязан "
             "уведомить работника об увольнении не менее чем за 14 дней."
         ),
+        "answer_fi": (
+            "Työsopimuslain 6 luvun 3 §:n mukaan, kun työsuhde on kestänyt alle "
+            "vuoden, työnantajan on irtisanomisaikana noudatettava vähintään "
+            "14 päivän irtisanomisaikaa ennen työsopimuksen päättämistä."
+        ),
         "priority": 50,
         "section_refs": [
             {"act": "tyosopimuslaki", "chapter": 6, "section": 3},
@@ -77,6 +84,11 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "Согласно главе 6 § 3 Закона о трудовых договорах, "
             "при стаже от 1 года до 4 лет работодатель обязан уведомить "
             "об увольнении не менее чем за 1 месяц."
+        ),
+        "answer_fi": (
+            "Työsopimuslain 6 luvun 3 §:n mukaan, kun työsuhde on kestänyt "
+            "vähintään vuoden mutta alle 4 vuotta, työnantajan on noudatettava "
+            "vähintään 1 kuukauden irtisanomisaikaa."
         ),
         "priority": 50,
         "section_refs": [
@@ -98,6 +110,11 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "при стаже от 4 до 8 лет работодатель обязан уведомить "
             "об увольнении не менее чем за 2 месяца."
         ),
+        "answer_fi": (
+            "Työsopimuslain 6 luvun 3 §:n mukaan, kun työsuhde on kestänyt "
+            "vähintään 4 vuotta mutta alle 8 vuotta, työnantajan on noudatettava "
+            "vähintään 2 kuukauden irtisanomisaikaa."
+        ),
         "priority": 50,
         "section_refs": [
             {"act": "tyosopimuslaki", "chapter": 6, "section": 3},
@@ -118,6 +135,11 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "при стаже от 8 до 12 лет работодатель обязан уведомить "
             "об увольнении не менее чем за 4 месяца."
         ),
+        "answer_fi": (
+            "Työsopimuslain 6 luvun 3 §:n mukaan, kun työsuhde on kestänyt "
+            "vähintään 8 vuotta mutta alle 12 vuotta, työnantajan on noudatettava "
+            "vähintään 4 kuukauden irtisanomisaikaa."
+        ),
         "priority": 50,
         "section_refs": [
             {"act": "tyosopimuslaki", "chapter": 6, "section": 3},
@@ -137,6 +159,11 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "Согласно главе 6 § 3 Закона о трудовых договорах, "
             "при стаже 12 лет и более работодатель обязан уведомить "
             "об увольнении не менее чем за 6 месяцев."
+        ),
+        "answer_fi": (
+            "Työsopimuslain 6 luvun 3 §:n mukaan, kun työsuhde on kestänyt "
+            "vähintään 12 vuotta, työnantajan on noudatettava vähintään "
+            "6 kuukauden irtisanomisaikaa."
         ),
         "priority": 50,
         "section_refs": [
@@ -159,6 +186,12 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "работник обязан уведомить работодателя об увольнении за 14 дней, "
             "если стаж менее 5 лет, и за 1 месяц, если стаж 5 лет и более. "
             "Применимый коллективный договор (TES) может устанавливать иные сроки."
+        ),
+        "answer_fi": (
+            "Työsopimuslain 6 luvun 4 §:n mukaan työntekijän irtisanomisaika on "
+            "14 päivää, jos työsuhde on kestänyt alle 5 vuotta, ja 1 kuukausi, "
+            "jos työsuhde on kestänyt vähintään 5 vuotta. Alalla sovellettava "
+            "työehtosopimus (TES) voi määrätä toisin."
         ),
         "priority": 10,
         "section_refs": [
@@ -190,6 +223,12 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "При договоре сроком менее 8 месяцев максимальный испытательный срок "
             "сокращается пропорционально."
         ),
+        "answer_fi": (
+            "Työsopimuslain 1 luvun 4 §:n mukaan määräaikaiseen työsopimukseen "
+            "voidaan sopia koeajasta, joka saa olla enintään puolet sopimuksen "
+            "kestosta, kuitenkin enintään 6 kuukautta. Jos määräaikainen sopimus "
+            "on alle 8 kuukautta, koeaika on suhteellisesti lyhyempi."
+        ),
         "priority": 20,
         "section_refs": [
             {"act": "tyosopimuslaki", "chapter": 1, "section": 4},
@@ -216,6 +255,15 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "продолжительностью не менее 4 месяцев. В период испытательного срока "
             "любая из сторон вправе расторгнуть договор без указания причин "
             "(глава 1 § 4(3))."
+        ),
+        "answer_fi": (
+            "Työsopimuslain 1 luvun 4 §:n mukaan toistaiseksi voimassa olevan "
+            "työsopimuksen koeaika on enintään 6 kuukautta. Työehtosopimuksella "
+            "(TES) voidaan pidentää koeaika enintään 8 kuukaudeksi, jos työnantaja "
+            "järjestää koeajan aikana vähintään 4 kuukautta kestävää ammatillista "
+            "koulutusta. Koeaikana kumpikin osapuoli voi purkaa työsopimuksen "
+            "ilmoittamatta siihen erityistä syytä (Työsopimuslain 1 luvun 4 §:n "
+            "3 momentti)."
         ),
         "priority": 20,
         "section_refs": [
@@ -247,6 +295,13 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "за период нетрудоспособности. По истечении 10 рабочих дней работник "
             "может иметь право на пособие по болезни Kela (sairauspäiväraha)."
         ),
+        "answer_fi": (
+            "Työsopimuslain 2 luvun 11 §:n mukaan työntekijällä, jonka työsuhde "
+            "on kestänyt alle kuukauden, ei ole oikeutta täyteen palkkaan "
+            "sairausajan palkkana. Työnantaja on velvollinen maksamaan 50 % "
+            "tavanomaisesta palkasta työkyvyttömyyden ajalta. 10 työpäivän jälkeen "
+            "työntekijällä voi olla oikeus Kelan sairauspäivärahaan."
+        ),
         "priority": 40,
         "section_refs": [
             {"act": "tyosopimuslaki", "chapter": 2, "section": 11},
@@ -274,6 +329,15 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "Законодательством не предусмотрен карентный день (karenssi), однако "
             "некоторые коллективные договоры (TES) могут его устанавливать. "
             "После 9 дней работник может подать заявку на пособие по болезни Kela."
+        ),
+        "answer_fi": (
+            "Työsopimuslain 2 luvun 11 §:n mukaan, kun työsuhde on kestänyt "
+            "vähintään kuukauden, työnantajan on maksettava täysi palkka "
+            "sairauden tai tapaturman aiheuttaman työkyvyttömyyden ajalta enintään "
+            "9 työpäivältä (työkyvyttömyyspäivä ja 8 sitä seuraavaa työpäivää). "
+            "Laissa ei ole säädetty omavastuupäivästä (karenssi), mutta jotkin "
+            "työehtosopimukset (TES) voivat määrätä siitä. 9 päivän jälkeen "
+            "työntekijä voi hakea Kelan sairauspäivärahaa."
         ),
         "priority": 30,
         "section_refs": [
@@ -306,6 +370,14 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "отработанный месяц, максимум 24 рабочих дня (4 недели) за полный "
             "отпускной год. Выходные и праздничные дни в дни отпуска не входят."
         ),
+        "answer_fi": (
+            "Vuosilomalain 2 luvun 5 §:n mukaan työntekijä, jonka työsuhde on "
+            "kestänyt alle kokonaisen vuoden lomanmääräytymisvuoden "
+            "(1.4. – 31.3.) aikana, kerryttää 2 arkipäivää vuosilomaa kutakin "
+            "täyttä työssäolokuukautta kohden, enintään 24 arkipäivää (4 viikkoa) "
+            "täydeltä lomanmääräytymisvuodelta. Viikonloppupäivät ja yleiset "
+            "vapaapäivät eivät ole lomapäiviä."
+        ),
         "priority": 30,
         "section_refs": [
             {"act": "vuosilomalaki", "chapter": 2, "section": 5},
@@ -333,6 +405,15 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "максимум 30 рабочих дней (5 недель) за полный отпускной год. "
             "Выходные и праздничные дни в дни отпуска не входят. "
             "Коллективный договор (TES) может предусматривать дополнительные дни."
+        ),
+        "answer_fi": (
+            "Vuosilomalain 2 luvun 5 §:n mukaan työntekijä, jonka työsuhde on "
+            "kestänyt vähintään kokonaisen vuoden lomanmääräytymisvuoden "
+            "(31.3.) loppuun mennessä, kerryttää 2,5 arkipäivää vuosilomaa kutakin "
+            "täyttä työssäolokuukautta kohden, enintään 30 arkipäivää (5 viikkoa) "
+            "täydeltä lomanmääräytymisvuodelta. Viikonloppupäivät ja yleiset "
+            "vapaapäivät eivät ole lomapäiviä. Työehtosopimus (TES) voi määrätä "
+            "lisälomapäivistä."
         ),
         "priority": 30,
         "section_refs": [
@@ -367,6 +448,14 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "от отпускных, если это предусмотрено применимым коллективным "
             "договором (TES). Закон не обязывает выплачивать lomaraha."
         ),
+        "answer_fi": (
+            "Vuosilomalain 3 luvun 9 §:n mukaan työntekijälle, jolla on kiinteä "
+            "kuukausipalkka, lomapalkka on tavanomainen kuukausipalkka. Palkkaa "
+            "ei alenneta vuosiloman aikana. Lisäksi 16 §:n mukaan työntekijällä "
+            "on oikeus lomarahaan, joka on 50 % lomapalkasta, jos se on määrätty "
+            "sovellettavassa työehtosopimuksessa (TES). Lomaraha ei ole laissa "
+            "säädetty pakollinen."
+        ),
         "priority": 20,
         "section_refs": [
             {"act": "vuosilomalaki", "chapter": 3, "section": 9},
@@ -393,6 +482,15 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "31 марта): 9% при стаже менее 1 года или 11,5% при стаже не менее "
             "1 года. В базу расчёта включается весь заработок, но не включается "
             "надбавка за сверхурочную работу сверх базовой ставки."
+        ),
+        "answer_fi": (
+            "Vuosilomalain 3 luvun 10 §:n mukaan työntekijälle, jonka palkka "
+            "vaihtelee (tuntipalkka, urakkapalkka jne.), lomapalkka lasketaan "
+            "prosenttiosuutena lomanmääräytymisvuoden (1.4. – 31.3.) aikana "
+            "ansaitusta kokonaispalkasta: 9 %, jos työsuhde on kestänyt alle "
+            "vuoden, tai 11,5 %, jos työsuhde on kestänyt vähintään vuoden. "
+            "Laskentaperusteeseen sisältyvät kaikki palkat, mutta ei ylityökorvauksia "
+            "peruspalkan lisäksi."
         ),
         "priority": 20,
         "section_refs": [
@@ -422,6 +520,15 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "выплачиваемую при уходе в отпуск или при выходе из него. "
             "При отсутствии TES и индивидуального соглашения работодатель не "
             "обязан её выплачивать."
+        ),
+        "answer_fi": (
+            "Lomaraha (tai lomaltapaluuraha) ei ole Suomessa laissa säädetty "
+            "pakollinen etuus. Se maksetaan vain, jos se on määrätty alalla "
+            "sovellettavassa työehtosopimuksessa (TES). Käytännössä useimmat TES "
+            "määräävät lomarahaksi 50 % lomapalkasta, maksettavaksi yleensä loman "
+            "alkaessa tai lomalta palattaessa. Jos TES ei ole sovellettavissa eikä "
+            "yksilöllistä sopimusta ole, työnantaja ei ole velvollinen maksamaan "
+            "lomarahaa."
         ),
         "priority": 10,
         "section_refs": [
@@ -457,6 +564,14 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "постоянных работников, которые могут быть ломаутированы на общих "
             "основаниях главы 5 § 2."
         ),
+        "answer_fi": (
+            "Työsopimuslain 5 luvun 2 §:n mukaan määräaikaisessa työsuhteessa "
+            "oleva työntekijä voidaan lomauttaa ainoastaan, jos tästä oikeudesta "
+            "on nimenomaisesti määrätty sovellettavassa työehtosopimuksessa (TES). "
+            "Ilman tällaista TES:n määräystä määräaikaista työntekijää ei voida "
+            "lomauttaa. Tämä eroaa toistaiseksi voimassa olevista työntekijöistä, "
+            "jotka voidaan lomauttaa 5 luvun 2 §:n yleisten edellytysten mukaisesti."
+        ),
         "priority": 30,
         "section_refs": [
             {"act": "tyosopimuslaki", "chapter": 5, "section": 2},
@@ -487,6 +602,16 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "ломаутусе не менее чем за 5 календарных дней. При ломаутусе "
             "продолжительностью более 90 дней работник вправе расторгнуть договор "
             "с уведомлением за 7 дней (глава 5 § 7)."
+        ),
+        "answer_fi": (
+            "Työsopimuslain 5 luvun 2 §:n mukaan toistaiseksi voimassa oleva "
+            "työntekijä voidaan lomauttaa tilapäisesti, jos työnantajan työntarve "
+            "on vähentynyt tilapäisesti taloudellisista tai tuotannollisista syistä "
+            "eikä työnantaja voi kohtuudella järjestää muuta työtä tai koulutusta. "
+            "5 luvun 4 §:n mukaan työnantajan on ilmoitettava lomautuksesta "
+            "työntekijälle vähintään 5 kalenteripäivää ennen lomautuksen alkamista. "
+            "Yli 90 päivää kestäneen lomautuksen aikana työntekijällä on oikeus "
+            "irtisanoutua 7 päivän irtisanomisajalla (5 luvun 7 §)."
         ),
         "priority": 20,
         "section_refs": [
@@ -524,6 +649,16 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "если иное прямо не предусмотрено применимым коллективным "
             "договором (TES)."
         ),
+        "answer_fi": (
+            "Työsopimuslain 7 luvun 1 §:n mukaan määräaikainen työsopimus voidaan "
+            "päättää ennen sen päättymispäivää ainoastaan osapuolten yhteisellä "
+            "sopimuksella tai työntekijän erittäin vakavan rikkomuksen perusteella, "
+            "joka oikeuttaisi sopimuksen purkamiseen 8 luvun 1 §:n mukaisesti. "
+            "Tavallinen irtisanominen taloudellisilla tai tuotannollisilla "
+            "perusteilla ei ole sallittu määräaikaisissa sopimuksissa, ellei "
+            "oikeudesta ole nimenomaisesti määrätty sovellettavassa "
+            "työehtosopimuksessa (TES)."
+        ),
         "priority": 30,
         "section_refs": [
             {"act": "tyosopimuslaki", "chapter": 7, "section": 1},
@@ -559,6 +694,17 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "трудовых спорах, выражение мнения или реализация законных прав "
             "(§ 2(2))."
         ),
+        "answer_fi": (
+            "Työsopimuslain 7 luvun 2 §:n mukaan työnantaja voi irtisanoa "
+            "toistaiseksi voimassa olevan työsopimuksen henkilökohtaisella "
+            "perusteella ainoastaan, jos siihen on asiallinen ja painava syy. "
+            "Tällaisia syitä ovat muun muassa työsopimusvelvoitteiden vakava tai "
+            "toistuva rikkominen, työtehtävien jatkuva laiminlyönti kirjallisen "
+            "varoituksen jälkeen tai vaaditun ammatillisen pätevyyden menettäminen. "
+            "Päteviä syitä eivät ole sairaus (ellei se aiheuta pysyvää ja "
+            "olennaista työkyvyn alentumista), osallistuminen työtaisteluun, "
+            "mielipiteen ilmaisu tai lakisääteisten oikeuksien käyttö (2 §:n 2 mom.)."
+        ),
         "priority": 20,
         "section_refs": [
             {"act": "tyosopimuslaki", "chapter": 7, "section": 2},
@@ -591,6 +737,18 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "трудоустроить уволенного работника в течение 9 месяцев (4 месяца "
             "при стаже менее 12 лет), если откроется вакансия на аналогичную "
             "или схожую работу."
+        ),
+        "answer_fi": (
+            "Työsopimuslain 7 luvun 3 §:n mukaan työnantaja voi irtisanoa "
+            "työsopimuksen taloudellisilla, tuotannollisilla tai "
+            "uudelleenjärjestelyperusteilla, jos tarjolla oleva työ on vähentynyt "
+            "pysyvästi ja olennaisesti. Irtisanominen ei ole sallittua, jos "
+            "työnantaja on palkannut tai aikoo palkata toisen työntekijän "
+            "vastaaviin tehtäviin tai jos työn väheneminen on tilapäistä. "
+            "6 §:n mukaan työnantajan on työsuhde-etuoikeuden perusteella "
+            "tarjottava irtisanotulle työntekijälle uudelleen työtä 9 kuukauden "
+            "kuluessa (4 kuukautta, jos työsuhde kesti alle 12 vuotta), jos "
+            "samaa tai samankaltaista työtä koskeva tehtävä avautuu."
         ),
         "priority": 10,
         "section_refs": [
@@ -628,6 +786,16 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "(сравнимы с расторжением по главе 8). Бремя доказывания отсутствия "
             "осведомлённости лежит на работодателе."
         ),
+        "answer_fi": (
+            "Työsopimuslain 7 luvun 9 §:n mukaan työnantaja ei saa irtisanoa "
+            "raskaus- tai vanhempainvapaalla olevan työntekijän sopimusta "
+            "taloudellisilla tai tuotannollisilla perusteilla. Irtisanominen "
+            "henkilökohtaisilla perusteilla on sallittua ainoastaan, jos "
+            "työnantaja ei ole tiennyt raskaudesta tai vanhempainvapaasta tai jos "
+            "perusteet ovat erittäin vakavat (verrattavissa 8 luvun mukaiseen "
+            "purkamiseen). Todistustaakka siitä, ettei työnantaja ole tiennyt, "
+            "on työnantajalla."
+        ),
         "priority": 30,
         "section_refs": [
             {"act": "tyosopimuslaki", "chapter": 7, "section": 9},
@@ -659,6 +827,16 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "Усиленная защита действует в течение срока полномочий и "
             "6 месяцев после его окончания."
         ),
+        "answer_fi": (
+            "Työsopimuslain 7 luvun 10 §:n mukaan luottamusmies tai valittu "
+            "työntekijäedustaja voidaan irtisanoa taloudellisilla tai "
+            "tuotannollisilla perusteilla ainoastaan, jos hänen työnsä lakkaa "
+            "kokonaan eikä työnantaja voi tarjota hänelle muuta sopivaa työtä tai "
+            "järjestää uudelleenkoulutusta. Henkilökohtaisilla perusteilla "
+            "irtisanominen edellyttää edustettavien työntekijöiden enemmistön "
+            "suostumusta. Tämä korotettu suoja on voimassa luottamusmiehen "
+            "toimikauden ajan ja 6 kuukautta sen päättymisen jälkeen."
+        ),
         "priority": 30,
         "section_refs": [
             {"act": "tyosopimuslaki", "chapter": 7, "section": 10},
@@ -686,6 +864,15 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "средством защиты по финскому праву — вместо него присуждается "
             "денежная компенсация. Требования должны быть предъявлены в течение "
             "2 лет с момента прекращения трудовых отношений (глава 13 § 9)."
+        ),
+        "answer_fi": (
+            "Työsopimuslain 7 luvun 11 §:n mukaan, jos työnantaja on irtisanonut "
+            "työsopimuksen ilman asiallista ja painavaa syytä, työntekijällä on "
+            "oikeus saada vähintään 3 kuukauden ja enintään 24 kuukauden palkkaa "
+            "vastaava hyvitys ottaen huomioon olosuhteet. Takaisinpalaaminen "
+            "työhön ei ole Suomen lain ensisijainen oikeuskeino, vaan sen sijaan "
+            "myönnetään rahallinen korvaus. Vaateet on esitettävä 2 vuoden "
+            "kuluessa työsuhteen päättymisestä (13 luvun 9 §)."
         ),
         "priority": 10,
         "section_refs": [
@@ -727,6 +914,18 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "работника, если иное не предусмотрено коллективным договором (TES). "
             "Годовой максимум сверхурочных составляет 138 часов, "
             "который может быть увеличен до 250 часов коллективным договором (§ 18)."
+        ),
+        "answer_fi": (
+            "Työaikalain 5 luvun 20 §:n mukaan ylityökorvaukset ovat seuraavat: "
+            "päivittäisestä ylityöstä ensimmäisiltä 2 tunnilta maksetaan 150 %:a "
+            "tavanomaisesta tuntipalkasta ja seuraavilta tunneilta 200 %:a. "
+            "Viikoittaisesta ylityöstä (sovittua viikoittaista työaikaa ylittävät "
+            "tunnit, jotka eivät ole päivittäistä ylityötä) ensimmäisiltä "
+            "8 tunnilta maksetaan 150 %:a ja seuraavilta tunneilta 200 %:a. "
+            "16 §:n mukaan ylityö edellyttää työntekijän suostumusta jokaista "
+            "ylitystapausta kohden, ellei työehtosopimuksessa (TES) ole toisin "
+            "sovittu. Ylityön vuosimaksimi on 138 tuntia, joka voidaan "
+            "työehtosopimuksella pidentää 250 tuntiin (18 §)."
         ),
         "priority": 10,
         "section_refs": [
@@ -771,6 +970,19 @@ FAQ_RULES: list[FaqRuleSeed] = [
             "обязан предложить сравнимую работу, соответствующую квалификации "
             "работника. Согласно главе 7 § 9, увольнение в период декретного "
             "отпуска по финансовым или производственным основаниям запрещено."
+        ),
+        "answer_fi": (
+            "Työsopimuslain 4 luvun 1 §:n mukaan työntekijällä on oikeus "
+            "raskausvapaaseen, vanhempainvapaaseen ja hoitovapaaseen "
+            "sairausvakuutuslain mukaisesti. Työntekijän on ilmoitettava "
+            "työnantajalle suunnitellusta vapaasta vähintään 2 kuukautta ennen "
+            "sen alkamista. "
+            "4 luvun 2 §:n mukaan työntekijällä on oikeus palata aikaisempaan "
+            "tehtäväänsä vanhempainvapaan jälkeen. Jos tämä ei ole mahdollista, "
+            "työnantajan on tarjottava verrattavaa työtä, joka vastaa työntekijän "
+            "ammatillista pätevyyttä. "
+            "7 luvun 9 §:n mukaan irtisanominen vanhempainvapaan aikana "
+            "taloudellisilla tai tuotannollisilla perusteilla on kielletty."
         ),
         "priority": 10,
         "section_refs": [

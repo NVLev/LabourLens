@@ -121,12 +121,21 @@ def shop_steward_bool_keyboard() -> InlineKeyboardMarkup:
 def showing_result_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text="🇷🇺 Show in Russian", callback_data="show:ru")
+    builder.button(text="🇫🇮 Show in Finnish", callback_data="show:fi")
     builder.button(text="🔄 New search", callback_data="back:main_menu")
     builder.adjust(2)
     return builder.as_markup()
 
 def showing_result_ru_keyboard()-> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
+    builder.button(text="🇫🇮 Show in Finnish", callback_data="show:fi")
     builder.button(text="🔄 New search", callback_data="back:main_menu")
-    builder.adjust(1)
+    builder.adjust(2)
+    return builder.as_markup()
+
+def showing_result_fi_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🇷🇺 Show in Russian", callback_data="show:ru")
+    builder.button(text="🔄 New search", callback_data="back:main_menu")
+    builder.adjust(2)
     return builder.as_markup()

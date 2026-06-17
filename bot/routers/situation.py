@@ -252,7 +252,7 @@ async def show_result_ru(callback:CallbackQuery, state:FSMContext):
         if result is None:
             await callback.message.edit_text(
                 "Извините, по этой теме нет результатов на русском языке",
-                reply_markup=showing_result_keyboard(),
+                reply_markup=showing_result_ru_keyboard(),
             )
             return
     except Exception as e:
@@ -267,7 +267,7 @@ async def show_result_ru(callback:CallbackQuery, state:FSMContext):
     await callback.message.edit_text(format_result_ru(result, topic_key))
 
     if result["interpretations"]:
-        interp_text = "📋 <b>Additional guidance:</b>\n\n"
+        interp_text = "📋 <b>Дополнительная информация:</b>\n\n"
         for i in result["interpretations"]:
             if i["text_ru"]:
                 interp_text += f"<b>{i['source']}:</b>\n{i['text_ru']}\n\n"
@@ -275,7 +275,7 @@ async def show_result_ru(callback:CallbackQuery, state:FSMContext):
 
     await callback.message.answer(
         "Was this helpful? 👇",
-        reply_markup=showing_result_keyboard(),
+        reply_markup=showing_result_ru_keyboard(),
     )
     await state.set_state(SituationStates.showing_result)
 
@@ -284,6 +284,60 @@ async def show_result_ru(callback:CallbackQuery, state:FSMContext):
 async def show_in_russian(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await show_result_ru(callback, state)
+
+@router.callback_query(F.data == "show:fi")
+async def show_in_finnish(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await show_result_fi(callback, state)
+
+async def show_result_fi(callback:CallbackQuery, state:FSMContext):
+    data = await state.get_data()
+    user_input = {
+        "sector_group": data.get("group"),
+        "sector_fi": data.get("sector"),
+        "employment_type": data.get("employment_type"),
+        "tenure_months": data.get("tenure_months"),
+        "salary_type": data.get("salary"),
+        "on_parental_leave": data.get("parental_leave"),
+        "is_shop_steward": data.get("shop_steward"),
+    }
+    topic_key = data.get("topic_key")
+    logger.info("User %s requesting result in Finnish for topic: %s", callback.from_user.id, topic_key)
+
+    try:
+        async with db_helper.session_factory() as session:
+            service = AnalyzeService(session)
+            result = await service.analyze(topic_key, user_input)
+
+        if result is None:
+            await callback.message.edit_text(
+                "Valitettavasti aiheesta ei löytynyt vielä tietoja.",
+                reply_markup=showing_result_ru_keyboard(),
+            )
+            return
+    except Exception as e:
+        logger.error("AnalyzeService failed for user %s, topic %s: %s",
+                     callback.from_user.id, topic_key, e, exc_info=True)
+        await callback.message.answer(
+            "Jotain meni pieleen. Yritä uudelleen.",
+            reply_markup=showing_result_ru_keyboard(),
+        )
+        return
+
+    await callback.message.edit_text(format_result_fi(result, topic_key))
+
+    if result["interpretations"]:
+        interp_text = "📋 <b>Lisäohjeita:</b>\n\n"
+        for i in result["interpretations"]:
+            if i["text_fi"]:
+                interp_text += f"<b>{i['source']}:</b>\n{i['text_fi']}\n\n"
+        await callback.message.answer(interp_text)
+
+    await callback.message.answer(
+        "Was this helpful? 👇",
+        reply_markup=showing_result_ru_keyboard(),
+    )
+    await state.set_state(SituationStates.showing_result)
 
 def format_result(result: dict, topic_key: str) -> str:
     header = TOPIC_LABELS[topic_key]
@@ -315,6 +369,23 @@ def format_result_ru(result: dict, topic_key: str) -> str:
         f"⚖️ <b>{header}</b>",
         "",
         "<b>Юридическая консультация:</b>",
+        body,
+    ]
+    return "\n".join(lines)
+
+def format_result_fi(result: dict, topic_key: str) -> str:
+    header = TOPIC_LABELS[topic_key]
+    if result["answer_fi"]:
+        body = result["answer_fi"]
+    elif result["law"]:
+        paragraphs = result["law"][0]["paragraphs"]
+        body = "\n".join(p["fi"] for p in paragraphs if p["fi"])
+    else:
+        body = "Lisäohjeita: ↓"
+    lines = [
+        f"⚖️ <b>{header}</b>",
+        "",
+        "<b>Oikeudellinen vastaus:</b>",
         body,
     ]
     return "\n".join(lines)

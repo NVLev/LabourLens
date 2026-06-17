@@ -98,5 +98,6 @@ class AnalyzeService:
             "interpretations": interpretation_data,
             "answer_en": rule.answer_en if rule else None,
             "answer_ru": rule.answer_ru if rule else None,
+            "answer_fi": rule.answer_fi if rule else None,
             "matched_rule_id": rule.id if rule else None,
         }
