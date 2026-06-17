@@ -4,11 +4,11 @@ from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from app.application.seeds.topic_map import TOPIC_LABELS
+from app.application.seeds.topic_map import TOPIC_LABELS, SECTOR_KEYS, SECTOR_KEYS_REVERSE
 from app.services.analyze_service import AnalyzeService
 from bot.keyboards import salary_type_keyboard, contract_type_keyboard, group_choosing_keyboard, parental_bool_keyboard, \
     sector_choosing_keyboard, choosing_topic_keyboard, tenure_keyboard, showing_result_keyboard, \
-    shop_steward_bool_keyboard, main_menu
+    shop_steward_bool_keyboard, main_menu, showing_result_ru_keyboard
 from bot.states import SituationStates
 from app.database.db_helper import db_helper
 
@@ -16,6 +16,16 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 PAGE_SIZE = 5
+
+TOPICS_NO_DETAILS = {
+    "min_wage", "wages", "expense_reimbursement",
+    "working_hours", "working_hours_reduction",
+    "overtime", "night_and_sunday_work",
+    "parental_leave", "discrimination", "workplace_safety",
+    "warning", "work_certificate", "contract_types",
+    "employer_obligations", "employee_obligations",
+    "shop_steward", "safety_representative", "local_agreement",
+}
 
 @router.message(F.text == "🧠 My situation")
 async def situation_enter(message: Message, state: FSMContext) -> None:
@@ -41,6 +51,8 @@ async def group_chosen (callback:CallbackQuery, state: FSMContext) -> None:
 @router.callback_query(SituationStates.choosing_sector, F.data.startswith("sector:"))
 async def sector_chosen (callback:CallbackQuery, state: FSMContext) -> None:
     sector_key = callback.data.split(":")[1]
+    sector_fi = SECTOR_KEYS[sector_key]
+    await state.update_data(sector=sector_fi)
     logger.info("User %s chose sector: %s", callback.from_user.id, sector_key)
     await state.update_data(sector=sector_key)
     await state.set_state(SituationStates.choosing_topic)
@@ -72,6 +84,11 @@ async def topic_chosen(callback: CallbackQuery, state: FSMContext):
             "Are you currently on parental leave?",
             reply_markup=parental_bool_keyboard()
         )
+    elif topic_key in TOPICS_NO_DETAILS:
+        await state.set_state(SituationStates.showing_result)
+        await callback.answer()
+        await show_result(callback, state)
+        return
     else:
         await state.update_data(details_step="employment_type")
         await callback.answer()
@@ -212,6 +229,62 @@ async def show_result(callback: CallbackQuery, state: FSMContext) -> None:
     )
     await state.set_state(SituationStates.showing_result)
 
+
+async def show_result_ru(callback:CallbackQuery, state:FSMContext):
+    data = await state.get_data()
+    user_input = {
+        "sector_group": data.get("group"),
+        "sector_fi": data.get("sector"),
+        "employment_type": data.get("employment_type"),
+        "tenure_months": data.get("tenure_months"),
+        "salary_type": data.get("salary"),
+        "on_parental_leave": data.get("parental_leave"),
+        "is_shop_steward": data.get("shop_steward"),
+    }
+    topic_key = data.get("topic_key")
+    logger.info("User %s requesting result in Russian for topic: %s", callback.from_user.id, topic_key)
+
+    try:
+        async with db_helper.session_factory() as session:
+            service = AnalyzeService(session)
+            result = await service.analyze(topic_key, user_input)
+
+        if result is None:
+            await callback.message.edit_text(
+                "Извините, по этой теме нет результатов на русском языке",
+                reply_markup=showing_result_keyboard(),
+            )
+            return
+    except Exception as e:
+        logger.error("AnalyzeService failed for user %s, topic %s: %s",
+                     callback.from_user.id, topic_key, e, exc_info=True)
+        await callback.message.answer(
+            "Что-то пошло не так, попробуйте снова",
+            reply_markup=showing_result_ru_keyboard(),
+        )
+        return
+
+    await callback.message.edit_text(format_result_ru(result, topic_key))
+
+    if result["interpretations"]:
+        interp_text = "📋 <b>Additional guidance:</b>\n\n"
+        for i in result["interpretations"]:
+            if i["text_ru"]:
+                interp_text += f"<b>{i['source']}:</b>\n{i['text_ru']}\n\n"
+        await callback.message.answer(interp_text)
+
+    await callback.message.answer(
+        "Was this helpful? 👇",
+        reply_markup=showing_result_keyboard(),
+    )
+    await state.set_state(SituationStates.showing_result)
+
+
+@router.callback_query(F.data == "show:ru")
+async def show_in_russian(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await show_result_ru(callback, state)
+
 def format_result(result: dict, topic_key: str) -> str:
     header = TOPIC_LABELS[topic_key]
     if result["answer_en"]:
@@ -225,6 +298,23 @@ def format_result(result: dict, topic_key: str) -> str:
         f"⚖️ <b>{header}</b>",
         "",
         "<b>Legal answer:</b>",
+        body,
+    ]
+    return "\n".join(lines)
+
+def format_result_ru(result: dict, topic_key: str) -> str:
+    header = TOPIC_LABELS[topic_key]
+    if result["answer_ru"]:
+        body = result["answer_ru"]
+    elif result["law"]:
+        paragraphs = result["law"][0]["paragraphs"]
+        body = "\n".join(p["ru"] for p in paragraphs if p["ru"])
+    else:
+        body = "Дополнительная информация ↓"
+    lines = [
+        f"⚖️ <b>{header}</b>",
+        "",
+        "<b>Юридическая консультация:</b>",
         body,
     ]
     return "\n".join(lines)

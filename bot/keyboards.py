@@ -7,7 +7,7 @@ from aiogram.types import (
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from app.application.sector_mapping import GROUP_LABELS, SECTOR_GROUPS, SECTOR_LABELS_EN
-from app.application.seeds.topic_map import TOPIC_CATEGORIES, TOPIC_LABELS
+from app.application.seeds.topic_map import TOPIC_CATEGORIES, TOPIC_LABELS, SECTOR_KEYS_REVERSE
 
 
 def main_menu() -> ReplyKeyboardMarkup:
@@ -34,7 +34,10 @@ def sector_choosing_keyboard(group_key: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for sector_fi in SECTOR_GROUPS.get(group_key, []):
         label = SECTOR_LABELS_EN.get(sector_fi, sector_fi)
-        builder.button(text=label, callback_data=f"sector:{sector_fi}")
+        builder.button(
+            text=label,
+            callback_data=f"sector:{SECTOR_KEYS_REVERSE[sector_fi]}"
+        )
     builder.button(text="🔍 Other / Not sure", callback_data="group:ANY")
     builder.button(text="⬅️ Back", callback_data="back:group")
     builder.adjust(2)
@@ -120,4 +123,10 @@ def showing_result_keyboard() -> InlineKeyboardMarkup:
     builder.button(text="🇷🇺 Show in Russian", callback_data="show:ru")
     builder.button(text="🔄 New search", callback_data="back:main_menu")
     builder.adjust(2)
+    return builder.as_markup()
+
+def showing_result_ru_keyboard()-> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🔄 New search", callback_data="back:main_menu")
+    builder.adjust(1)
     return builder.as_markup()
