@@ -5,8 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.application.seeds.faq_rules import FAQ_RULES
 from app.database.models import FaqRule, FaqSectionRef
 from app.repositories.faq import FaqRepository
-from app.repositories.topics import TopicRepository
 from app.repositories.laws import LawRepository
+from app.repositories.topics import TopicRepository
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +111,9 @@ class FaqSeedService:
 
         logger.info(
             "FAQ seed done: %d created, %d updated, %d skipped",
-            created, updated, skipped,
+            created,
+            updated,
+            skipped,
         )
         return {
             "total": len(FAQ_RULES),

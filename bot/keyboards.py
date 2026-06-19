@@ -7,7 +7,11 @@ from aiogram.types import (
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from app.application.sector_mapping import GROUP_LABELS, SECTOR_GROUPS, SECTOR_LABELS_EN
-from app.application.seeds.topic_map import TOPIC_CATEGORIES, TOPIC_LABELS, SECTOR_KEYS_REVERSE
+from app.application.seeds.topic_map import (
+    SECTOR_KEYS_REVERSE,
+    TOPIC_CATEGORIES,
+    TOPIC_LABELS,
+)
 
 
 def main_menu() -> ReplyKeyboardMarkup:
@@ -22,6 +26,7 @@ def main_menu() -> ReplyKeyboardMarkup:
         input_field_placeholder="Choose an option...",
     )
 
+
 def group_choosing_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for key, label in GROUP_LABELS.items():
@@ -30,25 +35,24 @@ def group_choosing_keyboard() -> InlineKeyboardMarkup:
     builder.adjust(2)
     return builder.as_markup()
 
+
 def sector_choosing_keyboard(group_key: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for sector_fi in SECTOR_GROUPS.get(group_key, []):
         label = SECTOR_LABELS_EN.get(sector_fi, sector_fi)
         builder.button(
-            text=label,
-            callback_data=f"sector:{SECTOR_KEYS_REVERSE[sector_fi]}"
+            text=label, callback_data=f"sector:{SECTOR_KEYS_REVERSE[sector_fi]}"
         )
     builder.button(text="🔍 Other / Not sure", callback_data="group:ANY")
     builder.button(text="⬅️ Back", callback_data="back:group")
     builder.adjust(2)
     return builder.as_markup()
 
+
 def choosing_topic_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for category_label, topic_keys in TOPIC_CATEGORIES:
-        builder.row(
-            InlineKeyboardButton(text=category_label, callback_data="noop")
-        )
+        builder.row(InlineKeyboardButton(text=category_label, callback_data="noop"))
         # темы внутри категории — по 2 в ряд
         buttons = [
             InlineKeyboardButton(text=TOPIC_LABELS[key], callback_data=f"topic:{key}")
@@ -56,11 +60,10 @@ def choosing_topic_keyboard() -> InlineKeyboardMarkup:
         ]
         # добавляем по 2 кнопки в ряд
         for i in range(0, len(buttons), 2):
-            builder.row(*buttons[i:i + 2])
-        builder.row(
-            InlineKeyboardButton(text="⬅️ Back", callback_data="back:sector")
-        )
+            builder.row(*buttons[i : i + 2])
+        builder.row(InlineKeyboardButton(text="⬅️ Back", callback_data="back:sector"))
     return builder.as_markup()
+
 
 def contract_type_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
@@ -73,6 +76,7 @@ def contract_type_keyboard() -> InlineKeyboardMarkup:
     builder.button(text="⏭️ Skip", callback_data="back:sector")
     builder.adjust(2)
     return builder.as_markup()
+
 
 def tenure_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
@@ -90,17 +94,16 @@ def tenure_keyboard() -> InlineKeyboardMarkup:
     builder.adjust(2)
     return builder.as_markup()
 
+
 def salary_type_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    salaries = [
-        ("Monthly", "monthly"),
-        ("Hourly", "hourly")
-    ]
+    salaries = [("Monthly", "monthly"), ("Hourly", "hourly")]
     for label, data in salaries:
         builder.button(text=label, callback_data=f"salary:{data}")
     builder.button(text="⏭️ Skip", callback_data="skip:details")
     builder.adjust(2)
     return builder.as_markup()
+
 
 def parental_bool_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
@@ -109,6 +112,7 @@ def parental_bool_keyboard() -> InlineKeyboardMarkup:
     builder.button(text="⏭️ Skip", callback_data="skip:details")
     builder.adjust(2)
     return builder.as_markup()
+
 
 def shop_steward_bool_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
@@ -141,7 +145,8 @@ def showing_result_keyboard(offset: int, total: int) -> InlineKeyboardMarkup:
     builder.adjust(2, 2, 1)
     return builder.as_markup()
 
-def showing_result_ru_keyboard(offset: int, total: int)-> InlineKeyboardMarkup:
+
+def showing_result_ru_keyboard(offset: int, total: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     if offset > 0:
         builder.button(
@@ -159,6 +164,7 @@ def showing_result_ru_keyboard(offset: int, total: int)-> InlineKeyboardMarkup:
     builder.button(text="🔄 New search", callback_data="back:main_menu")
     builder.adjust(2)
     return builder.as_markup()
+
 
 def showing_result_fi_keyboard(offset: int, total: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
@@ -178,4 +184,3 @@ def showing_result_fi_keyboard(offset: int, total: int) -> InlineKeyboardMarkup:
     builder.button(text="🔄 New search", callback_data="back:main_menu")
     builder.adjust(2)
     return builder.as_markup()
-

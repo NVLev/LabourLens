@@ -8,9 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, result
 from app.database.db_helper import db_helper
 from app.database.models import TesClause
 from app.parsing.finlex import ACTS_CONFIG
+from app.repositories.tes import TesRepository
 from app.services.translation_service import TranslationService
 from config import settings
-from app.repositories.tes import TesRepository
 
 logger = logging.getLogger(__name__)
 
@@ -220,6 +220,7 @@ async def translate_tes_by_key_en(
 ):
     return await service.translate_tes_en_by_key(key)
 
+
 @router.post("/tes/agreement/{key}/ru", summary="Translate single TES fi→ru")
 async def translate_tes_by_key_ru(
     key: str,
@@ -228,7 +229,10 @@ async def translate_tes_by_key_ru(
     logger.info("METHOD: translate_tes_en_by_key")
     return await service.translate_tes_ru_by_key(key)
 
-@router.post("/tes/union/{union_key}/en", summary="Translate all TES of particular union fi→en")
+
+@router.post(
+    "/tes/union/{union_key}/en", summary="Translate all TES of particular union fi→en"
+)
 async def translate_tes_by_union_en(
     union_key: str,
     service: TranslationService = Depends(get_translation_service),
@@ -236,18 +240,24 @@ async def translate_tes_by_union_en(
     logger.info("METHOD: translate_tes_en_by_union")
     return await service.translate_tes_en_by_union(union_key)
 
-@router.post("/tes/union/{union_key}/ru", summary="Translate all TES of particular union fi→ru")
+
+@router.post(
+    "/tes/union/{union_key}/ru", summary="Translate all TES of particular union fi→ru"
+)
 async def translate_tes_by_union_ru(
     union_key: str,
     service: TranslationService = Depends(get_translation_service),
 ):
     return await service.translate_tes_ru_by_union(union_key)
 
-@router.get("/tes/{union_key}/status", summary="List of untranslated agreemnts by union")
+
+@router.get(
+    "/tes/{union_key}/status", summary="List of untranslated agreemnts by union"
+)
 async def get_union_translation_status(
-        union_key: str,
-        lang: str,
-        session: AsyncSession = Depends(db_helper.session_getter),
+    union_key: str,
+    lang: str,
+    session: AsyncSession = Depends(db_helper.session_getter),
 ):
     """
     Список непереведенных договоров по названию портала профсоюза
@@ -256,7 +266,11 @@ async def get_union_translation_status(
     result = await tes_repo.get_untranslated_clauses_by_union(union_key, lang)
     return result
 
-@router.post("/agreements/sectors/en", summary="Translate sector_fi → sector_en for all agreements")
+
+@router.post(
+    "/agreements/sectors/en",
+    summary="Translate sector_fi → sector_en for all agreements",
+)
 async def translate_sectors_en(
     session: AsyncSession = Depends(db_helper.session_getter),
 ):
@@ -268,4 +282,3 @@ async def translate_sectors_en(
     """
     service = TranslationService(session)
     return await service.translate_sectors_en()
-

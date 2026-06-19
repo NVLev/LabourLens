@@ -7,7 +7,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from bot.routers import start, situation
+from bot.routers import situation, start
 from config import settings
 
 logger = logging.getLogger(__name__)

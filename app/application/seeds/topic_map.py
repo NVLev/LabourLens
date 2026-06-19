@@ -320,46 +320,67 @@ TOPIC_LABELS: dict[str, str] = {
 }
 
 TOPIC_CATEGORIES: list[tuple[str, list[str]]] = [
-    ("📄 Contract & basics", [
-        "contract_types",
-        "probation_period",
-        "employer_obligations",
-        "employee_obligations",
-    ]),
-    ("⏰ Work hours", [
-        "working_hours",
-        "overtime",
-        "night_and_sunday_work",
-        "working_hours_reduction",
-    ]),
-    ("🏖️ Leave", [
-        "annual_leave",
-        "holiday_pay",
-        "parental_leave",
-    ]),
-    ("💰 Pay", [
-        "wages",
-        "min_wage",
-        "expense_reimbursement",
-    ]),
-    ("⚖️ Dismissal", [
-        "dismissal_grounds",
-        "notice_period",
-        "dismissal_protection",
-        "layoff",
-    ]),
-    ("🏢 Workplace", [
-        "sick_leave",
-        "workplace_safety",
-        "discrimination",
-        "warning",
-        "work_certificate",
-    ]),
-    ("🤝 Union & agreements", [
-        "shop_steward",
-        "safety_representative",
-        "local_agreement",
-    ]),
+    (
+        "📄 Contract & basics",
+        [
+            "contract_types",
+            "probation_period",
+            "employer_obligations",
+            "employee_obligations",
+        ],
+    ),
+    (
+        "⏰ Work hours",
+        [
+            "working_hours",
+            "overtime",
+            "night_and_sunday_work",
+            "working_hours_reduction",
+        ],
+    ),
+    (
+        "🏖️ Leave",
+        [
+            "annual_leave",
+            "holiday_pay",
+            "parental_leave",
+        ],
+    ),
+    (
+        "💰 Pay",
+        [
+            "wages",
+            "min_wage",
+            "expense_reimbursement",
+        ],
+    ),
+    (
+        "⚖️ Dismissal",
+        [
+            "dismissal_grounds",
+            "notice_period",
+            "dismissal_protection",
+            "layoff",
+        ],
+    ),
+    (
+        "🏢 Workplace",
+        [
+            "sick_leave",
+            "workplace_safety",
+            "discrimination",
+            "warning",
+            "work_certificate",
+        ],
+    ),
+    (
+        "🤝 Union & agreements",
+        [
+            "shop_steward",
+            "safety_representative",
+            "local_agreement",
+        ],
+    ),
 ]
 
 SECTOR_KEYS: dict[str, str] = {

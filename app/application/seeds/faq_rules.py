@@ -31,20 +31,19 @@ class FaqRuleSeed(TypedDict):
     conditions: dict
     answer_en: str
     answer_ru: str
-    answer_fi:str
+    answer_fi: str
     priority: int
     section_refs: list[SectionRefSeed]
     priority: int
     section_refs: list[SectionRefSeed]
+
 
 FAQ_RULES: list[FaqRuleSeed] = [
-
     # ══════════════════════════════════════════════════════════════════════════
     # NOTICE PERIOD (notice_period)
     # Työsopimuslaki Chapter 6 § 3 — employer's notice periods by tenure
     # Työsopimuslaki Chapter 6 § 4 — employee's notice periods
     # ══════════════════════════════════════════════════════════════════════════
-
     {
         "topic_key": "notice_period",
         "question_en": "What is the employer's notice period? (tenure < 1 year)",
@@ -198,12 +197,10 @@ FAQ_RULES: list[FaqRuleSeed] = [
             {"act": "tyosopimuslaki", "chapter": 6, "section": 4},
         ],
     },
-
     # ══════════════════════════════════════════════════════════════════════════
     # PROBATION PERIOD (probation_period)
     # Työsopimuslaki Chapter 1 § 4
     # ══════════════════════════════════════════════════════════════════════════
-
     {
         "topic_key": "probation_period",
         "question_en": "Can a probation period be agreed for a fixed-term contract?",
@@ -270,12 +267,10 @@ FAQ_RULES: list[FaqRuleSeed] = [
             {"act": "tyosopimuslaki", "chapter": 1, "section": 4},
         ],
     },
-
     # ══════════════════════════════════════════════════════════════════════════
     # SICK LEAVE (sick_leave)
     # Työsopimuslaki Chapter 2 § 11
     # ══════════════════════════════════════════════════════════════════════════
-
     {
         "topic_key": "sick_leave",
         "question_en": "How long is sick pay paid? (tenure < 1 month)",
@@ -344,12 +339,10 @@ FAQ_RULES: list[FaqRuleSeed] = [
             {"act": "tyosopimuslaki", "chapter": 2, "section": 11},
         ],
     },
-
     # ══════════════════════════════════════════════════════════════════════════
     # ANNUAL LEAVE (annual_leave)
     # Vuosilomalaki Chapter 2 § 5, § 6
     # ══════════════════════════════════════════════════════════════════════════
-
     {
         "topic_key": "annual_leave",
         "question_en": "How many days of annual leave do I accrue? (tenure < 1 year)",
@@ -421,12 +414,10 @@ FAQ_RULES: list[FaqRuleSeed] = [
             {"act": "vuosilomalaki", "chapter": 2, "section": 6},
         ],
     },
-
     # ══════════════════════════════════════════════════════════════════════════
     # HOLIDAY PAY (holiday_pay)
     # Vuosilomalaki Chapter 3 § 9, § 10, § 11
     # ══════════════════════════════════════════════════════════════════════════
-
     {
         "topic_key": "holiday_pay",
         "question_en": "How is holiday pay calculated for a monthly salary employee?",
@@ -536,12 +527,10 @@ FAQ_RULES: list[FaqRuleSeed] = [
             {"act": "vuosilomalaki", "chapter": 3, "section": 11},
         ],
     },
-
     # ══════════════════════════════════════════════════════════════════════════
     # LAYOFF (layoff)
     # Työsopimuslaki Chapter 5 § 2, § 4
     # ══════════════════════════════════════════════════════════════════════════
-
     {
         "topic_key": "layoff",
         "question_en": "Can an employee on a fixed-term contract be laid off?",
@@ -619,12 +608,10 @@ FAQ_RULES: list[FaqRuleSeed] = [
             {"act": "tyosopimuslaki", "chapter": 5, "section": 4},
         ],
     },
-
     # ══════════════════════════════════════════════════════════════════════════
     # DISMISSAL GROUNDS (dismissal_grounds)
     # Työsopimuslaki Chapter 7 § 1, § 2, § 3
     # ══════════════════════════════════════════════════════════════════════════
-
     {
         "topic_key": "dismissal_grounds",
         "question_en": "Can a fixed-term employee be dismissed before the contract ends?",
@@ -755,12 +742,10 @@ FAQ_RULES: list[FaqRuleSeed] = [
             {"act": "tyosopimuslaki", "chapter": 7, "section": 3},
         ],
     },
-
     # ══════════════════════════════════════════════════════════════════════════
     # DISMISSAL PROTECTION (dismissal_protection)
     # Työsopimuslaki Chapter 7 § 9, § 10, § 11
     # ══════════════════════════════════════════════════════════════════════════
-
     {
         "topic_key": "dismissal_protection",
         "question_en": "Is an employee on parental leave protected from dismissal?",
@@ -879,12 +864,10 @@ FAQ_RULES: list[FaqRuleSeed] = [
             {"act": "tyosopimuslaki", "chapter": 7, "section": 11},
         ],
     },
-
     # ══════════════════════════════════════════════════════════════════════════
     # OVERTIME (overtime)
     # Työaikalaki Chapter 5 § 16, § 17, § 18, § 20
     # ══════════════════════════════════════════════════════════════════════════
-
     {
         "topic_key": "overtime",
         "question_en": "What are the statutory overtime compensation rates?",
@@ -934,12 +917,10 @@ FAQ_RULES: list[FaqRuleSeed] = [
             {"act": "tyoaikalaki", "chapter": 5, "section": 20},
         ],
     },
-
     # ══════════════════════════════════════════════════════════════════════════
     # PARENTAL LEAVE (parental_leave)
     # Työsopimuslaki Chapter 4 § 1, § 2
     # ══════════════════════════════════════════════════════════════════════════
-
     {
         "topic_key": "parental_leave",
         "question_en": "What is the right to parental leave and job protection?",

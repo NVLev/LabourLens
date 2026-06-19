@@ -4,7 +4,6 @@ SECTOR_GROUPS = {
         "Hyvinvointiala, yleinen",
         "Lääkärit",
     ],
-
     "construction": [
         "Rakennusalan",
         "Infra-ala",
@@ -13,7 +12,6 @@ SECTOR_GROUPS = {
         "Viher- ja ympäristörakentamisala",
         "Maalausalan ja lattianpäällystysalan",
     ],
-
     "retail_services": [
         "Kaupan",
         "Vähittäiskaupan",
@@ -23,7 +21,6 @@ SECTOR_GROUPS = {
         "Suorajakelua",
         "Muuttopalvelualaa",
     ],
-
     "industry": [
         "Teknologiateollisuuden",
         "Kemian perusteollisuuden",
@@ -41,7 +38,6 @@ SECTOR_GROUPS = {
         "Turvetuotantoalan",
         "Öljy-, maakaasu-ja petrokemian teollisuuden",
     ],
-
     "transport_logistics": [
         "Kaupan logistiikan",
         "Autoalan kaupan ja korjaamotoiminnan",
@@ -49,7 +45,6 @@ SECTOR_GROUPS = {
         "Metsäkoneala",
         "Tekninen huolto ja kunnossapito",
     ],
-
     "education_public": [
         "Kunta-ala, yleinen",
         "Opetusala",
@@ -58,7 +53,6 @@ SECTOR_GROUPS = {
         "Ammatillisten aikuiskoulutuskeskusten hallinto-ja tukipalveluhenkilöstön",
         "Yksityisen opetusalan hallinto-ja tukipalveluhenkilöstön",
     ],
-
     "church_culture": [
         "Evankelisluterilainen kirkko",
         "Ortodoksinen kirkko, työehtosopimukset",
@@ -66,15 +60,12 @@ SECTOR_GROUPS = {
         "Kansallisteatteri",
         "Muusikot",
         "Näyttelijät",
-
     ],
-
     "sport": [
-            "Golf-ala",
-            "Hiihtokeskusalan",
-            "Huvi-, teema-elämyspuistoja",
-        ],
-
+        "Golf-ala",
+        "Hiihtokeskusalan",
+        "Huvi-, teema-elämyspuistoja",
+    ],
 }
 
 GROUP_LABELS: dict[str, str] = {

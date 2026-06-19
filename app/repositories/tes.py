@@ -145,10 +145,7 @@ class TesRepository:
 
     async def get_clauses_by_union(self, union_key: str) -> list[TesClause]:
         result = await self.session.execute(
-            select(TesClause)
-            .join(Agreement)
-            .join(Union)
-            .where(Union.key == union_key)
+            select(TesClause).join(Agreement).join(Union).where(Union.key == union_key)
         )
         clauses = list(result.scalars().all())
         return clauses
@@ -174,9 +171,9 @@ class TesRepository:
         return list(result.scalars().all())
 
     async def get_untranslated_clauses_by_union(
-            self,
-            union_key: str,
-            lang: str,
+        self,
+        union_key: str,
+        lang: str,
     ) -> list[TesClause]:
         null_col = TesClause.text_en if lang == "en" else TesClause.text_ru
 

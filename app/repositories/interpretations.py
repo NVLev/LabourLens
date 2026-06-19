@@ -1,4 +1,4 @@
-from sqlalchemy import select, or_, null
+from sqlalchemy import null, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import Interpretation, Topic
@@ -45,15 +45,11 @@ class InterpretationRepository:
         return result.scalar_one_or_none()
 
     async def get_by_topic_key_filtered(
-            self,
-            topic_key: str,
-            sector_fi_list: list[str] | None,
+        self,
+        topic_key: str,
+        sector_fi_list: list[str] | None,
     ) -> list[Interpretation]:
-        query = (
-            select(Interpretation)
-            .join(Topic)
-            .where(Topic.key == topic_key)
-        )
+        query = select(Interpretation).join(Topic).where(Topic.key == topic_key)
         if sector_fi_list:
             query = query.where(
                 or_(

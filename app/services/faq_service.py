@@ -2,10 +2,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import FaqRule
-
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.database.models import FaqRule
 from app.repositories.faq import FaqRepository
 
 
@@ -34,13 +30,21 @@ class FaqService:
         for key, expected in conditions.items():
             value = user_input.get(key)
             if isinstance(expected, dict):
-                if "lt" in expected and not (value is not None and value < expected["lt"]):
+                if "lt" in expected and not (
+                    value is not None and value < expected["lt"]
+                ):
                     return False
-                if "lte" in expected and not (value is not None and value <= expected["lte"]):
+                if "lte" in expected and not (
+                    value is not None and value <= expected["lte"]
+                ):
                     return False
-                if "gt" in expected and not (value is not None and value > expected["gt"]):
+                if "gt" in expected and not (
+                    value is not None and value > expected["gt"]
+                ):
                     return False
-                if "gte" in expected and not (value is not None and value >= expected["gte"]):
+                if "gte" in expected and not (
+                    value is not None and value >= expected["gte"]
+                ):
                     return False
             else:
                 if value != expected:

@@ -62,6 +62,8 @@ async def fix_agreement_sectors(
         "cleaned": cleaned,
         "total": len(agreements),
     }
+
+
 @router.get("/unions", summary="List all current unions")
 async def list_agreements(
     session: AsyncSession = Depends(db_helper.session_getter),
@@ -79,6 +81,7 @@ async def list_agreements(
         }
         for u in unions
     ]
+
 
 @router.get("/agreements", summary="List all current agreements")
 async def list_agreements(

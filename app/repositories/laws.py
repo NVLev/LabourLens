@@ -90,10 +90,10 @@ class LawRepository:
         return result.scalar_one_or_none()
 
     async def find_section(
-            self,
-            act_key: str,
-            chapter_number: int,
-            section_number: int,
+        self,
+        act_key: str,
+        chapter_number: int,
+        section_number: int,
     ) -> Section | None:
         """
         Находит параграф по ключу закона, номеру главы и номеру параграфа.

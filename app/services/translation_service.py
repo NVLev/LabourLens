@@ -8,15 +8,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import (
     Act,
+    Agreement,
     Chapter,
     Interpretation,
     Section,
     SectionParagraph,
     TesClause,
-    Agreement
 )
-from app.translation.nllb import MAX_CHUNK_CHARS, translate_batch_fi_en, translate_fi_en
 from app.repositories.tes import TesRepository
+from app.translation.nllb import MAX_CHUNK_CHARS, translate_batch_fi_en, translate_fi_en
 
 logger = logging.getLogger(__name__)
 
@@ -212,7 +212,6 @@ class TranslationService:
         await self.session.commit()
         return {"translated": translated, "skipped": len(clauses) - translated}
 
-
     async def _translate_tes_clauses(self, clauses: list[TesClause], lang: str) -> int:
         from app.translation.nllb import translate_batch_fi_en, translate_batch_fi_ru
 
@@ -313,13 +312,21 @@ class TranslationService:
         }
 
     async def translate_tes_en_by_union(self, union_key: str) -> dict:
-        clauses = await self.repo.get_untranslated_clauses_by_union(union_key, lang="en")
+        clauses = await self.repo.get_untranslated_clauses_by_union(
+            union_key, lang="en"
+        )
         translated = await self._translate_tes_clauses(clauses, lang="en")
         await self.session.commit()
-        return {"union": union_key, "translated": translated, "skipped": len(clauses) - translated}
+        return {
+            "union": union_key,
+            "translated": translated,
+            "skipped": len(clauses) - translated,
+        }
 
     async def translate_tes_ru_by_union(self, union_key: str) -> dict:
-        clauses = await self.repo.get_untranslated_clauses_by_union(union_key, lang="ru")
+        clauses = await self.repo.get_untranslated_clauses_by_union(
+            union_key, lang="ru"
+        )
         translated = await self._translate_tes_clauses(clauses, lang="ru")
         await self.session.commit()
         return {
@@ -352,8 +359,12 @@ class TranslationService:
                 skipped += 1
 
         await self.session.commit()
-        return {"unique_sectors": len(unique_sectors), "translated": translated, "skipped": skipped}
-    
+        return {
+            "unique_sectors": len(unique_sectors),
+            "translated": translated,
+            "skipped": skipped,
+        }
+
     def _result(
         self,
         act_key: str | None,
