@@ -118,24 +118,64 @@ def shop_steward_bool_keyboard() -> InlineKeyboardMarkup:
     builder.adjust(2)
     return builder.as_markup()
 
-def showing_result_keyboard() -> InlineKeyboardMarkup:
+
+def showing_result_keyboard(offset: int, total: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    builder.button(text="🇷🇺 Show in Russian", callback_data="show:ru")
+
+    if offset > 0:
+        builder.button(
+            text="⬅️ Prev",
+            callback_data=f"results:prev:{offset}",
+        )
+
+    if offset < total - 1:
+        builder.button(
+            text="➡️ Next",
+            callback_data=f"results:next:{offset}",
+        )
+
+    builder.button(text="🇷🇺 RU", callback_data="show:ru")
+    builder.button(text="🇫🇮 FI", callback_data="show:fi")
+    builder.button(text="🔄 New search", callback_data="back:main_menu")
+
+    builder.adjust(2, 2, 1)
+    return builder.as_markup()
+
+def showing_result_ru_keyboard(offset: int, total: int)-> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    if offset > 0:
+        builder.button(
+            text="⬅️ Prev",
+            callback_data=f"results:prev:{offset}",
+        )
+
+    if offset < total - 1:
+        builder.button(
+            text="➡️ Next",
+            callback_data=f"results:next:{offset}",
+        )
     builder.button(text="🇫🇮 Show in Finnish", callback_data="show:fi")
+    builder.button(text="🇬🇧 Show in English", callback_data="show:en")
     builder.button(text="🔄 New search", callback_data="back:main_menu")
     builder.adjust(2)
     return builder.as_markup()
 
-def showing_result_ru_keyboard()-> InlineKeyboardMarkup:
+def showing_result_fi_keyboard(offset: int, total: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    builder.button(text="🇫🇮 Show in Finnish", callback_data="show:fi")
+    if offset > 0:
+        builder.button(
+            text="⬅️ Prev",
+            callback_data=f"results:prev:{offset}",
+        )
+
+    if offset < total - 1:
+        builder.button(
+            text="➡️ Next",
+            callback_data=f"results:next:{offset}",
+        )
+    builder.button(text="🇷🇺 Show in Russian", callback_data="show:ru")
+    builder.button(text="🇬🇧 Show in English", callback_data="show:en")
     builder.button(text="🔄 New search", callback_data="back:main_menu")
     builder.adjust(2)
     return builder.as_markup()
 
-def showing_result_fi_keyboard() -> InlineKeyboardMarkup:
-    builder = InlineKeyboardBuilder()
-    builder.button(text="🇷🇺 Show in Russian", callback_data="show:ru")
-    builder.button(text="🔄 New search", callback_data="back:main_menu")
-    builder.adjust(2)
-    return builder.as_markup()

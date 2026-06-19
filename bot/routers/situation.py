@@ -3,12 +3,13 @@ import logging
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
+from html import escape
 
 from app.application.seeds.topic_map import TOPIC_LABELS, SECTOR_KEYS, SECTOR_KEYS_REVERSE
 from app.services.analyze_service import AnalyzeService
 from bot.keyboards import salary_type_keyboard, contract_type_keyboard, group_choosing_keyboard, parental_bool_keyboard, \
     sector_choosing_keyboard, choosing_topic_keyboard, tenure_keyboard, showing_result_keyboard, \
-    shop_steward_bool_keyboard, main_menu, showing_result_ru_keyboard
+    shop_steward_bool_keyboard, main_menu, showing_result_ru_keyboard, showing_result_fi_keyboard
 from bot.states import SituationStates
 from app.database.db_helper import db_helper
 
@@ -180,7 +181,11 @@ async def back_to_main_menu(callback: CallbackQuery, state: FSMContext):
 async def noop_handler(callback: CallbackQuery):
     await callback.answer()
 
-async def show_result(callback: CallbackQuery, state: FSMContext) -> None:
+async def show_result(
+        callback: CallbackQuery,
+        state: FSMContext,
+        offset: int = 0,
+) -> None:
     data = await state.get_data()
     user_input = {
         "sector_group": data.get("group"),
@@ -192,6 +197,7 @@ async def show_result(callback: CallbackQuery, state: FSMContext) -> None:
         "is_shop_steward": data.get("shop_steward"),
     }
     topic_key = data.get("topic_key")
+    await state.update_data(lang="en")
     logger.info("User %s requesting result for topic: %s", callback.from_user.id, topic_key)
 
     try:
@@ -202,7 +208,6 @@ async def show_result(callback: CallbackQuery, state: FSMContext) -> None:
         if result is None:
             await callback.message.edit_text(
                 "⚠️ Sorry, no information found on this topic yet.",
-                reply_markup=showing_result_keyboard(),
             )
             return
     except Exception as e:
@@ -210,27 +215,50 @@ async def show_result(callback: CallbackQuery, state: FSMContext) -> None:
                      callback.from_user.id, topic_key, e, exc_info=True)
         await callback.message.answer(
             "⚠️ Something went wrong. Please try again.",
-            reply_markup=showing_result_keyboard(),
-        )
+            ),
         return
 
-    await callback.message.edit_text(format_result(result, topic_key))
+    base_text = format_result(result, topic_key)
+    law_text = ""
 
-    if result["interpretations"]:
-        interp_text = "📋 <b>Additional guidance:</b>\n\n"
-        for i in result["interpretations"]:
-            if i["text_en"]:
-                interp_text += f"<b>{i['source']}:</b>\n{i['text_en']}\n\n"
-        await callback.message.answer(interp_text)
+    for section in result["law"]:
+        title = section.get("title_en")
+        if title:
+            law_text += f"<b>{title}</b>\n"
 
-    await callback.message.answer(
-        "Was this helpful? 👇",
-        reply_markup=showing_result_keyboard(),
+        for p in section["paragraphs"]:
+            if p["en"]:
+                law_text += escape(p["en"]) + "\n\n"
+
+
+    interp_text = ""
+    for i in result["interpretations"]:
+        if i["text_en"]:
+            interp_text += f"<b>{escape(i['source'])}:</b>\n{escape(i['text_en'])}\n\n"
+    combined_text = base_text
+
+    if law_text:
+        combined_text += "\n\n📜 <b>Law:</b>\n\n" + law_text
+
+    if interp_text:
+        combined_text += "\n\n📋 <b>Additional guidance:</b>\n\n" + interp_text
+
+    pages = split_text(combined_text)
+    total = len(pages)
+    offset = max(0, min(offset, total - 1))
+    page_text = pages[offset]
+    await callback.message.edit_text(
+        page_text + f"\n\n<i>Page {offset + 1}/{total}</i>",
+        reply_markup=showing_result_keyboard(offset=offset, total=total),
     )
     await state.set_state(SituationStates.showing_result)
 
 
-async def show_result_ru(callback:CallbackQuery, state:FSMContext):
+async def show_result_ru(
+        callback:CallbackQuery,
+        state:FSMContext,
+        offset: int = 0,
+):
     data = await state.get_data()
     user_input = {
         "sector_group": data.get("group"),
@@ -242,6 +270,7 @@ async def show_result_ru(callback:CallbackQuery, state:FSMContext):
         "is_shop_steward": data.get("shop_steward"),
     }
     topic_key = data.get("topic_key")
+    await state.update_data(lang="ru")
     logger.info("User %s requesting result in Russian for topic: %s", callback.from_user.id, topic_key)
 
     try:
@@ -251,8 +280,7 @@ async def show_result_ru(callback:CallbackQuery, state:FSMContext):
 
         if result is None:
             await callback.message.edit_text(
-                "Извините, по этой теме нет результатов на русском языке",
-                reply_markup=showing_result_ru_keyboard(),
+                "⚠️ Извините, по этой теме нет результатов на русском языке",
             )
             return
     except Exception as e:
@@ -260,25 +288,47 @@ async def show_result_ru(callback:CallbackQuery, state:FSMContext):
                      callback.from_user.id, topic_key, e, exc_info=True)
         await callback.message.answer(
             "Что-то пошло не так, попробуйте снова",
-            reply_markup=showing_result_ru_keyboard(),
         )
         return
+    base_text = format_result_ru(result, topic_key)
+    law_text = ""
 
-    await callback.message.edit_text(format_result_ru(result, topic_key))
+    for section in result["law"]:
+        title = section.get("title_ru")
+        if title:
+            law_text += f"<b>{title}</b>\n"
 
-    if result["interpretations"]:
-        interp_text = "📋 <b>Дополнительная информация:</b>\n\n"
-        for i in result["interpretations"]:
-            if i["text_ru"]:
-                interp_text += f"<b>{i['source']}:</b>\n{i['text_ru']}\n\n"
-        await callback.message.answer(interp_text)
+        for p in section["paragraphs"]:
+            if p["ru"]:
+                law_text += escape(p["ru"]) + "\n\n"
 
-    await callback.message.answer(
-        "Was this helpful? 👇",
-        reply_markup=showing_result_ru_keyboard(),
+    interp_text = ""
+    for i in result["interpretations"]:
+        if i["text_ru"]:
+            interp_text += f"<b>{escape(i['source'])}:</b>\n{escape(i['text_ru'])}\n\n"
+    combined_text = base_text
+
+    if law_text:
+        combined_text += "\n\n📜 <b>Закон:</b>\n\n" + law_text
+
+    if interp_text:
+        combined_text += "\n\n📋 <b>Дополнительная информация:</b>\n\n" + interp_text
+
+    pages = split_text(combined_text)
+    total = len(pages)
+    offset = max(0, min(offset, total - 1))
+    page_text = pages[offset]
+    await callback.message.edit_text(
+        page_text + f"\n\n<i>Стр {offset + 1}/{total}</i>",
+        reply_markup=showing_result_ru_keyboard(offset=offset, total=total),
     )
     await state.set_state(SituationStates.showing_result)
 
+@router.callback_query(F.data == "show:en")
+async def show_in_english(callback: CallbackQuery, state: FSMContext):
+    await state.update_data(lang="en")
+    await callback.answer()
+    await show_result(callback, state)
 
 @router.callback_query(F.data == "show:ru")
 async def show_in_russian(callback: CallbackQuery, state: FSMContext):
@@ -290,7 +340,11 @@ async def show_in_finnish(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await show_result_fi(callback, state)
 
-async def show_result_fi(callback:CallbackQuery, state:FSMContext):
+async def show_result_fi(
+        callback:CallbackQuery,
+        state:FSMContext,
+        offset: int = 0,
+):
     data = await state.get_data()
     user_input = {
         "sector_group": data.get("group"),
@@ -302,6 +356,7 @@ async def show_result_fi(callback:CallbackQuery, state:FSMContext):
         "is_shop_steward": data.get("shop_steward"),
     }
     topic_key = data.get("topic_key")
+    await state.update_data(lang="fi")
     logger.info("User %s requesting result in Finnish for topic: %s", callback.from_user.id, topic_key)
 
     try:
@@ -312,7 +367,6 @@ async def show_result_fi(callback:CallbackQuery, state:FSMContext):
         if result is None:
             await callback.message.edit_text(
                 "Valitettavasti aiheesta ei löytynyt vielä tietoja.",
-                reply_markup=showing_result_ru_keyboard(),
             )
             return
     except Exception as e:
@@ -320,74 +374,161 @@ async def show_result_fi(callback:CallbackQuery, state:FSMContext):
                      callback.from_user.id, topic_key, e, exc_info=True)
         await callback.message.answer(
             "Jotain meni pieleen. Yritä uudelleen.",
-            reply_markup=showing_result_ru_keyboard(),
         )
         return
+    base_text = format_result_fi(result, topic_key)
+    law_text = ""
 
-    await callback.message.edit_text(format_result_fi(result, topic_key))
+    for section in result["law"]:
+        title = section.get("title_fi")
+        if title:
+            law_text += f"<b>{title}</b>\n"
 
-    if result["interpretations"]:
-        interp_text = "📋 <b>Lisäohjeita:</b>\n\n"
-        for i in result["interpretations"]:
-            if i["text_fi"]:
-                interp_text += f"<b>{i['source']}:</b>\n{i['text_fi']}\n\n"
-        await callback.message.answer(interp_text)
+        for p in section["paragraphs"]:
+            if p["fi"]:
+                law_text += escape(p["fi"]) + "\n\n"
 
-    await callback.message.answer(
-        "Was this helpful? 👇",
-        reply_markup=showing_result_ru_keyboard(),
+    interp_text = ""
+    for i in result["interpretations"]:
+        if i["text_fi"]:
+            interp_text += f"<b>{escape(i['source'])}:</b>\n{escape(i['text_fi'])}\n\n"
+    combined_text = base_text
+
+    if law_text:
+        combined_text += "\n\n📜 <b>Laki:</b>\n\n" + law_text
+
+    if interp_text:
+        combined_text += "\n\n📋 <b>Lisäohjeet:</b>\n\n" + interp_text
+
+    pages = split_text(combined_text)
+    total = len(pages)
+    offset = max(0, min(offset, total - 1))
+    page_text = pages[offset]
+    await callback.message.edit_text(
+        page_text + f"\n\n<i>Page {offset + 1}/{total}</i>",
+        reply_markup=showing_result_fi_keyboard(offset=offset, total=total),
     )
     await state.set_state(SituationStates.showing_result)
 
+@router.callback_query(
+    F.data.startswith("results:prev:") | F.data.startswith("results:next:")
+)
+async def paginate_results(callback: CallbackQuery, state: FSMContext) -> None:
+    parts = callback.data.split(":")
+    direction = parts[1]
+    offset = int(parts[2])
+
+    if direction == "next":
+        new_offset = offset + 1
+    else:
+        new_offset = offset - 1
+
+    new_offset = max(0, new_offset)
+
+    data = await state.get_data()
+    lang = data.get("lang", "en")
+    if lang == "ru":
+        await callback.answer()
+        await show_result_ru(
+            callback,
+            state,
+            offset=new_offset,
+        )
+    elif lang == "fi":
+        await callback.answer()
+        await show_result_fi(
+            callback,
+            state,
+            offset=new_offset,
+        )
+    else:
+        await callback.answer()
+        await show_result(
+            callback,
+            state,
+            offset=new_offset,
+        )
+
+def split_text(text: str, limit: int = 900) -> list[str]:
+    if "\n\n" in text:
+        blocks = text.split("\n\n")
+    else:
+        blocks = text.split(". ")
+
+    pages = []
+    current = ""
+
+    for block in blocks:
+        block = block.strip() + "\n\n"
+
+        if len(current) + len(block) > limit:
+            if current:
+                pages.append(current)
+            current = block
+        else:
+            current += block
+
+    if current:
+        pages.append(current)
+
+    return [p for p in pages if p.strip()]
+
 def format_result(result: dict, topic_key: str) -> str:
     header = TOPIC_LABELS[topic_key]
-    if result["answer_en"]:
-        body = result["answer_en"]
-    elif result["law"]:
-        paragraphs = result["law"][0]["paragraphs"]
-        body = "\n".join(p["en"] for p in paragraphs if p["en"])
-    else:
-        body = "See additional guidance below ↓"
     lines = [
         f"⚖️ <b>{header}</b>",
         "",
-        "<b>Legal answer:</b>",
-        body,
     ]
+    if result["answer_en"]:
+        lines += [
+            "<b>Legal answer:</b>",
+            result["answer_en"],
+        ]
+
+    else:
+        lines += [
+            "<b>Legal answer:</b>",
+            "No direct legal answer found. See details below ↓",
+        ]
+
     return "\n".join(lines)
 
 def format_result_ru(result: dict, topic_key: str) -> str:
     header = TOPIC_LABELS[topic_key]
-    if result["answer_ru"]:
-        body = result["answer_ru"]
-    elif result["law"]:
-        paragraphs = result["law"][0]["paragraphs"]
-        body = "\n".join(p["ru"] for p in paragraphs if p["ru"])
-    else:
-        body = "Дополнительная информация ↓"
     lines = [
         f"⚖️ <b>{header}</b>",
         "",
-        "<b>Юридическая консультация:</b>",
-        body,
     ]
+    if result["answer_ru"]:
+        lines += [
+            "<b>Юридическая консультация:</b>",
+            result["answer_ru"],
+        ]
+
+    else:
+        lines += [
+            "<b>Ответ:</b>",
+            "Прямого юридического обоснования не найдено. См. детали ниже ↓",
+        ]
+
     return "\n".join(lines)
 
 def format_result_fi(result: dict, topic_key: str) -> str:
     header = TOPIC_LABELS[topic_key]
-    if result["answer_fi"]:
-        body = result["answer_fi"]
-    elif result["law"]:
-        paragraphs = result["law"][0]["paragraphs"]
-        body = "\n".join(p["fi"] for p in paragraphs if p["fi"])
-    else:
-        body = "Lisäohjeita: ↓"
     lines = [
         f"⚖️ <b>{header}</b>",
         "",
-        "<b>Oikeudellinen vastaus:</b>",
-        body,
     ]
+    if result["answer_fi"]:
+        lines += [
+            "<b>Oikeudellinen ohje:</b>",
+            result["answer_fi"],
+        ]
+    else:
+        lines += [
+            "<b>Vastaus:</b>",
+            "Suoraa lain mukaista vastausta ei löytynyt. Katso lisätiedot alta ↓"
+        ]
     return "\n".join(lines)
 
 
