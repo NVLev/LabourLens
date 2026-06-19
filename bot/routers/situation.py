@@ -55,7 +55,6 @@ async def sector_chosen (callback:CallbackQuery, state: FSMContext) -> None:
     sector_fi = SECTOR_KEYS[sector_key]
     await state.update_data(sector=sector_fi)
     logger.info("User %s chose sector: %s", callback.from_user.id, sector_key)
-    await state.update_data(sector=sector_key)
     await state.set_state(SituationStates.choosing_topic)
     await callback.answer()
     await callback.message.edit_text(
