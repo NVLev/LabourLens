@@ -10,12 +10,27 @@ from app.parsing.finlex import ACTS_CONFIG, FinlexParser
 from app.parsing.tehy import TEHY_AGREEMENTS
 from app.parsing.tyosuojelu import TYOSUOJELU_PAGES, TyosuojeluParser
 from app.repositories.tes import TesRepository
+from app.services.faq_seed_service import FaqSeedService
 from app.services.interpretation_service import InterpretationService
 from app.services.law_service import LawService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/parse", tags=["parse"])
+
+
+@router.post("/faq/seed", summary="Seed FAQ rules from faq_rules.py")
+async def seed_faq_rules(
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    """
+    Загружает FAQ-правила из app/application/seeds/faq_rules.py в БД.
+    Upsert по (topic_id, question_en) — безопасно запускать повторно.
+    Требует чтобы законы (POST /parse/finlex) и темы
+    (POST /topics/seed) уже были загружены.
+    """
+    service = FaqSeedService(session)
+    return await service.seed_faq_rules()
 
 
 @router.post("/finlex", summary="Parse all acts from Finlex Open Data API")

@@ -8,12 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import (
     Act,
+    Agreement,
     Chapter,
     Interpretation,
     Section,
     SectionParagraph,
     TesClause,
 )
+from app.repositories.tes import TesRepository
 from app.translation.nllb import MAX_CHUNK_CHARS, translate_batch_fi_en, translate_fi_en
 
 logger = logging.getLogger(__name__)
@@ -25,6 +27,7 @@ class TranslationService:
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+        self.repo = TesRepository(session)
 
     # Публичные методы
 
@@ -195,7 +198,7 @@ class TranslationService:
 
     async def translate_tes_en(self) -> dict:
         """NLLB fi→en для всех TesClause."""
-        clauses = await self._get_untranslated_tes(lang="en")
+        clauses = await self.repo.get_untranslated_tes(lang="en")
         logger.info("EN translation: %d TES clauses to translate", len(clauses))
         translated = await self._translate_tes_clauses(clauses, lang="en")
         await self.session.commit()
@@ -203,18 +206,11 @@ class TranslationService:
 
     async def translate_tes_ru(self) -> dict:
         """NLLB fi→ru для всех TesClause."""
-        clauses = await self._get_untranslated_tes(lang="ru")
+        clauses = await self.repo.get_untranslated_tes(lang="ru")
         logger.info("RU translation: %d TES clauses to translate", len(clauses))
         translated = await self._translate_tes_clauses(clauses, lang="ru")
         await self.session.commit()
         return {"translated": translated, "skipped": len(clauses) - translated}
-
-    async def _get_untranslated_tes(self, lang: str) -> list[TesClause]:
-        from app.database.models import TesClause
-
-        null_col = TesClause.text_en if lang == "en" else TesClause.text_ru
-        result = await self.session.execute(select(TesClause).where(null_col.is_(None)))
-        return list(result.scalars().all())
 
     async def _translate_tes_clauses(self, clauses: list[TesClause], lang: str) -> int:
         from app.translation.nllb import translate_batch_fi_en, translate_batch_fi_ru
@@ -290,7 +286,7 @@ class TranslationService:
         await self.session.commit()
 
     async def translate_tes_en_by_key(self, agreement_key: str) -> dict:
-        clauses = await self._get_untranslated_tes_by_key(agreement_key, lang="en")
+        clauses = await self.repo.get_untranslated_tes_by_key(agreement_key, lang="en")
         logger.info(
             "EN translation: %d TES clauses for '%s'", len(clauses), agreement_key
         )
@@ -303,7 +299,7 @@ class TranslationService:
         }
 
     async def translate_tes_ru_by_key(self, agreement_key: str) -> dict:
-        clauses = await self._get_untranslated_tes_by_key(agreement_key, lang="ru")
+        clauses = await self.repo.get_untranslated_tes_by_key(agreement_key, lang="ru")
         logger.info(
             "RU translation: %d TES clauses for '%s'", len(clauses), agreement_key
         )
@@ -315,19 +311,59 @@ class TranslationService:
             "skipped": len(clauses) - translated,
         }
 
-    async def _get_untranslated_tes_by_key(
-        self, agreement_key: str, lang: str
-    ) -> list[TesClause]:
-        from app.database.models import Agreement
-
-        null_col = TesClause.text_en if lang == "en" else TesClause.text_ru
-        result = await self.session.execute(
-            select(TesClause)
-            .join(Agreement)
-            .where(Agreement.key == agreement_key)
-            .where(null_col.is_(None))
+    async def translate_tes_en_by_union(self, union_key: str) -> dict:
+        clauses = await self.repo.get_untranslated_clauses_by_union(
+            union_key, lang="en"
         )
-        return list(result.scalars().all())
+        translated = await self._translate_tes_clauses(clauses, lang="en")
+        await self.session.commit()
+        return {
+            "union": union_key,
+            "translated": translated,
+            "skipped": len(clauses) - translated,
+        }
+
+    async def translate_tes_ru_by_union(self, union_key: str) -> dict:
+        clauses = await self.repo.get_untranslated_clauses_by_union(
+            union_key, lang="ru"
+        )
+        translated = await self._translate_tes_clauses(clauses, lang="ru")
+        await self.session.commit()
+        return {
+            "union": union_key,
+            "translated": translated,
+            "skipped": len(clauses) - translated,
+        }
+
+    async def translate_sectors_en(self) -> dict:
+        """
+        NLLB fi→en для sector_fi во всех agreements.
+
+        Стратегия: переводим уникальные значения sector_fi,
+        затем одним UPDATE заполняем sector_en для всех agreements
+        с тем же sector_fi. Так 75 уникальных значений дают
+        один проход модели вместо N переводов.
+        """
+        unique_sectors = await self.repo.get_distinct_untranslated_sectors()
+        if not unique_sectors:
+            return {"translated": 0, "skipped": 0}
+
+        translated = skipped = 0
+        for sector_fi in unique_sectors:
+            try:
+                sector_en = translate_fi_en(sector_fi)
+                await self.repo.set_sector_en(sector_fi, sector_en)
+                translated += 1
+            except Exception as e:
+                logger.error("Failed to translate sector '%s': %s", sector_fi, e)
+                skipped += 1
+
+        await self.session.commit()
+        return {
+            "unique_sectors": len(unique_sectors),
+            "translated": translated,
+            "skipped": skipped,
+        }
 
     def _result(
         self,

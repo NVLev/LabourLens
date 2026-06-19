@@ -89,6 +89,28 @@ class LawRepository:
         )
         return result.scalar_one_or_none()
 
+    async def find_section(
+        self,
+        act_key: str,
+        chapter_number: int,
+        section_number: int,
+    ) -> Section | None:
+        """
+        Находит параграф по ключу закона, номеру главы и номеру параграфа.
+        Без eager loading — используется в seed-сервисах для получения section.id.
+        """
+        result = await self.session.execute(
+            select(Section)
+            .join(Chapter)
+            .join(Act)
+            .where(
+                Act.key == act_key,
+                Chapter.number == chapter_number,
+                Section.number == section_number,
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def get_sections_by_topic(self, topic_key: str) -> list[Section]:
         """Все параграфы привязанные к теме — понадобится для situation_resolver."""
         from app.database.models import Topic, TopicSection

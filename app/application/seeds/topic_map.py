@@ -282,3 +282,159 @@ TOPICS: list[TopicSeed] = [
         "section_refs": [],
     },
 ]
+
+TOPIC_LABELS: dict[str, str] = {
+    # Contract & basics
+    "contract_types": "Contract types",
+    "probation_period": "Probation period",
+    "employer_obligations": "Employer obligations",
+    "employee_obligations": "Employee obligations",
+    # Work hours
+    "working_hours": "Working hours",
+    "overtime": "Overtime",
+    "night_and_sunday_work": "Night & Sunday work",
+    "working_hours_reduction": "Hours reduction (Pekkas)",
+    # Leave
+    "annual_leave": "Annual leave",
+    "holiday_pay": "Holiday pay",
+    "parental_leave": "Parental & family leave",
+    # Pay
+    "wages": "Wages & salary",
+    "min_wage": "Minimum wage",
+    "expense_reimbursement": "Expense reimbursement",
+    # Dismissal
+    "dismissal_grounds": "Grounds for dismissal",
+    "notice_period": "Notice period",
+    "dismissal_protection": "Dismissal protection",
+    "layoff": "Temporary layoff",
+    # Workplace
+    "sick_leave": "Sick leave & pay",
+    "workplace_safety": "Workplace safety",
+    "discrimination": "Discrimination",
+    "warning": "Written warning",
+    "work_certificate": "Work certificate",
+    # Union & agreements
+    "shop_steward": "Shop steward",
+    "safety_representative": "Safety representative",
+    "local_agreement": "Local agreement",
+}
+
+TOPIC_CATEGORIES: list[tuple[str, list[str]]] = [
+    (
+        "📄 Contract & basics",
+        [
+            "contract_types",
+            "probation_period",
+            "employer_obligations",
+            "employee_obligations",
+        ],
+    ),
+    (
+        "⏰ Work hours",
+        [
+            "working_hours",
+            "overtime",
+            "night_and_sunday_work",
+            "working_hours_reduction",
+        ],
+    ),
+    (
+        "🏖️ Leave",
+        [
+            "annual_leave",
+            "holiday_pay",
+            "parental_leave",
+        ],
+    ),
+    (
+        "💰 Pay",
+        [
+            "wages",
+            "min_wage",
+            "expense_reimbursement",
+        ],
+    ),
+    (
+        "⚖️ Dismissal",
+        [
+            "dismissal_grounds",
+            "notice_period",
+            "dismissal_protection",
+            "layoff",
+        ],
+    ),
+    (
+        "🏢 Workplace",
+        [
+            "sick_leave",
+            "workplace_safety",
+            "discrimination",
+            "warning",
+            "work_certificate",
+        ],
+    ),
+    (
+        "🤝 Union & agreements",
+        [
+            "shop_steward",
+            "safety_representative",
+            "local_agreement",
+        ],
+    ),
+]
+
+SECTOR_KEYS: dict[str, str] = {
+    "s01": "Sosiaali- ja terveydenhuolto",
+    "s02": "Hyvinvointiala, yleinen",
+    "s03": "Lääkärit",
+    "s04": "Rakennusalan",
+    "s05": "Infra-ala",
+    "s06": "Talotekniikka-alan LVI-toimiala",
+    "s07": "Rakennustuote-teollisuuden",
+    "s08": "Viher- ja ympäristörakentamisala",
+    "s09": "Maalausalan ja lattianpäällystysalan",
+    "s10": "Kaupan",
+    "s11": "Vähittäiskaupan",
+    "s12": "Matkailu-, ravintola- ja vapaa-ajan palveluita",
+    "s13": "Asiakaspalvelu-telemarkkinointialaa",
+    "s14": "Jakeluala",
+    "s15": "Suorajakelua",
+    "s16": "Muuttopalvelualaa",
+    "s17": "Teknologiateollisuuden",
+    "s18": "Kemian perusteollisuuden",
+    "s19": "Muovituote-teollisuuden ja kemian tuoteteollisuuden",
+    "s20": "Kumiteollisuuden työntekijöitä",
+    "s21": "Lasikeraamisen teollisuuden",
+    "s22": "Hirsitaloteollisuuden",
+    "s23": "Puusepänteollisuuden",
+    "s24": "Tekstiili- ja muotiala",
+    "s25": "Tekstiilihuoltoala",
+    "s26": "Harja- ja sivellinalojen",
+    "s27": "Kenkä- ja nahkateollisuuden",
+    "s28": "Jalometallialan",
+    "s29": "Malmikaivosten",
+    "s30": "Turvetuotantoalan",
+    "s31": "Öljy-, maakaasu-ja petrokemian teollisuuden",
+    "s32": "Kaupan logistiikan",
+    "s33": "Autoalan kaupan ja korjaamotoiminnan",
+    "s34": "Autonrengasala",
+    "s35": "Metsäkoneala",
+    "s36": "Tekninen huolto ja kunnossapito",
+    "s37": "Kunta-ala, yleinen",
+    "s38": "Opetusala",
+    "s39": "Opetusala, tuntipalkkaiset",
+    "s40": "Yliopistoala",
+    "s41": "Ammatillisten aikuiskoulutuskeskusten hallinto-ja tukipalveluhenkilöstön",
+    "s42": "Yksityisen opetusalan hallinto-ja tukipalveluhenkilöstön",
+    "s43": "Evankelisluterilainen kirkko",
+    "s44": "Ortodoksinen kirkko, työehtosopimukset",
+    "s45": "Kristilliset järjestöt, virka- ja työehtosopimukset",
+    "s46": "Kansallisteatteri",
+    "s47": "Muusikot",
+    "s48": "Näyttelijät",
+    "s49": "Golf-ala",
+    "s50": "Hiihtokeskusalan",
+    "s51": "Huvi-, teema-elämyspuistoja",
+}
+
+SECTOR_KEYS_REVERSE: dict[str, str] = {v: k for k, v in SECTOR_KEYS.items()}

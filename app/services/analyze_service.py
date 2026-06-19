@@ -2,6 +2,7 @@ import logging
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.application.sector_mapping import SECTOR_GROUPS
 from app.repositories.interpretations import InterpretationRepository
 from app.repositories.laws import LawRepository
 from app.repositories.topics import TopicRepository
@@ -68,8 +69,15 @@ class AnalyzeService:
             for link in sections
         ]
 
-        # 2. Интерпретации (tyosuojelu + профсоюзы)
-        interpretations = await self.interpretation_repo.get_by_topic_key(topic_key)
+        # 2. Интерпретации (tyosuojelu + профсоюзы, фильтр по sector_fi)
+        sector_group = user_input.get("sector_group")
+        sector_list = None
+        if sector_group:
+            sector_list = SECTOR_GROUPS.get(sector_group)
+        # sector_fi = user_input.get("sector_fi")
+        interpretations = await self.interpretation_repo.get_by_topic_key_filtered(
+            topic_key, sector_fi_list=sector_list
+        )
         interpretation_data = [
             {
                 "source": i.source,
@@ -90,5 +98,6 @@ class AnalyzeService:
             "interpretations": interpretation_data,
             "answer_en": rule.answer_en if rule else None,
             "answer_ru": rule.answer_ru if rule else None,
+            "answer_fi": rule.answer_fi if rule else None,
             "matched_rule_id": rule.id if rule else None,
         }

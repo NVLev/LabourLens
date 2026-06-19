@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-labour_lens_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-labour_password_secure_123}
     ports:
-      - "5433:5432"
+      - "5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
@@ -23,13 +23,49 @@ services:
     image: adminer:latest
     container_name: labour_adminer
     ports:
-      - "8081:8080"
+      - "8085:8080"
     networks:
       - labour_net
     depends_on:
       pg:
         condition: service_healthy
     restart: unless-stopped
+  app:
+    build: .
+    container_name: labour_lens_app
+    volumes:
+      - .:/app
+    ports:
+      - "8003:8000"
+    depends_on:
+      pg:
+        condition: service_healthy
+    env_file:
+      - .env
+    command: >
+      sh -c "
+      alembic upgrade head &&
+      uvicorn app.app_main:app --host 0.0.0.0 --port 8000 --reload
+      "
+    networks:
+      - labour_net
+  bot:
+    build: .
+    container_name: labour_lens_bot
+    depends_on:
+      pg:
+        condition: service_healthy
+      app:
+        condition: service_started
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    command: >
+      sh -c "python -m bot.bot_main"
+
+    networks:
+      - labour_net
 
 networks:
   labour_net:
@@ -37,6 +73,4 @@ networks:
 
 volumes:
   pgdata:
-    driver: local
-  pgadmin_data:
     driver: local
