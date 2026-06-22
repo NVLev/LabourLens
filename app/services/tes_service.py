@@ -103,11 +103,14 @@ class TesService:
                 changed = True
             return existing_by_url, "updated" if changed else "skipped"
 
-        # # Тот же URL, но контент изменился — помечаем старый как неактуальный
-        # if existing_by_url:
-        #     existing_by_url.is_current = False
-        #     status = "updated"
-        #
+        elif existing_by_url:
+            # тот же URL, hash изменился — обновляем существующий
+            existing_by_url.content_hash = parsed.content_hash
+            existing_by_url.is_parsed = True
+            existing_by_url.parsed_at = datetime.now(timezone.utc)
+            # удаляем старые клаузы перед добавлением новых
+            await self.repo.delete_clauses_for_agreement(existing_by_url.id)
+            return existing_by_url, "updated"
 
         # Новый URL, но есть актуальный договор с тем же ключом — вытесняем его
         elif current:

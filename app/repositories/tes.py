@@ -1,4 +1,4 @@
-from sqlalchemy import select, update
+from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -203,3 +203,9 @@ class TesRepository:
             .where(Agreement.sector_fi == sector_fi)
             .values(sector_en=sector_en)
         )
+
+    async def delete_clauses_for_agreement(self, agreement_id: int) -> None:
+        await self.session.execute(delete(TesClause).where(
+            TesClause.agreement_id == agreement_id
+        ))
+
