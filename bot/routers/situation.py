@@ -11,6 +11,7 @@ from app.application.seeds.topic_map import (
     TOPIC_LABELS,
 )
 from app.database.db_helper import db_helper
+from app.repositories.tes import TesRepository
 from app.services.analyze_service import AnalyzeService
 from bot.keyboards import (
     choosing_topic_keyboard,
@@ -24,7 +25,7 @@ from bot.keyboards import (
     showing_result_fi_keyboard,
     showing_result_keyboard,
     showing_result_ru_keyboard,
-    tenure_keyboard,
+    tenure_keyboard, showing_tes_en_keyboard, showing_tes_fi_keyboard, showing_tes_ru_keyboard,
 )
 from bot.states import SituationStates
 
@@ -179,7 +180,6 @@ async def on_parental_leave_chosen(callback: CallbackQuery, state: FSMContext):
     parental_data = callback.data.split(":")[1]
     logger.info("User %s chose parental_data: %s", callback.from_user.id, parental_data)
     await state.update_data(parental_leave=parental_data)
-    await state.set_state(SituationStates.showing_result)
     await callback.answer()
     await callback.message.edit_text(
         "Are you a union representative?", reply_markup=shop_steward_bool_keyboard()
@@ -240,7 +240,10 @@ async def show_result(
         "is_shop_steward": data.get("shop_steward"),
     }
     topic_key = data.get("topic_key")
-    await state.update_data(lang="en")
+    await state.update_data(
+        lang="en",
+        result_type = "non_tes"
+    )
     logger.info(
         "User %s requesting result for topic: %s", callback.from_user.id, topic_key
     )
@@ -319,7 +322,9 @@ async def show_result_ru(
         "is_shop_steward": data.get("shop_steward"),
     }
     topic_key = data.get("topic_key")
-    await state.update_data(lang="ru")
+    await state.update_data(
+        lang="ru",
+        result_type = "non_tes")
     logger.info(
         "User %s requesting result in Russian for topic: %s",
         callback.from_user.id,
@@ -418,7 +423,10 @@ async def show_result_fi(
         "is_shop_steward": data.get("shop_steward"),
     }
     topic_key = data.get("topic_key")
-    await state.update_data(lang="fi")
+    await state.update_data(
+        lang="fi",
+        result_type="non_tes"
+    )
     logger.info(
         "User %s requesting result in Finnish for topic: %s",
         callback.from_user.id,
@@ -482,6 +490,206 @@ async def show_result_fi(
     await state.set_state(SituationStates.showing_result)
 
 
+@router.callback_query(F.data == "show:tes")
+async def show_tes(
+        callback: CallbackQuery,
+        state: FSMContext,
+        offset: int = 0,
+) -> None:
+    data = await state.get_data()
+    topic_key = data.get("topic_key")
+    sector_fi = data.get("sector")
+    await state.update_data(
+        lang="en",
+        result_type="tes"
+    )
+    logger.info(
+        "User %s requesting TES for topic: %s", callback.from_user.id, topic_key
+    )
+    try:
+        async with db_helper.session_factory() as session:
+            repo = TesRepository(session)
+            clauses = await repo.get_clauses_by_topic_key(
+                topic_key=topic_key,
+                sector_fi=sector_fi,
+            )
+
+            parts = []
+            for c in clauses:
+                title = c.section_ref or ""
+                text = (c.text_en or "")[:3500]
+                clause_text = f"<b>{title}</b>\n{text}"
+                parts.append(clause_text)
+
+
+        tes_text = "\n".join(parts)
+        if len(tes_text) == 0:
+            await callback.message.edit_text(
+                "Sorry, there is no English text yet, try Finnish o Russian instead.",
+                reply_markup=showing_tes_en_keyboard(offset=offset, total=0),
+            )
+            return
+        logger.info("TES text length: %d", len(tes_text))
+        pages = split_text(tes_text)
+        total = len(pages)
+        offset = max(0, min(offset, total - 1))
+        page_text = pages[offset]
+        await callback.message.edit_text(
+            page_text + f"\n\n<i>Page {offset + 1}/{total}</i>",
+            reply_markup=showing_tes_en_keyboard(offset=offset, total=total),
+        )
+        await state.set_state(SituationStates.showing_result)
+
+    except Exception as e:
+        logger.error(
+            "Getting Tes failed for user %s, topic %s: %s",
+            callback.from_user.id,
+            topic_key,
+            e,
+            exc_info=True,
+        )
+        await callback.message.answer(
+            "⚠️ Something went wrong. Please try again.",
+        ),
+        return
+
+
+async def show_tes_ru(
+        callback: CallbackQuery,
+        state: FSMContext,
+        offset: int = 0,
+) -> None:
+    data = await state.get_data()
+    topic_key = data.get("topic_key")
+    sector_fi = data.get("sector")
+    await state.update_data(
+        lang="ru",
+        result_type="tes"
+    )
+    logger.info(
+        "User %s requesting TES in Russian for topic: %s", callback.from_user.id, topic_key
+    )
+    try:
+        async with db_helper.session_factory() as session:
+            repo = TesRepository(session)
+            clauses = await repo.get_clauses_by_topic_key(
+                topic_key=topic_key,
+                sector_fi=sector_fi,
+            )
+            parts = []
+            for c in clauses:
+                title = c.section_ref or ""
+                text = (c.text_ru or "")[:3500]
+                clause_text = f"<b>{title}</b>\n{text}"
+                parts.append(clause_text)
+
+        tes_text = "\n".join(parts)
+        logger.info("TES text length: %d", len(tes_text))
+        if len(tes_text) == 0:
+            await callback.message.edit_text(
+                "Sorry, there is no Russian text yet, try Finnish or English instead.",
+                reply_markup=showing_tes_en_keyboard(offset=offset, total=0),
+            )
+            return
+
+        pages = split_text(tes_text)
+        total = len(pages)
+        offset = max(0, min(offset, total - 1))
+        page_text = pages[offset]
+        await callback.message.edit_text(
+            page_text + f"\n\n<i>Page {offset + 1}/{total}</i>",
+            reply_markup=showing_tes_ru_keyboard(offset=offset, total=total),
+        )
+        await state.set_state(SituationStates.showing_result)
+
+    except Exception as e:
+        logger.error(
+            "Getting Tes failed for user %s, topic %s: %s",
+            callback.from_user.id,
+            topic_key,
+            e,
+            exc_info=True,
+        )
+        await callback.message.answer(
+            "⚠️ Что-то пошло не так, повторите попытку",
+        ),
+        return
+
+
+
+@router.callback_query(F.data == "show:tes_ru")
+async def show_tes_russian(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await show_tes_ru(callback, state)
+
+
+async def show_tes_fi(
+        callback: CallbackQuery,
+    state: FSMContext,
+    offset: int = 0,
+    ) -> None:
+    data = await state.get_data()
+    topic_key = data.get("topic_key")
+    sector_fi = data.get("sector")
+    await state.update_data(
+        lang="fi",
+        result_type="tes",
+    )
+    logger.info(
+        "User %s requesting TES for topic: %s", callback.from_user.id, topic_key
+    )
+    try:
+        async with db_helper.session_factory() as session:
+            repo = TesRepository(session)
+            clauses = await repo.get_clauses_by_topic_key(
+                topic_key=topic_key,
+                sector_fi=sector_fi,
+            )
+            parts = []
+            for c in clauses:
+                title = c.section_ref or ""
+                text = (c.text_fi or "")[:3500]
+                clause_text = f"<b>{title}</b>\n{text}"
+                parts.append(clause_text)
+
+        tes_text = "\n".join(parts)
+        logger.info("TES text length: %d", len(tes_text))
+        if len(tes_text) == 0:
+            await callback.message.edit_text(
+                "Sorry, there is no any clause yet",
+                reply_markup=showing_tes_fi_keyboard(offset=offset, total=0),
+            )
+            return
+        logger.info("TES text length: %d", len(tes_text))
+        pages = split_text(tes_text)
+        total = len(pages)
+        offset = max(0, min(offset, total - 1))
+        page_text = pages[offset]
+        await callback.message.edit_text(
+            page_text + f"\n\n<i>Page {offset + 1}/{total}</i>",
+            reply_markup=showing_tes_fi_keyboard(offset=offset, total=total),
+        )
+        await state.set_state(SituationStates.showing_result)
+
+    except Exception as e:
+        logger.error(
+            "Getting Tes failed for user %s, topic %s: %s",
+            callback.from_user.id,
+            topic_key,
+            e,
+            exc_info=True,
+        )
+        await callback.message.answer(
+            "⚠️ Something went wrong. Please try again.",
+        ),
+        return
+
+
+@router.callback_query(F.data == "show:tes_fi")
+async def show_tes_finnish(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await show_tes_fi(callback, state)
+
 @router.callback_query(
     F.data.startswith("results:prev:") | F.data.startswith("results:next:")
 )
@@ -498,28 +706,53 @@ async def paginate_results(callback: CallbackQuery, state: FSMContext) -> None:
     new_offset = max(0, new_offset)
 
     data = await state.get_data()
+    result_type = data.get("result_type")
     lang = data.get("lang", "en")
-    if lang == "ru":
-        await callback.answer()
-        await show_result_ru(
-            callback,
-            state,
-            offset=new_offset,
-        )
-    elif lang == "fi":
-        await callback.answer()
-        await show_result_fi(
-            callback,
-            state,
-            offset=new_offset,
-        )
+    if result_type == "non_tes":
+        if lang == "ru":
+            await callback.answer()
+            await show_result_ru(
+                callback,
+                state,
+                offset=new_offset,
+            )
+        elif lang == "fi":
+            await callback.answer()
+            await show_result_fi(
+                callback,
+                state,
+                offset=new_offset,
+            )
+        else:
+            await callback.answer()
+            await show_result(
+                callback,
+                state,
+                offset=new_offset,
+            )
     else:
-        await callback.answer()
-        await show_result(
-            callback,
-            state,
-            offset=new_offset,
-        )
+        if lang == "ru":
+            await callback.answer()
+            await show_tes_ru(
+                callback,
+                state,
+                offset=new_offset,
+            )
+        elif lang == "fi":
+            await callback.answer()
+            await show_tes_fi(
+                callback,
+                state,
+                offset=new_offset,
+            )
+        else:
+            await callback.answer()
+            await show_tes(
+                callback,
+                state,
+                offset=new_offset,
+            )
+
 
 
 def split_text(text: str, limit: int = 900) -> list[str]:

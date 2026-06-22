@@ -18,7 +18,6 @@ def main_menu() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="🧠 My situation")],
-            [KeyboardButton(text="❓ FAQ"), KeyboardButton(text="📚 Laws")],
             [KeyboardButton(text="🧮 TES Calculator")],
             [KeyboardButton(text="⚙️ Settings")],
         ],
@@ -137,12 +136,12 @@ def showing_result_keyboard(offset: int, total: int) -> InlineKeyboardMarkup:
             text="➡️ Next",
             callback_data=f"results:next:{offset}",
         )
-
+    builder.button(text="Show Tes", callback_data="show:tes")
     builder.button(text="🇷🇺 RU", callback_data="show:ru")
     builder.button(text="🇫🇮 FI", callback_data="show:fi")
     builder.button(text="🔄 New search", callback_data="back:main_menu")
 
-    builder.adjust(2, 2, 1)
+    builder.adjust(2)
     return builder.as_markup()
 
 
@@ -159,6 +158,7 @@ def showing_result_ru_keyboard(offset: int, total: int) -> InlineKeyboardMarkup:
             text="➡️ Next",
             callback_data=f"results:next:{offset}",
         )
+    builder.button(text="🤝,Show Tes", callback_data="show:tes")
     builder.button(text="🇫🇮 Show in Finnish", callback_data="show:fi")
     builder.button(text="🇬🇧 Show in English", callback_data="show:en")
     builder.button(text="🔄 New search", callback_data="back:main_menu")
@@ -179,8 +179,69 @@ def showing_result_fi_keyboard(offset: int, total: int) -> InlineKeyboardMarkup:
             text="➡️ Next",
             callback_data=f"results:next:{offset}",
         )
+    builder.button(text="🤝,Show Tes", callback_data="show:tes")
     builder.button(text="🇷🇺 Show in Russian", callback_data="show:ru")
     builder.button(text="🇬🇧 Show in English", callback_data="show:en")
+    builder.button(text="🔄 New search", callback_data="back:main_menu")
+    builder.adjust(2)
+    return builder.as_markup()
+
+def showing_tes_fi_keyboard(offset: int, total: int) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    if offset > 0:
+        builder.button(
+            text="⬅️ Prev",
+            callback_data=f"results:prev:{offset}",
+        )
+
+    if offset < total - 1:
+        builder.button(
+            text="➡️ Next",
+            callback_data=f"results:next:{offset}",
+        )
+    builder.button(text="🤝,Show Tes", callback_data="show:tes")
+    builder.button(text="🇷🇺 Show in Russian", callback_data="show:tes_ru")
+    builder.button(text="🇬🇧 Show in English", callback_data="show:tes_en")
+    builder.button(text="🔄 New search", callback_data="back:main_menu")
+    builder.adjust(2)
+    return builder.as_markup()
+
+def showing_tes_en_keyboard(offset: int, total: int) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    if offset > 0:
+        builder.button(
+            text="⬅️ Prev",
+            callback_data=f"results:prev:{offset}",
+        )
+
+    if offset < total - 1:
+        builder.button(
+            text="➡️ Next",
+            callback_data=f"results:next:{offset}",
+        )
+    builder.button(text="🤝,Show Tes", callback_data="show:tes")
+    builder.button(text="🇷🇺 Show in Russian", callback_data="show:tes_ru")
+    builder.button(text="🇫🇮 Show in Finnish", callback_data="show:tes_fi")
+    builder.button(text="🔄 New search", callback_data="back:main_menu")
+    builder.adjust(2)
+    return builder.as_markup()
+
+def showing_tes_ru_keyboard(offset: int, total: int) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    if offset > 0:
+        builder.button(
+            text="⬅️ Prev",
+            callback_data=f"results:prev:{offset}",
+        )
+
+    if offset < total - 1:
+        builder.button(
+            text="➡️ Next",
+            callback_data=f"results:next:{offset}",
+        )
+    builder.button(text="🤝,Show Tes", callback_data="show:tes")
+    builder.button(text="🇫🇮 Show in Finnish", callback_data="show:tes_fi")
+    builder.button(text="🇬🇧 Show in English", callback_data="show:tes_en")
     builder.button(text="🔄 New search", callback_data="back:main_menu")
     builder.adjust(2)
     return builder.as_markup()
