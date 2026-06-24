@@ -78,18 +78,28 @@ def translate_batch_fi_ru(texts: list[str]) -> list[str]:
 def _split_into_chunks(text: str) -> list[str]:
     if len(text) <= MAX_CHUNK_CHARS:
         return [text]
-
-    sentences = re.split(r"(?<=[.!?])\s+", text)
+    lines = text.split("\n")
+    # sentences = re.split(r"(?<=[.!?])\s+", text)
     chunks = []
     current = ""
 
-    for sentence in sentences:
-        if len(current) + len(sentence) <= MAX_CHUNK_CHARS:
-            current = f"{current} {sentence}".strip()
+    for line in lines:
+        if len(line) > MAX_CHUNK_CHARS:
+            sentences = re.split(r"(?<=[.!?])\s+", line)
+            for sentence in sentences:
+                if len(current) + len(sentence) <= MAX_CHUNK_CHARS:
+                    current = f"{current} {sentence}".strip()
+                else:
+                    if current:
+                        chunks.append(current)
+                    current = sentence[:MAX_CHUNK_CHARS]
         else:
-            if current:
-                chunks.append(current)
-            current = sentence
+            if len(current) + len(line) <= MAX_CHUNK_CHARS:
+                current = f"{current} {line}".strip()
+            else:
+                if current:
+                    chunks.append(current)
+                current = line
 
     if current:
         chunks.append(current)
