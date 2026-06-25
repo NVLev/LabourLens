@@ -57,14 +57,20 @@ def translate_fi_en(text: str) -> str:
     if not text.strip():
         return ""
     chunks = _split_into_chunks(text)
-    return " ".join(_translate(chunks, LANG_FI, LANG_EN))
+    results = []
+    for chunk in chunks:
+        results.extend(_translate([chunk], LANG_FI, LANG_EN))
+    return " ".join(results)
 
 
 def translate_fi_ru(text: str) -> str:
     if not text.strip():
         return ""
     chunks = _split_into_chunks(text)
-    return " ".join(_translate(chunks, LANG_FI, LANG_RU))
+    results = []
+    for chunk in chunks:
+        results.extend(_translate([chunk], LANG_FI, LANG_RU))
+    return " ".join(results)
 
 
 def translate_batch_fi_en(texts: list[str]) -> list[str]:
@@ -78,8 +84,8 @@ def translate_batch_fi_ru(texts: list[str]) -> list[str]:
 def _split_into_chunks(text: str) -> list[str]:
     if len(text) <= MAX_CHUNK_CHARS:
         return [text]
+
     lines = text.split("\n")
-    # sentences = re.split(r"(?<=[.!?])\s+", text)
     chunks = []
     current = ""
 
@@ -87,14 +93,20 @@ def _split_into_chunks(text: str) -> list[str]:
         if len(line) > MAX_CHUNK_CHARS:
             sentences = re.split(r"(?<=[.!?])\s+", line)
             for sentence in sentences:
-                if len(current) + len(sentence) <= MAX_CHUNK_CHARS:
+                if len(sentence) > MAX_CHUNK_CHARS:
+                    if current:
+                        chunks.append(current)
+                        current = ""
+                    for i in range(0, len(sentence), MAX_CHUNK_CHARS):
+                        chunks.append(sentence[i : i + MAX_CHUNK_CHARS])
+                elif len(current) + len(sentence) + 1 <= MAX_CHUNK_CHARS:
                     current = f"{current} {sentence}".strip()
                 else:
                     if current:
                         chunks.append(current)
-                    current = sentence[:MAX_CHUNK_CHARS]
+                    current = sentence
         else:
-            if len(current) + len(line) <= MAX_CHUNK_CHARS:
+            if len(current) + len(line) + 1 <= MAX_CHUNK_CHARS:
                 current = f"{current} {line}".strip()
             else:
                 if current:
