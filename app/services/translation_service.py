@@ -256,7 +256,6 @@ class TranslationService:
 
         buffer: list[dict] = []
 
-        # Короткие тексты переводим батчами
         for i in range(0, len(short_data), BATCH_SIZE):
             batch = short_data[i: i + BATCH_SIZE]
 
@@ -290,7 +289,14 @@ class TranslationService:
                 buffer.clear()
                 gc.collect()
 
-        for clause_id, text in long_data:
+        for idx, (clause_id, text) in enumerate(long_data, start=1):
+            logger.info(
+                "Translating long clause %s (%d/%d)",
+                clause_id,
+                idx,
+                len(long_data),
+            )
+
             try:
                 translation = translate_single(text)
 
@@ -309,22 +315,15 @@ class TranslationService:
                     "Failed to translate long TES clause %s",
                     clause_id,
                 )
+                continue
 
             if len(buffer) >= COMMIT_EVERY:
-                await self._flush_updates(
-                    buffer,
-                    text_field=text_field,
-                    now_field=now_field,
-                )
+                await self._flush_updates(buffer, text_field, now_field)
                 buffer.clear()
                 gc.collect()
 
         if buffer:
-            await self._flush_updates(
-                buffer,
-                text_field=text_field,
-                now_field=now_field,
-            )
+            await self._flush_updates(buffer, text_field, now_field)
 
         logger.info(
             "Translated %d TES clauses to %s",
@@ -334,63 +333,6 @@ class TranslationService:
 
         return translated_count
 
-    # async def _translate_tes_clauses(self, clauses: list[TesClause], lang: str) -> int:
-    #     from app.translation.nllb import translate_batch_fi_en, translate_batch_fi_ru
-    #
-    #     BATCH_SIZE = 8
-    #     COMMIT_EVERY = 32  # коммит реже, чем перевод
-    #
-    #     translate_batch = (
-    #         translate_batch_fi_en if lang == "en" else translate_batch_fi_ru
-    #     )
-    #
-    #     text_field = "text_en" if lang == "en" else "text_ru"
-    #     now_field = "translated_at" if lang == "en" else "translated_ru_at"
-    #
-    #     translated_count = 0
-    #
-    #     # извлекаем только данные, НЕ держим ORM
-    #     data = [(c.id, c.text_fi) for c in clauses if c.text_fi]
-    #
-    #     buffer = []
-    #
-    #     for i in range(0, len(data), BATCH_SIZE):
-    #         batch = data[i : i + BATCH_SIZE]
-    #         ids = [x[0] for x in batch]
-    #         texts = [x[1] for x in batch]
-    #
-    #         try:
-    #             translations = translate_batch(texts)
-    #         except Exception as e:
-    #             logger.error("TES batch failed: %s", e)
-    #             continue
-    #
-    #         now = datetime.now(timezone.utc)
-    #
-    #         for clause_id, translation in zip(ids, translations):
-    #             buffer.append(
-    #                 {
-    #                     "id": clause_id,
-    #                     text_field: translation,
-    #                     now_field: now,
-    #                 }
-    #             )
-    #             translated_count += 1
-    #
-    #         # массовый update
-    #         if len(buffer) >= COMMIT_EVERY:
-    #             await self._flush_updates(buffer, text_field, now_field)
-    #             buffer.clear()
-    #             gc.collect()
-    #             logger.info(
-    #                 "TES translation progress: %d/%d", i + len(batch), len(data)
-    #             )
-    #
-    #     # остатки
-    #     if buffer:
-    #         await self._flush_updates(buffer, text_field, now_field)
-    #
-    #     return translated_count
 
     async def _flush_updates(self, buffer, text_field, now_field):
         for row in buffer:

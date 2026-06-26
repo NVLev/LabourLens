@@ -49,6 +49,7 @@ def _translate(
         forced_bos_token_id=target_lang_id,
         num_beams=4,
         max_length=512,
+        no_repeat_ngram_size=4, 
     )
     return [tokenizer.decode(o, skip_special_tokens=True) for o in outputs]
 
