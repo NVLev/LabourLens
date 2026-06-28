@@ -177,10 +177,7 @@ class TesDiscoveryService:
         """
         Парсит один TES по ключу.
         """
-        result = await self.session.execute(
-            select(Agreement).where(Agreement.key == key)
-        )
-        agreement = result.scalar_one_or_none()
+        agreement = await self.repo.get_agreement_by_key_with_union(key)
         if not agreement:
             return {"error": f"Agreement with key '{key}' not found."}
 
@@ -200,6 +197,7 @@ class TesDiscoveryService:
 
             parser = KtParser()
             clauses = await parser.fetch_and_parse(agreement.source_url)
+            await self.repo.delete_clauses_for_agreement(agreement.id)
             agreement.is_parsed = True
             agreement.parsed_at = datetime.now(timezone.utc)
             await self.tes_service.upsert_clauses_for_agreement(
@@ -229,10 +227,10 @@ class TesDiscoveryService:
             agreement.valid_from = self.tes_service._parse_date(parsed.valid_from)
         if parsed.valid_until:
             agreement.valid_until = self.tes_service._parse_date(parsed.valid_until)
-
+        await self.repo.delete_clauses_for_agreement(agreement.id)
         agreement.is_parsed = True
         agreement.parsed_at = datetime.now(timezone.utc)
-
+        agreement.content_hash = parsed.content_hash
         await self.tes_service.upsert_clauses_for_agreement(
             agreement=agreement,
             clauses=parsed.clauses,

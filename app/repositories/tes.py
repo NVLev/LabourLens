@@ -135,6 +135,14 @@ class TesRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_agreement_by_key_with_union(self, key: str) -> Agreement | None:
+        result = await self.session.execute(
+            select(Agreement)
+            .options(selectinload(Agreement.union))
+            .where(Agreement.key == key)
+        )
+        return result.scalar_one_or_none()
+
     async def get_agreement_with_clauses_by_key(self, key: str) -> Agreement | None:
         result = await self.session.execute(
             select(Agreement)
