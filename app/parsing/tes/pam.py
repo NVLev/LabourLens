@@ -195,17 +195,26 @@ class TesPdfParser:
             tmp_path.unlink(missing_ok=True)
 
     def parse(
-        self,
-        pdf_path: str | Path,
-        union_key: str,
-        source_url: str,
-        is_universally_binding: bool = True,
+            self,
+            pdf_path: str | Path,
+            union_key: str,
+            source_url: str,
+            is_universally_binding: bool = True,
     ) -> ParsedAgreement:
         path = Path(pdf_path)
         logger.info("Parsing TES PDF: %s", path.name)
 
         pages = self._extract_pages(path)
-        full_text, page_index = self._build_full_text(pages)
+
+        # Склейка страниц и построение page_index
+        full_text_parts = []
+        page_index = []
+        offset = 0
+        for page_num, page_text in pages:
+            page_index.append((offset, page_num))
+            full_text_parts.append(page_text)
+            offset += len(page_text) + 1  # +1 за \n между страницами
+        full_text = "\n".join(full_text_parts)
 
         name_fi, valid_from, valid_until = self._extract_metadata(full_text)
         start_pos = self._find_content_start(full_text)
@@ -242,32 +251,66 @@ class TesPdfParser:
         )
 
     # Text extraction
-    def _extract_pages(self, path: Path) -> list[tuple[int, str]]:
-        """Возвращает список (page_number_1based, text)."""
+    def _extract_pages(self, path: Path, union_key: str = "") -> list[tuple[int, str]]:
+        """
+        Извлекает текст всех страниц PDF, отфильтровывая колонтитулы по координатам.
+
+        Возвращает список (номер_страницы_1based, текст_страницы).
+        Отбрасывает слова с x0 > 60% ширины (боковой колонтитул TES/TED)
+        и слова в верхних/нижних 10% высоты (номера страниц).
+        """
         pages = []
         with pdfplumber.open(path) as pdf:
             for i, page in enumerate(pdf.pages):
-                text = page.extract_text() or ""
+                words = page.extract_words()
+                text = self._rebuild_lines(words, page.width, page.height, union_key)
                 text = self._clean_text(text)
                 pages.append((i + 1, text))
         return pages
 
-    def _build_full_text(
-        self, pages: list[tuple[int, str]]
-    ) -> tuple[str, list[tuple[int, int]]]:
+    def _rebuild_lines(
+            self,
+            words: list[dict],
+            page_width: float,
+            page_height: float,
+            union_key: str = "",
+    ) -> str:
         """
-        Склеивает текст всех страниц в одну строку.
-        Возвращает (full_text, page_index) где page_index — список
-        (char_offset, page_number) для восстановления номера страницы.
+        Собирает строки из слов с фильтрацией колонтитулов по координатам.
+
+        Отбрасывает:
+        - боковой колонтитул TES: x0 > 60% ширины страницы
+        - нижний/верхний колонтитул (номера страниц):
+          top < 10% или top > 90% высоты страницы
         """
-        parts = []
-        page_index: list[tuple[int, int]] = []
-        offset = 0
-        for page_num, text in pages:
-            page_index.append((offset, page_num))
-            parts.append(text)
-            offset += len(text) + 1  # +1 за \n между страницами
-        return "\n".join(p for _, p in pages), page_index
+        if union_key == "rakennusliitto":
+            x0_limit = page_width * 0.87
+        else:
+            x0_limit = page_width  # не фильтруем
+
+        filtered = [
+            w for w in words
+            if w["x0"] < x0_limit
+               and page_height * 0.10 < w["top"] < page_height * 0.90
+        ]
+
+        lines: list[list[str]] = []
+        current_top = None
+        current_line: list[str] = []
+
+        for w in sorted(filtered, key=lambda x: (x["top"], x["x0"])):
+            if current_top is None or abs(w["top"] - current_top) > 3:
+                if current_line:
+                    lines.append(current_line)
+                current_line = [w["text"]]
+                current_top = w["top"]
+            else:
+                current_line.append(w["text"])
+
+        if current_line:
+            lines.append(current_line)
+
+        return "\n".join(" ".join(line) for line in lines)
 
     def _find_content_start(self, full_text: str) -> int:
         """
@@ -514,8 +557,15 @@ class TesPdfParser:
             return text
 
         text = text.replace("\x00", "")
-
         text = re.sub(r"[\x00-\x08\x0B-\x1F\x7F]", "", text)
+
+        # Убираем артефакт бокового колонтитула rakennusliitto:
+        # "TES" и "TED" как изолированное слово в конце строки или между словами
+        text = re.sub(r"\bTE[SD]\b", "", text)
+
+        # Схлопываем лишние пробелы после удаления
+        text = re.sub(r"[ \t]{2,}", " ", text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
 
         return text
 
