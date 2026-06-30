@@ -263,8 +263,17 @@ async def get_union_translation_status(
     Список непереведенных договоров по названию портала профсоюза
     """
     tes_repo = TesRepository(session)
-    result = await tes_repo.get_untranslated_clauses_by_union(union_key, lang)
-    return result
+    result = await tes_repo.get_untranslated_agreements_by_union(union_key, lang)
+    return [
+        {
+            "id":agreement.id,
+            "key":agreement.key,
+            "sector_en":agreement.sector_en,
+            "name_fi": agreement.name_fi,
+            "untranslated_clauses_count": untranslated_count,
+        }
+        for agreement, untranslated_count in result
+    ]
 
 
 @router.post(

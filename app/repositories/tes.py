@@ -1,4 +1,4 @@
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -193,6 +193,27 @@ class TesRepository:
             .where(null_col.is_(None))
         )
         return list(result.scalars().all())
+
+    async def get_untranslated_agreements_by_union(
+        self,
+        union_key: str,
+        lang: str,
+    ) -> list[tuple[Agreement, int]]:
+        null_col = TesClause.text_en if lang == "en" else TesClause.text_ru
+
+        result = await self.session.execute(
+            select(
+                Agreement,
+                func.count(TesClause.id).label('untranslated_count')
+            )
+            .join(TesClause, TesClause.agreement_id == Agreement.id)
+            .join(Union, Agreement.union_id == Union.id)
+            .where(Union.key == union_key)
+            .where(null_col.is_(None))
+            .group_by(Agreement.id)
+        )
+        return list(result.all())
+
 
     async def get_distinct_untranslated_sectors(self) -> list[str]:
         """Уникальные sector_fi где sector_en IS NULL."""
