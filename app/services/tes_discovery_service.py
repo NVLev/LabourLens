@@ -8,9 +8,11 @@ from sqlalchemy.orm import selectinload
 from app.database.models import Agreement, Union, UnionPortal
 from app.parsing.tes.kt import KtParser
 from app.parsing.tes.pam import TesPdfParser
+from app.parsing.tes.pam_html import PamParser
 from app.parsing.tes.union_portal import UnionPortalParser
 from app.repositories.tes import TesRepository
 from app.services.tes_service import TesService
+
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +76,39 @@ class TesDiscoveryService:
                     valid_until=(
                         date.fromisoformat(tes.valid_until) if tes.valid_until else None
                     ),
+                )
+                self.repo.add_agreement(agreement)
+                created += 1
+            portal.last_scanned_at = datetime.now(timezone.utc)
+            await self.session.commit()
+            return {
+                "union": union_key,
+                "discovered": len(discovered),
+                "created": created,
+                "skipped": skipped,
+            }
+
+        if union_key == "pam":
+            parser = PamParser()
+            discovered = await parser.discover()
+            created = skipped = 0
+            for tes in discovered:
+                existing = await self.repo.get_agreement_by_url(tes.index_url)
+                if existing is not None:
+                    skipped += 1
+                    continue
+                agreement = Agreement(
+                    union_id=portal.union_id,
+                    key=tes.key,
+                    name_fi=tes.name_fi,
+                    sector_fi=tes.sector_fi,
+                    source_url=tes.index_url,
+                    source_type="html",
+                    is_current=True,
+                    is_universally_binding=True,
+                    is_parsed=False,
+                    valid_from=date.fromisoformat(tes.valid_from) if tes.valid_from else None,
+                    valid_until=date.fromisoformat(tes.valid_until) if tes.valid_until else None,
                 )
                 self.repo.add_agreement(agreement)
                 created += 1
@@ -193,8 +228,6 @@ class TesDiscoveryService:
 
     async def _parse_agreement(self, agreement: Agreement) -> None:
         if agreement.union.key == "kt":
-            from app.parsing.tes.kt import KtParser
-
             parser = KtParser()
             clauses = await parser.fetch_and_parse(agreement.source_url)
             await self.repo.delete_clauses_for_agreement(agreement.id)
@@ -203,6 +236,23 @@ class TesDiscoveryService:
             await self.tes_service.upsert_clauses_for_agreement(
                 agreement=agreement,
                 clauses=clauses,
+            )
+            return
+
+        if agreement.union.key == "pam":
+            parser = PamParser()
+            links = await parser.get_chapter_links(agreement.source_url)
+            all_clauses = []
+            for link in links:
+                part_clauses = await parser.fetch_and_parse(link)
+                all_clauses.extend(part_clauses)
+
+            await self.repo.delete_clauses_for_agreement(agreement.id)
+            agreement.is_parsed = True
+            agreement.parsed_at = datetime.now(timezone.utc)
+            await self.tes_service.upsert_clauses_for_agreement(
+                agreement=agreement,
+                clauses=all_clauses,
             )
             return
         parser = TesPdfParser()
@@ -244,3 +294,5 @@ class TesDiscoveryService:
             .where(UnionPortal.is_active == True)
         )
         return result.scalar_one_or_none()
+
+
