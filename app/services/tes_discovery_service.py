@@ -95,6 +95,10 @@ class TesDiscoveryService:
             for tes in discovered:
                 existing = await self.repo.get_agreement_by_url(tes.index_url)
                 if existing is not None:
+                    if existing.valid_from is None and tes.valid_from:
+                        existing.valid_from = date.fromisoformat(tes.valid_from)
+                    if existing.valid_until is None and tes.valid_until:
+                        existing.valid_until = date.fromisoformat(tes.valid_until)
                     skipped += 1
                     continue
                 agreement = Agreement(
