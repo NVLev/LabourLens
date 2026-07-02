@@ -273,7 +273,23 @@ class PamParser:
             return []
         section_headers = [h for h in content.find_all("h2") if "§" in h.get_text()]
         if not section_headers:
-            logger.warning("Pam: no § h2 headers found in page")
+            # fallback: h1 вне content — вся страница = одна клаузула
+            h1 = soup.find("h1")
+            if h1 and "§" in h1.get_text():
+                title_text = h1.get_text(strip=True)
+                m = re.match(r"^(\d+)\s*§\s*(.*)$", title_text)
+                section_ref = f"§ {m.group(1)}" if m else "§ ?"
+                title_fi = m.group(2).strip() if m else title_text
+                clause_text = content.get_text(separator="\n", strip=True)
+                if len(clause_text) >= 80:
+                    topic_key = self._resolve_topic(title_fi, clause_text)
+                    return [PamParsedClause(
+                        section_ref=section_ref,
+                        title_fi=title_fi,
+                        text_fi=clause_text,
+                        topic_key=topic_key,
+                    )]
+            logger.warning("PAM: no § headers found in page")
             return []
 
         clauses: list[PamParsedClause] = []
@@ -293,7 +309,12 @@ class PamParser:
                     break
                 if sib.name == "h2" and "§" in sib.get_text():
                     break
-                text = sib.get_text(separator=" ", strip=True)
+                if sib.name == "table":
+                    text = self._table_to_markdown(sib)
+                elif sib.find("table"):
+                    text = self._table_to_markdown(sib.find("table"))
+                else:
+                    text = sib.get_text(separator=" ", strip=True)
                 if text:
                     text_parts.append(text)
 
@@ -302,6 +323,7 @@ class PamParser:
                 continue
 
             topic_key = self._resolve_topic(title_fi, clause_text)
+            clause_text = clause_text.replace("← Takaisin sisällysluetteloon", "").strip()
             clauses.append(
                 PamParsedClause(
                     section_ref=section_ref,
@@ -347,10 +369,33 @@ class PamParser:
             html = await self._fetch(client, index_url)
         return self._find_chapter_links(html, PAM_BASE_URL)
 
+    def _table_to_markdown(self, table) -> str:
+        """Конвертирует HTML <table> в Markdown."""
+        rows = []
+        for tr in table.find_all("tr"):
+            cells = [td.get_text(strip=True) for td in tr.find_all(["th", "td"])]
+            if cells:
+                rows.append(cells)
+
+        if not rows:
+            return ""
+        headers = rows[0]
+        header_line = "| " + " | ".join(headers) + " |"
+        separator_line = "| " + " | ".join(["---"] * len(headers)) + " |"
+        data_lines = []
+        for row in rows[1:]:
+            if len(row) < len(headers):
+                row += [""] * (len(headers) - len(row))
+            row = row[:len(headers)]
+
+            data_lines.append("| " + " | ".join(row) + " |")
+        return "\n".join([header_line, separator_line] + data_lines)
+
     @staticmethod
     async def _fetch(client: httpx.AsyncClient, url: str) -> str:
         resp = await client.get(url)
         resp.raise_for_status()
         return resp.text
+
 
 
