@@ -18,8 +18,14 @@ def _load_model() -> tuple[Any, Any]:
     from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
     logger.info("Loading NLLB model: %s", MODEL_NAME)
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
+    tokenizer = AutoTokenizer.from_pretrained(
+        MODEL_NAME,
+        cache_dir="/root/.cache/huggingface"
+    )
+    model = AutoModelForSeq2SeqLM.from_pretrained(
+        MODEL_NAME,
+    cache_dir="/root/.cache/huggingface"
+    )
     model.eval()
     logger.info("NLLB model ready")
     return tokenizer, model

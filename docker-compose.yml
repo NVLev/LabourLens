@@ -35,6 +35,7 @@ services:
     container_name: labour_lens_app
     volumes:
       - .:/app
+      - hf_cache:/root/.cache/huggingface
     ports:
       - "8003:8000"
     depends_on:
@@ -45,7 +46,7 @@ services:
     command: >
       sh -c "
       alembic upgrade head &&
-      uvicorn app.app_main:app --host 0.0.0.0 --port 8000 --reload
+      uvicorn app.app_main:app --host 0.0.0.0 --port 8000
       "
     networks:
       - labour_net
@@ -74,3 +75,6 @@ networks:
 volumes:
   pgdata:
     driver: local
+  hf_cache:
+    driver: local
+
