@@ -78,10 +78,15 @@ class TesRepository:
         topic_key: str,
         union_key: str | None = None,
         sector_fi: str | None = None,
+        agreement_key: str | None = None,
     ) -> list[TesClause]:
 
         query = (
             select(TesClause)
+            .options(
+            selectinload(TesClause.topic),
+            selectinload(TesClause.agreement).selectinload(Agreement.union),
+        )
             .join(TesClause.topic)
             .join(TesClause.agreement)
             .join(Agreement.union)
@@ -93,6 +98,9 @@ class TesRepository:
 
         if sector_fi:
             query = query.where(Agreement.sector_fi.ilike(f"%{sector_fi}%"))
+
+        if agreement_key:
+            query = query.where(Agreement.key == agreement_key)
 
         result = await self.session.execute(query)
         return list(result.scalars().all())

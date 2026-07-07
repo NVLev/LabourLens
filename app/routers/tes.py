@@ -186,6 +186,7 @@ async def get_clauses_by_topic(
     topic_key: str,
     union_key: str | None = None,
     sector_fi: str | None = None,
+    agreement_key: str | None = None,
     session: AsyncSession = Depends(db_helper.session_getter),
 ):
     """
@@ -198,17 +199,17 @@ async def get_clauses_by_topic(
         topic_key=topic_key,
         union_key=union_key,
         sector_fi=sector_fi,
+        agreement_key=agreement_key,
     )
     if not clauses:
         raise HTTPException(404, f"No TES clauses found for topic '{topic_key}'")
     return [
         {
             "id": c.id,
-            "agreement_id": c.agreement_id,
+            "agreement_key": c.agreement.key,
+            "sector_fi": c.agreement.sector_fi,
             "section_ref": c.section_ref,
             "text_fi": c.text_fi,
-            "text_en": c.text_en,
-            "text_ru": c.text_ru,
             "priority_over_law": c.priority_over_law,
         }
         for c in clauses
