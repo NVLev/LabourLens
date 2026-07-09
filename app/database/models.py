@@ -13,7 +13,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Text,
-    UniqueConstraint,
+    UniqueConstraint, Numeric,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -358,3 +358,41 @@ class UserQuery(Base):
     created_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))
 
     user: Mapped["User"] = relationship(back_populates="queries")
+
+# Калькулятор
+class TesRate(Base):
+
+    __tablename__ = "tes_rates"
+    __table_args__ = (
+        UniqueConstraint("agreement_id", "rate_type", "wage_group", "effective_from"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # СТАВКА
+    rate_type: Mapped[str] = mapped_column(String(200), nullable=False)
+    #"min_wage", "overtime_threshold_hours", "overtime_rate_tier1_pct", "night_bonus", "sunday_bonus_pct"
+    wage_group: Mapped[Optional[str]] = mapped_column(String(5))
+    value: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    unit: Mapped[str] = mapped_column(String(50), nullable=False)
+
+    # Время действия
+    effective_from: Mapped[datetime] = mapped_column(Date, nullable=False)
+    effective_until: Mapped[Optional[datetime]] = mapped_column(Date)
+
+    # Прослеживаемость и качество
+    source_text:Mapped[Optional[str]] = mapped_column(Text)
+    extraction_method: Mapped[Optional[str]] = mapped_column(String(200))
+    is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    extracted_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))
+
+    # relations
+    agreement_id: Mapped[int] = mapped_column(ForeignKey("agreements.id", ondelete="CASCADE"), nullable=False)
+    topic_id: Mapped[Optional[int]] = mapped_column(ForeignKey("topics.id", ondelete="SET NULL"), nullable=True)
+    clause_id: Mapped[Optional[int]] = mapped_column(ForeignKey("tes_clauses.id", ondelete="SET NULL"), nullable=True)
+
+    # Agreement/Topic/TesClause
+    agreement: Mapped["Agreement"] = relationship(back_populates="tes_rates")
+    topic: Mapped["Topic"] = relationship(back_populates="tes_rates")
+    tes_clause: Mapped["TesClause"] = relationship(back_populates="tes_rates")
+
+
