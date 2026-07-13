@@ -3,10 +3,10 @@ from datetime import date
 from decimal import Decimal
 
 KT_DATE_AMOUNT_RE = re.compile(
-    r"(\d{1,2}\.\d{1,2}\.\d{4})"       # дата: 1.6.2023
-    r"\s+(?:alkaen|lukien)\s+"         # разделитель: "alkaen" или "lukien"
-    r"(\d{1,3}(?:\s\d{3})*(?:,\d{2})?)"  # сумма: 1 746,00 / 1785,63 / 1880
-    r"(?:\s*(?:€/kk|euroa|€))?",       # опциональная единица (не обязательна для регекспа)
+    r"(\d{1,2}\.\d{1,2}\.\d{4})"
+    r"\s+(?:alkaen|lukien)\s+"
+    r"(\d[\d\s\xa0]*(?:,\d{2})?)"     
+    r"(?:\s*(?:€/kk|euroa|€))?",
     re.IGNORECASE,
 )
 
