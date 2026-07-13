@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Optional
 
 from sqlalchemy import (
@@ -138,6 +139,7 @@ class Topic(Base):
     )
     tes_clauses: Mapped[list["TesClause"]] = relationship(back_populates="topic")
     faq_rules: Mapped[list["FaqRule"]] = relationship(back_populates="topic")
+    tes_rates: Mapped[list["TesRate"]] = relationship(back_populates="topic")
 
 
 class TopicSection(Base):
@@ -251,6 +253,7 @@ class Agreement(Base):
 
     union: Mapped["Union"] = relationship(back_populates="agreements")
     clauses: Mapped[list["TesClause"]] = relationship(back_populates="agreement")
+    tes_rates: Mapped[list["TesRate"]] = relationship(back_populates="agreement")
 
 
 class TesClause(Base):
@@ -280,6 +283,7 @@ class TesClause(Base):
 
     agreement: Mapped["Agreement"] = relationship(back_populates="clauses")
     topic: Mapped[Optional["Topic"]] = relationship(back_populates="tes_clauses")
+    tes_rates: Mapped[list["TesRate"]] = relationship(back_populates="tes_clause")
 
 
 # СЛОЙ APPLICATION
@@ -372,12 +376,12 @@ class TesRate(Base):
     rate_type: Mapped[str] = mapped_column(String(200), nullable=False)
     #"min_wage", "overtime_threshold_hours", "overtime_rate_tier1_pct", "night_bonus", "sunday_bonus_pct"
     wage_group: Mapped[Optional[str]] = mapped_column(String(5))
-    value: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    value: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     unit: Mapped[str] = mapped_column(String(50), nullable=False)
 
     # Время действия
-    effective_from: Mapped[datetime] = mapped_column(Date, nullable=False)
-    effective_until: Mapped[Optional[datetime]] = mapped_column(Date)
+    effective_from: Mapped[date] = mapped_column(Date, nullable=False)
+    effective_until: Mapped[Optional[date]] = mapped_column(Date)
 
     # Прослеживаемость и качество
     source_text:Mapped[Optional[str]] = mapped_column(Text)
@@ -392,7 +396,7 @@ class TesRate(Base):
 
     # Agreement/Topic/TesClause
     agreement: Mapped["Agreement"] = relationship(back_populates="tes_rates")
-    topic: Mapped["Topic"] = relationship(back_populates="tes_rates")
-    tes_clause: Mapped["TesClause"] = relationship(back_populates="tes_rates")
+    topic: Mapped[Optional["Topic"]] = relationship(back_populates="tes_rates")
+    tes_clause: Mapped[Optional["TesClause"]] = relationship(back_populates="tes_rates")
 
 
