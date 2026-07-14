@@ -43,6 +43,7 @@ async def list_topics(
 
     return [
         {
+            "id": t.id,
             "key": t.key,
             "name_en": t.name_en,
             "name_ru": t.name_ru,
