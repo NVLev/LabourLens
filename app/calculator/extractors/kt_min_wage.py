@@ -2,6 +2,8 @@ import re
 from datetime import date
 from decimal import Decimal
 
+from app.database.models import TesRate
+
 KT_DATE_AMOUNT_RE = re.compile(
     r"(\d{1,2}\.\d{1,2}\.\d{4})"
     r"\s+(?:alkaen|lukien)\s+"
@@ -39,6 +41,7 @@ def extract_kt_min_wage(text_fi: str) -> list[dict]:
         source_text = " ".join(snippet.split())
 
         results.append({
+            "rate_type": "min_wage",
             "value": value,
             "unit": "eur_month",
             "effective_from": effective_from,
