@@ -28,7 +28,7 @@ class TesRateService:
         existing = await self.rate_repo.get_by_unique_key(
             agreement_id=clause.agreement_id,
             rate_type=rate["rate_type"],
-            wage_group=rate["wage_group"],
+            wage_group=rate.get("wage_group"),
             effective_from=rate["effective_from"],
         )
         if existing is not None:
@@ -45,10 +45,14 @@ class TesRateService:
             return "updated"
 
         self.rate_repo.add(TesRate(
+            wage_group=rate.get("wage_group"),
             rate_type=rate["rate_type"],
             agreement_id=clause.agreement_id,
             clause_id=clause.id,
-            **rate))
+            value=rate["value"],
+            unit=rate["unit"],
+            effective_from=rate["effective_from"],
+            source_text=rate["source_text"],))
         logger.debug(
             "Created rate %s %s %s",
             rate["rate_type"],

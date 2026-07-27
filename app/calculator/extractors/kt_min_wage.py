@@ -41,6 +41,7 @@ def extract_kt_min_wage(text_fi: str) -> list[dict]:
         source_text = " ".join(snippet.split())
 
         results.append({
+            "wage_group": None,
             "rate_type": "min_wage",
             "value": value,
             "unit": "eur_month",
