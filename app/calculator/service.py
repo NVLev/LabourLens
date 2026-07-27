@@ -32,15 +32,10 @@ class TesRateService:
             effective_from=rate["effective_from"],
         )
         if existing is not None:
-            if (
-                    existing.value == rate["value"]
-                    and existing.source_text == rate["source_text"]
-            ):
+            if existing.value == rate["value"]:
                 return "skipped"
-
             existing.clause_id = clause.id
             existing.value = rate["value"]
-            existing.source_text = rate["source_text"]
             logger.debug("Updated tes_rate for clause id '%s'", existing.clause_id)
             return "updated"
 
@@ -53,6 +48,7 @@ class TesRateService:
             unit=rate["unit"],
             effective_from=rate["effective_from"],
             source_text=rate["source_text"],))
+        await self.session.flush()
         logger.debug(
             "Created rate %s %s %s",
             rate["rate_type"],
@@ -84,4 +80,6 @@ class TesRateService:
             updated,
             skipped,
         )
+        return {"created": created, "updated": updated, "skipped": skipped}
+
 
