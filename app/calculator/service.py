@@ -47,6 +47,7 @@ class TesRateService:
             value=rate["value"],
             unit=rate["unit"],
             effective_from=rate["effective_from"],
+            rate_type_context = rate.get("rate_type_context"),
             source_text=rate["source_text"],))
         await self.session.flush()
         logger.debug(

@@ -368,13 +368,14 @@ class TesRate(Base):
 
     __tablename__ = "tes_rates"
     __table_args__ = (
-        UniqueConstraint("agreement_id", "rate_type", "wage_group", "effective_from"),
+        UniqueConstraint("agreement_id", "rate_type", "wage_group", "effective_from", "rate_type_context"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     # СТАВКА
     rate_type: Mapped[str] = mapped_column(String(200), nullable=False)
     #"min_wage", "overtime_threshold_hours", "overtime_rate_tier1_pct", "night_bonus", "sunday_bonus_pct"
+    rate_type_context: Mapped[Optional[str]] = mapped_column(String(100))
     wage_group: Mapped[Optional[str]] = mapped_column(String(5))
     value: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     unit: Mapped[str] = mapped_column(String(50), nullable=False)

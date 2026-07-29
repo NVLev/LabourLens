@@ -15,12 +15,14 @@ class TesRateRepository:
             rate_type: str,
             wage_group: str | None,
             effective_from: date,
+            rate_type_context: str | None
     ) -> TesRate | None:
         stmt = select(TesRate).where(
                 TesRate.agreement_id == agreement_id,
                 TesRate.rate_type == rate_type,
                 TesRate.wage_group == wage_group,
                 TesRate.effective_from == effective_from,
+                TesRate.rate_type_context == rate_type_context
             )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
