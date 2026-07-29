@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models import TesRate, TesClause
 from app.repositories.tes import TesRepository
 from app.repositories.tes_rate import TesRateRepository
-from app.calculator.extractors.kt_min_wage import extract_kt_min_wage
+from app.calculator.extractors.kt_rate import extract_kt_min_wage
 
 
 logger = logging.getLogger(__name__)
