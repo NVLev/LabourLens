@@ -210,6 +210,7 @@ async def get_clauses_by_topic(
             "sector_fi": c.agreement.sector_fi,
             "section_ref": c.section_ref,
             "text_fi": c.text_fi,
+            "text_en": c.text_en,
             "priority_over_law": c.priority_over_law,
         }
         for c in clauses
