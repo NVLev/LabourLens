@@ -19,12 +19,10 @@ def _load_model() -> tuple[Any, Any]:
 
     logger.info("Loading NLLB model: %s", MODEL_NAME)
     tokenizer = AutoTokenizer.from_pretrained(
-        MODEL_NAME,
-        cache_dir="/root/.cache/huggingface"
+        MODEL_NAME, cache_dir="/root/.cache/huggingface"
     )
     model = AutoModelForSeq2SeqLM.from_pretrained(
-        MODEL_NAME,
-    cache_dir="/root/.cache/huggingface"
+        MODEL_NAME, cache_dir="/root/.cache/huggingface"
     )
     model.eval()
     logger.info("NLLB model ready")
@@ -55,7 +53,7 @@ def _translate(
         forced_bos_token_id=target_lang_id,
         num_beams=4,
         max_length=512,
-        no_repeat_ngram_size=4, 
+        no_repeat_ngram_size=4,
     )
     return [tokenizer.decode(o, skip_special_tokens=True) for o in outputs]
 

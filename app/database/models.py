@@ -14,7 +14,8 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Text,
-    UniqueConstraint, Numeric,
+    UniqueConstraint,
+    Numeric,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -363,18 +364,25 @@ class UserQuery(Base):
 
     user: Mapped["User"] = relationship(back_populates="queries")
 
+
 # Калькулятор
 class TesRate(Base):
 
     __tablename__ = "tes_rates"
     __table_args__ = (
-        UniqueConstraint("agreement_id", "rate_type", "wage_group", "effective_from", "rate_type_context"),
+        UniqueConstraint(
+            "agreement_id",
+            "rate_type",
+            "wage_group",
+            "effective_from",
+            "rate_type_context",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     # СТАВКА
     rate_type: Mapped[str] = mapped_column(String(200), nullable=False)
-    #"min_wage", "overtime_threshold_hours", "overtime_rate_tier1_pct", "night_bonus", "sunday_bonus_pct"
+    # "min_wage", "overtime_threshold_hours", "overtime_rate_tier1_pct", "night_bonus", "sunday_bonus_pct"
     rate_type_context: Mapped[Optional[str]] = mapped_column(String(100))
     wage_group: Mapped[Optional[str]] = mapped_column(String(5))
     value: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
@@ -385,19 +393,23 @@ class TesRate(Base):
     effective_until: Mapped[Optional[date]] = mapped_column(Date)
 
     # Прослеживаемость и качество
-    source_text:Mapped[Optional[str]] = mapped_column(Text)
+    source_text: Mapped[Optional[str]] = mapped_column(Text)
     extraction_method: Mapped[Optional[str]] = mapped_column(String(200))
     is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     extracted_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))
 
     # relations
-    agreement_id: Mapped[int] = mapped_column(ForeignKey("agreements.id", ondelete="CASCADE"), nullable=False)
-    topic_id: Mapped[Optional[int]] = mapped_column(ForeignKey("topics.id", ondelete="SET NULL"), nullable=True)
-    clause_id: Mapped[Optional[int]] = mapped_column(ForeignKey("tes_clauses.id", ondelete="SET NULL"), nullable=True)
+    agreement_id: Mapped[int] = mapped_column(
+        ForeignKey("agreements.id", ondelete="CASCADE"), nullable=False
+    )
+    topic_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("topics.id", ondelete="SET NULL"), nullable=True
+    )
+    clause_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("tes_clauses.id", ondelete="SET NULL"), nullable=True
+    )
 
     # Agreement/Topic/TesClause
     agreement: Mapped["Agreement"] = relationship(back_populates="tes_rates")
     topic: Mapped[Optional["Topic"]] = relationship(back_populates="tes_rates")
     tes_clause: Mapped[Optional["TesClause"]] = relationship(back_populates="tes_rates")
-
-

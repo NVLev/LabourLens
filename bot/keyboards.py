@@ -186,6 +186,7 @@ def showing_result_fi_keyboard(offset: int, total: int) -> InlineKeyboardMarkup:
     builder.adjust(2)
     return builder.as_markup()
 
+
 def showing_tes_fi_keyboard(offset: int, total: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     if offset > 0:
@@ -206,6 +207,7 @@ def showing_tes_fi_keyboard(offset: int, total: int) -> InlineKeyboardMarkup:
     builder.adjust(2)
     return builder.as_markup()
 
+
 def showing_tes_en_keyboard(offset: int, total: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     if offset > 0:
@@ -225,6 +227,7 @@ def showing_tes_en_keyboard(offset: int, total: int) -> InlineKeyboardMarkup:
     builder.button(text="🔄 New search", callback_data="back:main_menu")
     builder.adjust(2)
     return builder.as_markup()
+
 
 def showing_tes_ru_keyboard(offset: int, total: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()

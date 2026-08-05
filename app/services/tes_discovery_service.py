@@ -13,7 +13,6 @@ from app.parsing.tes.union_portal import UnionPortalParser
 from app.repositories.tes import TesRepository
 from app.services.tes_service import TesService
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -111,8 +110,12 @@ class TesDiscoveryService:
                     is_current=True,
                     is_universally_binding=True,
                     is_parsed=False,
-                    valid_from=date.fromisoformat(tes.valid_from) if tes.valid_from else None,
-                    valid_until=date.fromisoformat(tes.valid_until) if tes.valid_until else None,
+                    valid_from=(
+                        date.fromisoformat(tes.valid_from) if tes.valid_from else None
+                    ),
+                    valid_until=(
+                        date.fromisoformat(tes.valid_until) if tes.valid_until else None
+                    ),
                 )
                 self.repo.add_agreement(agreement)
                 created += 1
@@ -298,5 +301,3 @@ class TesDiscoveryService:
             .where(UnionPortal.is_active == True)
         )
         return result.scalar_one_or_none()
-
-

@@ -16,8 +16,13 @@ from app.database.models import (
     TesClause,
 )
 from app.repositories.tes import TesRepository
-from app.translation.nllb import MAX_CHUNK_CHARS, translate_batch_fi_en, translate_fi_en, translate_batch_fi_ru, \
-    translate_fi_ru
+from app.translation.nllb import (
+    MAX_CHUNK_CHARS,
+    translate_batch_fi_en,
+    translate_fi_en,
+    translate_batch_fi_ru,
+    translate_fi_ru,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -213,9 +218,9 @@ class TranslationService:
         return {"translated": translated, "skipped": len(clauses) - translated}
 
     async def _translate_tes_clauses(
-            self,
-            clauses: list[TesClause],
-            lang: str,
+        self,
+        clauses: list[TesClause],
+        lang: str,
     ) -> int:
 
         BATCH_SIZE = 8
@@ -225,9 +230,7 @@ class TranslationService:
             translate_batch_fi_en if lang == "en" else translate_batch_fi_ru
         )
 
-        translate_single = (
-            translate_fi_en if lang == "en" else translate_fi_ru
-        )
+        translate_single = translate_fi_en if lang == "en" else translate_fi_ru
 
         text_field = "text_en" if lang == "en" else "text_ru"
         now_field = "translated_at" if lang == "en" else "translated_ru_at"
@@ -243,9 +246,7 @@ class TranslationService:
         ]
 
         long_data = [
-            (clause_id, text)
-            for clause_id, text in data
-            if len(text) > MAX_CHUNK_CHARS
+            (clause_id, text) for clause_id, text in data if len(text) > MAX_CHUNK_CHARS
         ]
 
         logger.info(
@@ -257,7 +258,7 @@ class TranslationService:
         buffer: list[dict] = []
 
         for i in range(0, len(short_data), BATCH_SIZE):
-            batch = short_data[i: i + BATCH_SIZE]
+            batch = short_data[i : i + BATCH_SIZE]
 
             ids = [item[0] for item in batch]
             texts = [item[1] for item in batch]
@@ -332,7 +333,6 @@ class TranslationService:
         )
 
         return translated_count
-
 
     async def _flush_updates(self, buffer, text_field, now_field):
         for row in buffer:

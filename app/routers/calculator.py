@@ -14,9 +14,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/calculator", tags=["calculator"])
 
+
 @router.post("/extract/kt-min-wage", summary="Extracts min-wage from KT agreements")
 async def run_kt_min_wage_extraction(
-        session: AsyncSession = Depends(db_helper.session_getter),
+    session: AsyncSession = Depends(db_helper.session_getter),
 ):
     service = TesRateService(session)
     return await service.extract_rates_for_kt()

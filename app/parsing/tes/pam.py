@@ -195,11 +195,11 @@ class TesPdfParser:
             tmp_path.unlink(missing_ok=True)
 
     def parse(
-            self,
-            pdf_path: str | Path,
-            union_key: str,
-            source_url: str,
-            is_universally_binding: bool = True,
+        self,
+        pdf_path: str | Path,
+        union_key: str,
+        source_url: str,
+        is_universally_binding: bool = True,
     ) -> ParsedAgreement:
         path = Path(pdf_path)
         logger.info("Parsing TES PDF: %s", path.name)
@@ -269,11 +269,11 @@ class TesPdfParser:
         return pages
 
     def _rebuild_lines(
-            self,
-            words: list[dict],
-            page_width: float,
-            page_height: float,
-            union_key: str = "",
+        self,
+        words: list[dict],
+        page_width: float,
+        page_height: float,
+        union_key: str = "",
     ) -> str:
         """
         Собирает строки из слов с фильтрацией колонтитулов по координатам.
@@ -289,9 +289,9 @@ class TesPdfParser:
             x0_limit = page_width  # не фильтруем
 
         filtered = [
-            w for w in words
-            if w["x0"] < x0_limit
-               and page_height * 0.10 < w["top"] < page_height * 0.90
+            w
+            for w in words
+            if w["x0"] < x0_limit and page_height * 0.10 < w["top"] < page_height * 0.90
         ]
 
         lines: list[list[str]] = []

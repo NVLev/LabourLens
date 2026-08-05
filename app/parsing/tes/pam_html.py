@@ -1,4 +1,3 @@
-
 import hashlib
 import logging
 import re
@@ -30,9 +29,11 @@ HEADERS = {
     "Accept-Language": "fi-FI,fi;q=0.9",
 }
 
+
 @dataclass
 class PamDiscoveredTes:
     """Найденный договор — до загрузки полного текста."""
+
     key: str
     index_url: str
     links: list
@@ -40,6 +41,7 @@ class PamDiscoveredTes:
     valid_from: str | None
     valid_until: str | None
     sector_fi: str
+
 
 @dataclass
 class PamParsedClause:
@@ -49,6 +51,7 @@ class PamParsedClause:
     title_fi: str  # "Työaika"
     text_fi: str
     topic_key: str | None
+
 
 @dataclass
 class PamParsedAgreement:
@@ -64,6 +67,7 @@ class PamParsedAgreement:
     sector_fi: str
     is_universally_binding: bool = True
     clauses: list[PamParsedClause] = field(default_factory=list)
+
 
 class PamParser:
     """
@@ -142,7 +146,7 @@ class PamParser:
         return True
 
     async def _fetch_index_page(
-            self, client: httpx.AsyncClient, index_url: str
+        self, client: httpx.AsyncClient, index_url: str
     ) -> PamDiscoveredTes | None:
         """
         Загружает индексную страницу договора и извлекает метаданные.
@@ -198,7 +202,7 @@ class PamParser:
                     seen.add(href)
                     links.append(absolute_url)
         return links
-    
+
     def _parse_fi_date(self, date_str: str) -> str | None:
         """Конвертирует финскую дату "1.2.2025" в ISO формат "2025-02-01"."""
         try:
@@ -250,7 +254,9 @@ class PamParser:
                 agreement = await self.parse_tes(d)
                 results.append(agreement)
                 logger.info(
-                    "PAM: parsed %-40s — %d clauses", d.name_fi[:40], len(agreement.clauses)
+                    "PAM: parsed %-40s — %d clauses",
+                    d.name_fi[:40],
+                    len(agreement.clauses),
                 )
             except Exception as e:
                 logger.error("PAM: failed %s: %s", d.index_url, e)
@@ -283,12 +289,14 @@ class PamParser:
                 clause_text = content.get_text(separator="\n", strip=True)
                 if len(clause_text) >= 80:
                     topic_key = self._resolve_topic(title_fi, clause_text)
-                    return [PamParsedClause(
-                        section_ref=section_ref,
-                        title_fi=title_fi,
-                        text_fi=clause_text,
-                        topic_key=topic_key,
-                    )]
+                    return [
+                        PamParsedClause(
+                            section_ref=section_ref,
+                            title_fi=title_fi,
+                            text_fi=clause_text,
+                            topic_key=topic_key,
+                        )
+                    ]
             logger.warning("PAM: no § headers found in page")
             return []
 
@@ -323,7 +331,9 @@ class PamParser:
                 continue
 
             topic_key = self._resolve_topic(title_fi, clause_text)
-            clause_text = clause_text.replace("← Takaisin sisällysluetteloon", "").strip()
+            clause_text = clause_text.replace(
+                "← Takaisin sisällysluetteloon", ""
+            ).strip()
             clauses.append(
                 PamParsedClause(
                     section_ref=section_ref,
@@ -364,7 +374,7 @@ class PamParser:
         Используется в TesDiscoveryService._parse_agreement() при парсинге клаузур.
         """
         async with httpx.AsyncClient(
-                headers=HEADERS, follow_redirects=True, timeout=self.timeout
+            headers=HEADERS, follow_redirects=True, timeout=self.timeout
         ) as client:
             html = await self._fetch(client, index_url)
         return self._find_chapter_links(html, PAM_BASE_URL)
@@ -386,7 +396,7 @@ class PamParser:
         for row in rows[1:]:
             if len(row) < len(headers):
                 row += [""] * (len(headers) - len(row))
-            row = row[:len(headers)]
+            row = row[: len(headers)]
 
             data_lines.append("| " + " | ".join(row) + " |")
         return "\n".join([header_line, separator_line] + data_lines)
@@ -396,6 +406,3 @@ class PamParser:
         resp = await client.get(url)
         resp.raise_for_status()
         return resp.text
-
-
-

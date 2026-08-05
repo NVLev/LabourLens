@@ -22,31 +22,41 @@ LabourLens/
 │   │       └── user.py              — User, UserQuery
 │   │
 │   ├── parsing/                     — Слой парсинга
-│   │   ├── base.py                  — BaseParser (ABC), httpx client, retry
 │   │   ├── finlex.py                — httpx + BS4, статика
-│   │   ├── tyosuojelu.py            — Playwright, JS-рендер
+│   │   ├── tyosuojelu.py            — общие рекомендации, сохранение в модель Interpretations
+│   │   ├── tehy.py                  — сохранение в модель Interpretations
+│   │   ├── ilry.py                  — сохранение в модель Interpretations
 │   │   ├── scheduler.py             — APScheduler, периодический запуск
 │   │   └── tes/
-│   │       ├── base.py              — BaseTesParser
-│   │       ├── pam.py               — HTML
-│   │       ├── rakennusliitto.py    — PDF (pdfplumber)
-│   │       ├── tek.py               — HTML
-│   │       ├── tehy.py              — HTML
-│   │       └── jhl.py               — HTML + KVTES
+│   │       ├── pam.py               — универсальный парсер pdf
+│   │       ├── kt.py                — парсер HTML с сохранением в модель 
+│   │       └── union_portal.py      — универсальный парсер порталов профсоюзов, поиск договоров
+│   │
+│   ├── services/                     — Слой бизнес-логики
+│   │   ├── analyze_service.py        
+│   │   ├── faq_service.py              
+│   │   ├── interpretation_service.py          
+│   │   ├── law_service.py
+│   │   ├── tes_discovery_service.py
+│   │   ├── tes_service.py
+│   │   ├── topic_service.py
+│   │   ├── translation_service.py
+│   │   └── union_seed_service
 │   │
 │   ├── translation/                 — Слой перевода fi → en
 │   │   ├── helsinki_nlp.py          — локальная модель (Helsinki-NLP)
-│   │   ├── deepl.py                 — fallback, Free API 500k/мес
+│   │   ├── nllb.py                 — fallback, Free API 500k/мес
 │   │   └── cache.py                 — не переводим одно дважды (хэш)
 │   │
 │   ├── application/                 — Бизнес-логика
-│   │   ├── faq_engine.py            — rule-based матчинг по conditions JSON
 │   │   ├── tes_calculator.py        — расчёт ставок (сверхурочные, праздники)
 │   │   ├── situation_resolver.py    — topic → sections + interpretations + TES
 │   │   └── seeds/
-│   │       └── topic_map.py         — ручной маппинг тем на старте
+│   │       ├── topic_map.py         — ручной маппинг тем на старте
+│   │       └── faq_rules.py         - Seed-данные для FAQ правил
 │   │
 │   ├── repositories/                — Слой доступа к данным
+│   │   ├── faq.py
 │   │   ├── laws.py
 │   │   ├── topics.py
 │   │   ├── tes.py

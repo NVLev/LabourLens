@@ -25,7 +25,10 @@ from bot.keyboards import (
     showing_result_fi_keyboard,
     showing_result_keyboard,
     showing_result_ru_keyboard,
-    tenure_keyboard, showing_tes_en_keyboard, showing_tes_fi_keyboard, showing_tes_ru_keyboard,
+    tenure_keyboard,
+    showing_tes_en_keyboard,
+    showing_tes_fi_keyboard,
+    showing_tes_ru_keyboard,
 )
 from bot.states import SituationStates
 
@@ -240,10 +243,7 @@ async def show_result(
         "is_shop_steward": data.get("shop_steward"),
     }
     topic_key = data.get("topic_key")
-    await state.update_data(
-        lang="en",
-        result_type = "non_tes"
-    )
+    await state.update_data(lang="en", result_type="non_tes")
     logger.info(
         "User %s requesting result for topic: %s", callback.from_user.id, topic_key
     )
@@ -322,9 +322,7 @@ async def show_result_ru(
         "is_shop_steward": data.get("shop_steward"),
     }
     topic_key = data.get("topic_key")
-    await state.update_data(
-        lang="ru",
-        result_type = "non_tes")
+    await state.update_data(lang="ru", result_type="non_tes")
     logger.info(
         "User %s requesting result in Russian for topic: %s",
         callback.from_user.id,
@@ -423,10 +421,7 @@ async def show_result_fi(
         "is_shop_steward": data.get("shop_steward"),
     }
     topic_key = data.get("topic_key")
-    await state.update_data(
-        lang="fi",
-        result_type="non_tes"
-    )
+    await state.update_data(lang="fi", result_type="non_tes")
     logger.info(
         "User %s requesting result in Finnish for topic: %s",
         callback.from_user.id,
@@ -492,17 +487,14 @@ async def show_result_fi(
 
 @router.callback_query(F.data == "show:tes")
 async def show_tes(
-        callback: CallbackQuery,
-        state: FSMContext,
-        offset: int = 0,
+    callback: CallbackQuery,
+    state: FSMContext,
+    offset: int = 0,
 ) -> None:
     data = await state.get_data()
     topic_key = data.get("topic_key")
     sector_fi = data.get("sector")
-    await state.update_data(
-        lang="en",
-        result_type="tes"
-    )
+    await state.update_data(lang="en", result_type="tes")
     logger.info(
         "User %s requesting TES for topic: %s", callback.from_user.id, topic_key
     )
@@ -520,7 +512,6 @@ async def show_tes(
                 text = (c.text_en or "")[:3500]
                 clause_text = f"<b>{title}</b>\n{text}"
                 parts.append(clause_text)
-
 
         tes_text = "\n".join(parts)
         if len(tes_text) == 0:
@@ -555,19 +546,18 @@ async def show_tes(
 
 
 async def show_tes_ru(
-        callback: CallbackQuery,
-        state: FSMContext,
-        offset: int = 0,
+    callback: CallbackQuery,
+    state: FSMContext,
+    offset: int = 0,
 ) -> None:
     data = await state.get_data()
     topic_key = data.get("topic_key")
     sector_fi = data.get("sector")
-    await state.update_data(
-        lang="ru",
-        result_type="tes"
-    )
+    await state.update_data(lang="ru", result_type="tes")
     logger.info(
-        "User %s requesting TES in Russian for topic: %s", callback.from_user.id, topic_key
+        "User %s requesting TES in Russian for topic: %s",
+        callback.from_user.id,
+        topic_key,
     )
     try:
         async with db_helper.session_factory() as session:
@@ -616,7 +606,6 @@ async def show_tes_ru(
         return
 
 
-
 @router.callback_query(F.data == "show:tes_ru")
 async def show_tes_russian(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
@@ -624,10 +613,10 @@ async def show_tes_russian(callback: CallbackQuery, state: FSMContext):
 
 
 async def show_tes_fi(
-        callback: CallbackQuery,
+    callback: CallbackQuery,
     state: FSMContext,
     offset: int = 0,
-    ) -> None:
+) -> None:
     data = await state.get_data()
     topic_key = data.get("topic_key")
     sector_fi = data.get("sector")
@@ -689,6 +678,7 @@ async def show_tes_fi(
 async def show_tes_finnish(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await show_tes_fi(callback, state)
+
 
 @router.callback_query(
     F.data.startswith("results:prev:") | F.data.startswith("results:next:")
@@ -752,7 +742,6 @@ async def paginate_results(callback: CallbackQuery, state: FSMContext) -> None:
                 state,
                 offset=new_offset,
             )
-
 
 
 def split_text(text: str, limit: int = 900) -> list[str]:
