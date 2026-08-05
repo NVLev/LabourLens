@@ -8,9 +8,7 @@ from app.repositories.tes import TesRepository
 from app.repositories.tes_rate import TesRateRepository
 from app.calculator.extractors.kt_rate import extract_kt_min_wage
 
-
 logger = logging.getLogger(__name__)
-
 
 
 class TesRateService:
@@ -19,17 +17,14 @@ class TesRateService:
         self.rate_repo = TesRateRepository(session)
         self.tes_repo = TesRepository(session)
 
-    async def _upsert_rate(
-            self,
-            clause: TesClause,
-            rate: dict[str, Any]
-    ) -> str:
+    async def _upsert_rate(self, clause: TesClause, rate: dict[str, Any]) -> str:
 
         existing = await self.rate_repo.get_by_unique_key(
             agreement_id=clause.agreement_id,
             rate_type=rate["rate_type"],
             wage_group=rate.get("wage_group"),
             effective_from=rate["effective_from"],
+            rate_type_context=rate.get("rate_type_context"),
         )
         if existing is not None:
             if existing.value == rate["value"]:
@@ -39,16 +34,19 @@ class TesRateService:
             logger.debug("Updated tes_rate for clause id '%s'", existing.clause_id)
             return "updated"
 
-        self.rate_repo.add(TesRate(
-            wage_group=rate.get("wage_group"),
-            rate_type=rate["rate_type"],
-            agreement_id=clause.agreement_id,
-            clause_id=clause.id,
-            value=rate["value"],
-            unit=rate["unit"],
-            effective_from=rate["effective_from"],
-            rate_type_context = rate.get("rate_type_context"),
-            source_text=rate["source_text"],))
+        self.rate_repo.add(
+            TesRate(
+                wage_group=rate.get("wage_group"),
+                rate_type=rate["rate_type"],
+                agreement_id=clause.agreement_id,
+                clause_id=clause.id,
+                value=rate["value"],
+                unit=rate["unit"],
+                effective_from=rate["effective_from"],
+                rate_type_context=rate.get("rate_type_context"),
+                source_text=rate["source_text"],
+            )
+        )
         await self.session.flush()
         logger.debug(
             "Created rate %s %s %s",
@@ -61,7 +59,9 @@ class TesRateService:
     # TODO: populate extraction metadata
 
     async def extract_rates_for_kt(self):
-        clauses = await self.tes_repo.get_clauses_by_topic_key(topic_key="min_wage", union_key="kt")
+        clauses = await self.tes_repo.get_clauses_by_topic_key(
+            topic_key="min_wage", union_key="kt"
+        )
         created = updated = skipped = 0
         for clause in clauses:
             rates = extract_kt_min_wage(clause.text_fi)
@@ -82,5 +82,3 @@ class TesRateService:
             skipped,
         )
         return {"created": created, "updated": updated, "skipped": skipped}
-
-
