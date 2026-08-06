@@ -1,12 +1,12 @@
 import logging
-from typing import Any
+from typing import Any, Callable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import TesRate, TesClause
 from app.repositories.tes import TesRepository
 from app.repositories.tes_rate import TesRateRepository
-from app.calculator.extractors.kt_rate import extract_kt_min_wage
+from app.calculator.extractors.kt_rate import extract_kt_min_wage, extract_kt_overtime
 
 logger = logging.getLogger(__name__)
 
@@ -31,11 +31,13 @@ class TesRateService:
                 return "skipped"
             existing.clause_id = clause.id
             existing.value = rate["value"]
+            existing.topic_id=clause.topic_id
             logger.debug("Updated tes_rate for clause id '%s'", existing.clause_id)
             return "updated"
 
         self.rate_repo.add(
             TesRate(
+                topic_id=clause.topic_id,
                 wage_group=rate.get("wage_group"),
                 rate_type=rate["rate_type"],
                 agreement_id=clause.agreement_id,
@@ -57,17 +59,17 @@ class TesRateService:
         return "created"
 
     # TODO: populate extraction metadata
-
-    async def extract_rates_for_kt(self):
+    async def extract_and_upsert(self, topic_key: str, extractor: Callable) -> dict:
         clauses = await self.tes_repo.get_clauses_by_topic_key(
-            topic_key="min_wage", union_key="kt"
+            topic_key=topic_key, union_key="kt"
         )
         created = updated = skipped = 0
         for clause in clauses:
-            rates = extract_kt_min_wage(clause.text_fi)
+            rates = extractor(clause.text_fi)
             for rate in rates:
+                if extractor == extract_kt_overtime:
+                    rate["effective_from"] = clause.agreement.valid_from
                 status = await self._upsert_rate(clause, rate)
-
                 if status == "created":
                     created += 1
                 elif status == "updated":
@@ -82,3 +84,8 @@ class TesRateService:
             skipped,
         )
         return {"created": created, "updated": updated, "skipped": skipped}
+    async def extract_rates_for_kt(self):
+        return await self.extract_and_upsert("min_wage", extract_kt_min_wage)
+
+    async def extract_overtime_rates(self):
+        return await self.extract_and_upsert("overtime", extract_kt_overtime)
