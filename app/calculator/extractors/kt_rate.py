@@ -3,7 +3,6 @@ import re
 from datetime import date
 from decimal import Decimal
 
-from app.database.models import TesRate
 
 logger = logging.getLogger(__name__)
 
