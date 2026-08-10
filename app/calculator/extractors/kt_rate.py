@@ -2,7 +2,7 @@ import logging
 import re
 from datetime import date
 from decimal import Decimal
-
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,8 @@ KT_OVERTIME_AMOUNT_RE = re.compile(
     re.IGNORECASE,
 )
 
-_MOM_HEADER_RE = re.compile(r"\d+\s*mom\.\s*([^\n]*)")
+_MOM_HEADER_BEFORE_RE = re.compile(r"\d+\s*mom\.\s*([^\n]*)")       # "N mom. Title"
+_MOM_HEADER_AFTER_RE = re.compile(r"([^\n]*?)\s+\d+\s*mom\.")        # "Title N mom."
 
 # Случай 2 ("слитный" формат — mom.-заголовок пуст или не назван по режиму,
 _VUOROKAUTINEN_COMPACT_RE = re.compile(
@@ -87,6 +88,17 @@ _JAKSOTYO_PERIOD_RE = re.compile(
     re.IGNORECASE,
 )
 
+# паттерн - явный процент
+_NIGHT_SUNDAY_PCT_RE = re.compile(
+    r"(?P<pct>\d+(?:,\d+)?)\s*(?:%(?::n)?|prosentin)",
+    re.IGNORECASE,
+)
+
+# паттерн - фиксированная фраза = 100%: "korottamaton tuntipalkka"
+_FULL_RATE_PHRASE_RE = re.compile(r"\bkorottamaton\s+tuntipalkka\b", re.IGNORECASE)
+
+# паттерн - фиксированная фраза = 100%: "kaksinkertaisena"
+_DOUBLE_RATE_PHRASE_RE = re.compile(r"kaksinkertais\w*", re.IGNORECASE)
 
 def extract_kt_min_wage(text_fi: str) -> list[dict]:
     """
@@ -135,7 +147,7 @@ def extract_kt_overtime(text_fi: str) -> list[dict]:
     несколькими порогами (по длине периода) внутри одного блока.
     """
     results = []
-    segments = find_segments_overtime(text_fi)
+    segments = find_segments_by_mom_header(text_fi)
 
     for title_text, segment in segments:
         rate_type_context = _detect_mode(title_text)
@@ -146,6 +158,78 @@ def extract_kt_overtime(text_fi: str) -> list[dict]:
             results.extend(_extract_compact_segment(segment))
 
     return results
+
+
+
+def extract_kt_night_sunday(text_fi: str) -> list[dict]:
+    """
+    Возвращает список rate-словарей для ставок KT при работе в ночную смену и в выходные.
+    :param text_fi:
+    :return:
+    """
+    results = []
+    segments = find_segments_by_mom_header(text_fi)
+    for title_text, segment in segments:
+        rate_type_context = _detect_night_sunday_mode(title_text)
+
+        if rate_type_context is not None:
+            results.extend(_extract_night_sunday_rate(segment, rate_type_context))
+
+        else:
+            logger.warning(
+                "KT night/sunday: could not detect mode from header '%s': %.120s",
+                title_text,
+                segment,
+            )
+
+    return results
+
+def _detect_night_sunday_mode(title_text):
+    lowered = title_text.lower()
+    if "sunnuntai" in lowered:
+        return "sunnuntai"
+    if "lauantai" in lowered:
+        return "lauantai"
+    if "aatto" in lowered:
+        return "aatto"
+    if "ilta" in lowered:
+        return "ilta"
+    if "yö" in lowered:
+        return "yo"
+    return None
+
+
+def _build_night_sunday_row(rate_type_context: str, value: Decimal, source_text: str) -> dict:
+    return {
+        "wage_group": None,
+        "rate_type": "night_sunday_rate_pct",
+        "rate_type_context": rate_type_context,
+        "value": value,
+        "unit": "pct",
+        "source_text": source_text,
+    }
+
+def _extract_night_sunday_rate(segment: str, rate_type_context: str) -> list[dict]:
+    """Пробует явный процент, потом обе фиксированные фразы (=100%) по очереди."""
+    for pattern, fixed_value in (
+        (_NIGHT_SUNDAY_PCT_RE, None),
+        (_FULL_RATE_PHRASE_RE, Decimal(100)),
+        (_DOUBLE_RATE_PHRASE_RE, Decimal(100)),
+    ):
+        m = pattern.search(segment)
+        if not m:
+            continue
+        value = fixed_value if fixed_value is not None else _normalize_amount(m.group("pct"))
+        start, end = m.start(), m.end()
+        snippet = segment[max(0, start - 40): min(len(segment), end + 40)]
+        source_text = " ".join(snippet.split())
+        return [_build_night_sunday_row(rate_type_context, value, source_text)]
+
+    logger.warning(
+        "KT night/sunday: no rate found for mode '%s': %.120s",
+        rate_type_context, segment,
+    )
+    return []
 
 
 def _extract_case1_tiers(segment: str, rate_type_context: str) -> list[dict]:
@@ -334,7 +418,7 @@ def _detect_mode(title_text: str) -> str | None:
     return None
 
 
-def find_segments_overtime(text_fi: str) -> list[tuple[str, str]]:
+def find_segments_by_mom_header(text_fi: str) -> list[tuple[str, str]]:
     """
     Разбивает текст клаузулы на сегменты по заголовкам "N mom. Title".
     Возвращает список (title_text, segment_text). Если заголовков нет
@@ -342,7 +426,10 @@ def find_segments_overtime(text_fi: str) -> list[tuple[str, str]]:
     (тогда _detect_mode("") вернёт None, и extract_kt_overtime уйдёт
     в ветку "Случай 2").
     """
-    matches = list(_MOM_HEADER_RE.finditer(text_fi))
+    matches_before = list(_MOM_HEADER_BEFORE_RE.finditer(text_fi))
+    matches_after = list(_MOM_HEADER_AFTER_RE.finditer(text_fi))
+    matches = matches_before if len(matches_before) >= len(matches_after) else matches_after
+
     if not matches:
         return [("", text_fi)]
 
