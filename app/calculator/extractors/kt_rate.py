@@ -17,9 +17,9 @@ KT_DATE_AMOUNT_RE = re.compile(
 # Случай 1: явные "N mom. Title" заголовки, режим назван прямо в заголовке.
 KT_OVERTIME_AMOUNT_RE = re.compile(
     r"(?P<threshold_hours>\d+)\s+ensimm(?:äi|ai)selt[äa]\s+"
-    r"(?:ylityö)?tunni(?:lta|sta).{0,60}?"
+    r"(?:ylityö)?tunni(?:lta|sta).{0,80}?"
     r"(?P<tier1_pct>\d+(?:,\d+)?)\s*(?:%(?::lla)?|prosentilla)"
-    r".{0,60}?seuraav\w*\s+(?:\w+\s+)?tunn\w*.{0,60}?"
+    r".{0,80}?"
     r"(?P<tier2_pct>\d+(?:,\d+)?)\s*(?:%(?::lla)?|prosentilla)",
     re.IGNORECASE,
 )
