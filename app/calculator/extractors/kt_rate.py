@@ -24,8 +24,8 @@ KT_OVERTIME_AMOUNT_RE = re.compile(
     re.IGNORECASE,
 )
 
-_MOM_HEADER_BEFORE_RE = re.compile(r"\d+\s*mom\.\s*([^\n]*)")       # "N mom. Title"
-_MOM_HEADER_AFTER_RE = re.compile(r"([^\n]*?)\s+\d+\s*mom\.")        # "Title N mom."
+_MOM_HEADER_BEFORE_RE = re.compile(r"\d+\s*mom\.[ \t]*([^\n]*)")
+_MOM_HEADER_AFTER_RE = re.compile(r"([^\n]*?)[ \t]+\d+\s*mom\.")
 
 # Случай 2 ("слитный" формат — mom.-заголовок пуст или не назван по режиму,
 _VUOROKAUTINEN_COMPACT_RE = re.compile(
@@ -194,7 +194,7 @@ def _detect_night_sunday_mode(title_text):
         return "aatto"
     if "ilta" in lowered:
         return "ilta"
-    if "yö" in lowered:
+    if "yötyö" in lowered or "yölisä" in lowered or "yökorvaus" in lowered:
         return "yo"
     return None
 
@@ -429,6 +429,15 @@ def find_segments_by_mom_header(text_fi: str) -> list[tuple[str, str]]:
     matches_before = list(_MOM_HEADER_BEFORE_RE.finditer(text_fi))
     matches_after = list(_MOM_HEADER_AFTER_RE.finditer(text_fi))
     matches = matches_before if len(matches_before) >= len(matches_after) else matches_after
+
+    def nonempty_count(matches):
+        return sum(1 for m in matches if m.group(1).strip())
+
+    matches = (
+        matches_before
+        if nonempty_count(matches_before) >= nonempty_count(matches_after)
+        else matches_after
+    )
 
     if not matches:
         return [("", text_fi)]
