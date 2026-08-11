@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models import TesRate, TesClause
 from app.repositories.tes import TesRepository
 from app.repositories.tes_rate import TesRateRepository
-from app.calculator.extractors.kt_rate import extract_kt_min_wage, extract_kt_overtime
+from app.calculator.extractors.kt_rate import extract_kt_min_wage, extract_kt_overtime, extract_kt_night_sunday
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ class TesRateService:
         for clause in clauses:
             rates = extractor(clause.text_fi)
             for rate in rates:
-                if extractor == extract_kt_overtime:
+                if extractor == extract_kt_overtime or extractor == extract_kt_night_sunday:
                     rate["effective_from"] = clause.agreement.valid_from
                 status = await self._upsert_rate(clause, rate)
                 if status == "created":
@@ -89,3 +89,6 @@ class TesRateService:
 
     async def extract_overtime_rates(self):
         return await self.extract_and_upsert("overtime", extract_kt_overtime)
+
+    async def extract_night_sunday_rates(self):
+        return await self.extract_and_upsert("night_and_sunday_work", extract_kt_night_sunday)

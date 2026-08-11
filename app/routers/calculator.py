@@ -27,6 +27,16 @@ async def run_kt_overtime_extraction(
     service = TesRateService(session)
     return await service.extract_overtime_rates()
 
+@router.post(
+    "/extract/kt-night-sunday",
+    summary="Extracts additional rates from KT night_sunday_work topics clauses"
+)
+async def run_kt_night_sunday_extraction(
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    service = TesRateService(session)
+    return await service.extract_night_sunday_rates()
+
 @router.get("/extract/{topic_key}", summary="Get TES Rates by topic and (optionally) by union")
 async def get_rates_by_topic(
     topic_key: str,
