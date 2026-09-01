@@ -4,6 +4,8 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from app.calculator.enums import RateType
+
 logger = logging.getLogger(__name__)
 
 KT_DATE_AMOUNT_RE = re.compile(
@@ -125,7 +127,7 @@ def extract_kt_min_wage(text_fi: str) -> list[dict]:
         results.append({
             "wage_group": None,
             "rate_type_context": None,
-            "rate_type": "min_wage",
+            "rate_type": RateType.MIN_WAGE.value,
             "value": value,
             "unit": "eur_month",
             "effective_from": effective_from,
@@ -202,7 +204,7 @@ def _detect_night_sunday_mode(title_text):
 def _build_night_sunday_row(rate_type_context: str, value: Decimal, source_text: str) -> dict:
     return {
         "wage_group": None,
-        "rate_type": "night_sunday_rate_pct",
+        "rate_type": RateType.NIGHT_SUNDAY_RATE_PCT.value,
         "rate_type_context": rate_type_context,
         "value": value,
         "unit": "pct",
@@ -392,9 +394,9 @@ def _build_tier_rows(
     """Три rate-строки (порог часов, tier1%, tier2%) для одного режима/контекста."""
     common = {"wage_group": None, "rate_type_context": rate_type_context, "source_text": source_text}
     return [
-        {**common, "rate_type": "overtime_rate_tier1_hours", "value": threshold_hours, "unit": "hours"},
-        {**common, "rate_type": "overtime_rate_tier1_pct", "value": tier1_pct, "unit": "pct"},
-        {**common, "rate_type": "overtime_rate_tier2_pct", "value": tier2_pct, "unit": "pct"},
+        {**common, "rate_type": RateType.OVERTIME_RATE_TIER1_HOURS.value, "value": threshold_hours, "unit": "hours"},
+        {**common, "rate_type": RateType.OVERTIME_RATE_TIER1_PCT.value, "value": tier1_pct, "unit": "pct"},
+        {**common, "rate_type": RateType.OVERTIME_RATE_TIER2_PCT.value, "value": tier2_pct, "unit": "pct"},
     ]
 
 
