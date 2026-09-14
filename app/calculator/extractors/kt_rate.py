@@ -102,6 +102,30 @@ _FULL_RATE_PHRASE_RE = re.compile(r"\bkorottamaton\s+tuntipalkka\b", re.IGNORECA
 # паттерн - фиксированная фраза = 100%: "kaksinkertaisena"
 _DOUBLE_RATE_PHRASE_RE = re.compile(r"kaksinkertais\w*", re.IGNORECASE)
 
+# паттерн - Kokopäiväraha + osapäiväraha
+KT_DAILY_ALLOWANCE_RE = re.compile(
+    r"Kokopäiväraha\s+on\s+(?P<full>\d+(?:,\d+)?)\s*(?:euroa|€)"
+    r"\s+ja\s+osapäiväraha\s+(?P<part>\d+(?:,\d+)?)\s*(?:euroa|€)",
+    re.IGNORECASE,
+)
+
+KT_MEAL_COMPENSATION_RE = re.compile(
+    r"ateriakorvaus(?:ta)?\s+(?P<amt_tier1>\d+(?:,\d+)?)\s*(?:euroa|€)"
+    r"|(?P<amt_tier2>\d+(?:,\d+)?)\s*euron\s+suuruinen\s+ateriakorvaus",
+    re.IGNORECASE,
+)
+
+KT_NIGHT_TRAVEL_ALLOWANCE_RE = re.compile(
+    r"(?P<amt>\d+(?:,\d+)?)\s*euron\s+yömatkaraha",
+    re.IGNORECASE,
+)
+
+KT_CLOTHING_MAINTENANCE_RE = re.compile(
+    r"huollosta\s+aiheutuvista\s+kustannuksista\s+korvataan\s+"
+    r"(?P<amt>\d+(?:,\d+)?)\s*euroa\s+kuukaudessa",
+    re.IGNORECASE,
+)
+
 def extract_kt_min_wage(text_fi: str) -> list[dict]:
     """
     Возвращает список {"value": ..., "unit": "eur_month", "effective_from": ..., "source_text": ...}
@@ -136,6 +160,230 @@ def extract_kt_min_wage(text_fi: str) -> list[dict]:
 
     return results
 
+
+def _build_expense_row(
+    rate_type: str,
+    value: Decimal,
+    source_text: str,
+    unit: str,
+    rate_type_context: str | None = None,
+) -> dict:
+    """Единая точка сборки rate-словаря для extractor'ов group A (expense_reimbursement)."""
+    return {
+        "wage_group": None,
+        "rate_type_context": rate_type_context,
+        "rate_type": rate_type,
+        "value": value,
+        "unit": unit,
+        "source_text": source_text,
+    }
+
+
+def _extract_daily_allowance(text_fi: str) -> list[dict]:
+    """
+    Kokopäiväraha + osapäiväraha — одно предложение, две обязательные
+    именованные группы (full/part): заполняются всегда вместе, либо
+    весь regex не совпадает вовсе (альтернации тут нет).
+
+    Пример: "Kokopäiväraha on 54 euroa ja osapäiväraha 25 euroa
+    jokaiselta ao. päivärahaan oikeuttavalta matkavuorokaudelta."
+    """
+    results = []
+
+    for match in KT_DAILY_ALLOWANCE_RE.finditer(text_fi):
+        start, end = match.start(), match.end()
+        snippet = text_fi[max(0, start - 40): min(len(text_fi), end + 40)]
+        source_text = " ".join(snippet.split())
+
+        try:
+            full_value = _normalize_amount(match.group("full"))
+            part_value = _normalize_amount(match.group("part"))
+        except Exception:
+            logger.warning(
+                "KT expense_reimbursement: failed to parse daily allowance amounts: %.120s",
+                source_text,
+            )
+            continue
+
+        results.append(
+            _build_expense_row(
+                RateType.DAILY_ALLOWANCE_FULL_EUR.value,
+                full_value,
+                source_text,
+                "eur",
+            )
+        )
+        results.append(
+            _build_expense_row(
+                RateType.DAILY_ALLOWANCE_PART_EUR.value,
+                part_value,
+                source_text,
+                "eur",
+            )
+        )
+
+    if not results:
+        logger.debug("KT expense_reimbursement: no daily allowance (kokopäiväraha) match found")
+
+    return results
+
+
+def _extract_night_travel_allowance(text_fi: str) -> list[dict]:
+    """
+    Yömatkaraha — одна именованная группа (amt): "maksetaan 16 euron
+    yömatkaraha" / "16,00 euron yömatkaraha".
+    """
+    results = []
+
+    for match in KT_NIGHT_TRAVEL_ALLOWANCE_RE.finditer(text_fi):
+        start, end = match.start(), match.end()
+        snippet = text_fi[max(0, start - 40): min(len(text_fi), end + 40)]
+        source_text = " ".join(snippet.split())
+
+        try:
+            value = _normalize_amount(match.group("amt"))
+        except Exception:
+            logger.warning(
+                "KT expense_reimbursement: failed to parse night travel allowance amount: %.120s",
+                source_text,
+            )
+            continue
+
+        results.append(
+            _build_expense_row(
+                RateType.NIGHT_TRAVEL_ALLOWANCE_EUR.value,
+                value,
+                source_text,
+                "eur",
+            )
+        )
+
+    if not results:
+        logger.debug("KT expense_reimbursement: no night travel allowance (yömatkaraha) match found")
+
+    return results
+
+
+def _extract_meal_compensation(text_fi: str) -> list[dict]:
+    """
+    Ateriakorvaus — два разных tier'а (13,50 € базовый, 2,02 € усечённый
+    случай hyvtes), выраженные разным порядком слов в одном regex через
+    альтернацию. В каждом match заполнена ровно одна из двух именованных
+    групп (amt_tier1 / amt_tier2) — вторая всегда None.
+    """
+    results = []
+
+    for match in KT_MEAL_COMPENSATION_RE.finditer(text_fi):
+        start, end = match.start(), match.end()
+        snippet = text_fi[max(0, start - 40): min(len(text_fi), end + 40)]
+        source_text = " ".join(snippet.split())
+
+        tier1_amount_str = match.group("amt_tier1")
+        tier2_amount_str = match.group("amt_tier2")
+
+        if tier1_amount_str:
+            try:
+                value = _normalize_amount(tier1_amount_str)
+            except Exception:
+                logger.warning(
+                    "KT expense_reimbursement: failed to parse meal compensation (tier1) amount: %.120s",
+                    source_text,
+                )
+                continue
+            results.append(
+                _build_expense_row(
+                    RateType.MEAL_COMPENSATION_EUR.value,
+                    value,
+                    source_text,
+                    "eur",
+                    "tier1",
+                )
+            )
+        elif tier2_amount_str:
+            try:
+                value = _normalize_amount(tier2_amount_str)
+            except Exception:
+                logger.warning(
+                    "KT expense_reimbursement: failed to parse meal compensation (tier2) amount: %.120s",
+                    source_text,
+                )
+                continue
+            results.append(
+                _build_expense_row(
+                    RateType.MEAL_COMPENSATION_EUR.value,
+                    value,
+                    source_text,
+                    "eur",
+                    "tier2",
+                )
+            )
+        else:
+            logger.warning(
+                "KT expense_reimbursement: meal compensation match with neither tier group filled: %.120s",
+                source_text,
+            )
+
+    if not results:
+        logger.debug("KT expense_reimbursement: no meal compensation (ateriakorvaus) match found")
+
+    return results
+
+
+def _extract_clothing_maintenance(text_fi: str) -> list[dict]:
+    """
+    Vaatetuksen/suojavaatetuksen huolto — фиксированная ежемесячная
+    компенсация: "korvataan 5 euroa kuukaudessa". Unit "eur_month"
+    (не разовая, а помесячная выплата — по аналогии с min_wage).
+    """
+    results = []
+
+    for match in KT_CLOTHING_MAINTENANCE_RE.finditer(text_fi):
+        start, end = match.start(), match.end()
+        snippet = text_fi[max(0, start - 40): min(len(text_fi), end + 40)]
+        source_text = " ".join(snippet.split())
+
+        try:
+            value = _normalize_amount(match.group("amt"))
+        except Exception:
+            logger.warning(
+                "KT expense_reimbursement: failed to parse clothing maintenance amount: %.120s",
+                source_text,
+            )
+            continue
+
+        results.append(
+            _build_expense_row(
+                RateType.CLOTHING_MAINTENANCE_EUR.value,
+                value,
+                source_text,
+                "eur_month",
+            )
+        )
+
+    if not results:
+        logger.debug("KT expense_reimbursement: no clothing maintenance match found")
+
+    return results
+
+
+def extract_kt_expense_reimbursement(text_fi: str) -> list[dict]:
+    """
+    Возвращает список rate-словарей для компенсаций расходов KT (group A):
+    kokopäiväraha/osapäiväraha, ateriakorvaus (2 tier'а), yömatkaraha,
+    vaatetuksen huolto.
+
+    В отличие от overtime/night_sunday, сегментация по mom.-заголовкам
+    не нужна — каждая сумма распознаётся по собственной устойчивой
+    фразе-якорю независимо от остального текста клаузулы, поэтому все
+    четыре под-функции сканируют text_fi целиком.
+    """
+    results = []
+    results.extend(_extract_daily_allowance(text_fi))
+    results.extend(_extract_meal_compensation(text_fi))
+    results.extend(_extract_night_travel_allowance(text_fi))
+    results.extend(_extract_clothing_maintenance(text_fi))
+
+    return results
 
 def extract_kt_overtime(text_fi: str) -> list[dict]:
     """
@@ -418,7 +666,6 @@ def _detect_mode(title_text: str) -> str | None:
     if "viikoittainen" in lowered or "viikoittaista" in lowered:
         return "viikoittainen"
     return None
-
 
 def find_segments_by_mom_header(text_fi: str) -> list[tuple[str, str]]:
     """

@@ -29,3 +29,9 @@ class RateType(StrEnum):
 
     # manual: working_hours
     CALLOUT_PAY_EUR = "callout_pay_eur"
+
+    DAILY_ALLOWANCE_FULL_EUR = "daily_allowance_full_eur"  # kokopäiväraha
+    DAILY_ALLOWANCE_PART_EUR = "daily_allowance_part_eur"  # osapäiväraha
+    MEAL_COMPENSATION_EUR = "meal_compensation_eur"  # ateriakorvaus (два tier'а через context)
+    NIGHT_TRAVEL_ALLOWANCE_EUR = "night_travel_allowance_eur"  # yömatkaraha
+    CLOTHING_MAINTENANCE_EUR = "clothing_maintenance_eur"  # vaatetuksen huolto
