@@ -158,15 +158,15 @@ TOPIC_KEYWORDS: dict[str, list[str]] = {
     ],
     "min_wage": [
         "vähimmäispalkka",
+        "vähimmäistuntipalkka",
+        "vähimmäispalkat",
         "taulukkopalkat",
+        "taulukkopalkka",
         "palkkataulukko",
-        "vaativuustasot",
+        "ohjetuntipalkka",
+        "ohjetuntipalkat",
         "työpalkat",
-        "palkat",
-        "myyjät",
-        "logistiikkatyöntekijät",
-        "toimihenkilöt",
-        "muut ammattiryhmät",
+        "vaativuustasot",
     ],
     # ПРОФСОЮЗЫ
     "shop_steward": [
@@ -240,6 +240,30 @@ TOPIC_KEYWORDS: dict[str, list[str]] = {
 }
 
 
+# Кэш скомпилированных regex — только для коротких ключевых слов (< 6 символов),
+# которым нужна граница слова.
+#
+# ВАЖНО: универсальная граница слова для ВСЕХ ключевых слов (более ранняя
+# версия этого файла) была ошибкой и откатена. Она чинила одну конкретную
+# коллизию ("palkat" внутри "palkata"/"palkaton"), но ломала легитимные
+# совпадения для длинных составных слов, к которым в финском падежные
+# окончания приклеиваются без разделителя — например:
+#   "suojavaatetus" не совпадает с "suojavaatetusta" (партитив)
+#   "päiväraha"     не совпадает с "päivärahaan" (иллатив)
+#   "luottamusedustaja" не совпадает с "luottamusedustajalle" (аллатив)
+# Реальной причиной исходного бага был не regex, а само наличие "palkat"
+# в списке min_wage — оно удалено выше. Точечное удаление проблемного
+# ключа решает задачу без риска для остальных тем.
+_COMPILED_PATTERNS: dict[str, re.Pattern] = {}
+
+
+def _get_pattern(keyword: str) -> re.Pattern:
+    if keyword not in _COMPILED_PATTERNS:
+        pattern = r"(?<!\w)" + re.escape(keyword) + r"(?!\w)"
+        _COMPILED_PATTERNS[keyword] = re.compile(pattern, re.IGNORECASE)
+    return _COMPILED_PATTERNS[keyword]
+
+
 def detect_topic(text: str) -> str | None:
     """
     Определяет topic_key по тексту (клауза TES или заголовок секции).
@@ -261,7 +285,20 @@ def detect_topic(text: str) -> str | None:
 
 
 def _keyword_matches(keyword: str, text: str) -> bool:
+    """
+    Проверяет вхождение ключевого слова в текст.
+
+    Короткие слова (< 6 символов) проверяются с учётом границ слова —
+    иначе они слишком часто совпадают как подстрока внутри случайных
+    других слов (пример из истории: "loma" внутри "lomautus").
+
+    Более длинные слова (составные термины вроде "vähimmäispalkka",
+    "luottamusedustaja") проверяются простым вхождением подстроки —
+    без границы на конце, потому что в финском падежные окончания
+    приклеиваются к корню напрямую, и строгая граница отсекла бы
+    легитимные словоформы. Риск ложной коллизии для таких длинных
+    специфичных терминов на практике намного ниже, чем для коротких.
+    """
     if len(keyword) < 6:
-        pattern = r"(?<!\w)" + re.escape(keyword) + r"(?!\w)"
-        return bool(re.search(pattern, text, re.IGNORECASE))
+        return bool(_get_pattern(keyword).search(text))
     return keyword in text

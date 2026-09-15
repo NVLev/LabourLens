@@ -1,4 +1,4 @@
-from sqlalchemy import select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -78,10 +78,15 @@ class TesRepository:
         topic_key: str,
         union_key: str | None = None,
         sector_fi: str | None = None,
+        agreement_key: str | None = None,
     ) -> list[TesClause]:
 
         query = (
             select(TesClause)
+            .options(
+                selectinload(TesClause.topic),
+                selectinload(TesClause.agreement).selectinload(Agreement.union),
+            )
             .join(TesClause.topic)
             .join(TesClause.agreement)
             .join(Agreement.union)
@@ -93,6 +98,9 @@ class TesRepository:
 
         if sector_fi:
             query = query.where(Agreement.sector_fi.ilike(f"%{sector_fi}%"))
+
+        if agreement_key:
+            query = query.where(Agreement.key == agreement_key)
 
         result = await self.session.execute(query)
         return list(result.scalars().all())
@@ -132,6 +140,14 @@ class TesRepository:
     async def get_agreement_by_key(self, key: str) -> Agreement | None:
         result = await self.session.execute(
             select(Agreement).where(Agreement.key == key)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_agreement_by_key_with_union(self, key: str) -> Agreement | None:
+        result = await self.session.execute(
+            select(Agreement)
+            .options(selectinload(Agreement.union))
+            .where(Agreement.key == key)
         )
         return result.scalar_one_or_none()
 
@@ -186,6 +202,23 @@ class TesRepository:
         )
         return list(result.scalars().all())
 
+    async def get_untranslated_agreements_by_union(
+        self,
+        union_key: str,
+        lang: str,
+    ) -> list[tuple[Agreement, int]]:
+        null_col = TesClause.text_en if lang == "en" else TesClause.text_ru
+
+        result = await self.session.execute(
+            select(Agreement, func.count(TesClause.id).label("untranslated_count"))
+            .join(TesClause, TesClause.agreement_id == Agreement.id)
+            .join(Union, Agreement.union_id == Union.id)
+            .where(Union.key == union_key)
+            .where(null_col.is_(None))
+            .group_by(Agreement.id)
+        )
+        return list(result.all())
+
     async def get_distinct_untranslated_sectors(self) -> list[str]:
         """Уникальные sector_fi где sector_en IS NULL."""
         result = await self.session.execute(
@@ -202,4 +235,9 @@ class TesRepository:
             update(Agreement)
             .where(Agreement.sector_fi == sector_fi)
             .values(sector_en=sector_en)
+        )
+
+    async def delete_clauses_for_agreement(self, agreement_id: int) -> None:
+        await self.session.execute(
+            delete(TesClause).where(TesClause.agreement_id == agreement_id)
         )

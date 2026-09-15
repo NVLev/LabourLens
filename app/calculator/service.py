@@ -1,0 +1,111 @@
+import logging
+from typing import Any, Callable
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.calculator.extractors.kt_rate import (
+    extract_kt_expense_reimbursement,
+    extract_kt_min_wage,
+    extract_kt_night_sunday,
+    extract_kt_overtime,
+)
+from app.database.models import TesClause, TesRate
+from app.repositories.tes import TesRepository
+from app.repositories.tes_rate import TesRateRepository
+
+logger = logging.getLogger(__name__)
+
+
+class TesRateService:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+        self.rate_repo = TesRateRepository(session)
+        self.tes_repo = TesRepository(session)
+
+    async def _upsert_rate(self, clause: TesClause, rate: dict[str, Any]) -> str:
+
+        existing = await self.rate_repo.get_by_unique_key(
+            agreement_id=clause.agreement_id,
+            rate_type=rate["rate_type"],
+            wage_group=rate.get("wage_group"),
+            effective_from=rate["effective_from"],
+            rate_type_context=rate.get("rate_type_context"),
+        )
+        if existing is not None:
+            if existing.value == rate["value"]:
+                return "skipped"
+            existing.clause_id = clause.id
+            existing.value = rate["value"]
+            existing.topic_id = clause.topic_id
+            logger.debug("Updated tes_rate for clause id '%s'", existing.clause_id)
+            return "updated"
+
+        self.rate_repo.add(
+            TesRate(
+                topic_id=clause.topic_id,
+                wage_group=rate.get("wage_group"),
+                rate_type=rate["rate_type"],
+                agreement_id=clause.agreement_id,
+                clause_id=clause.id,
+                value=rate["value"],
+                unit=rate["unit"],
+                effective_from=rate["effective_from"],
+                rate_type_context=rate.get("rate_type_context"),
+                source_text=rate["source_text"],
+            )
+        )
+        await self.session.flush()
+        logger.debug(
+            "Created rate %s %s %s",
+            rate["rate_type"],
+            rate["effective_from"],
+            rate["value"],
+        )
+        return "created"
+
+    # TODO: populate extraction metadata
+    async def extract_and_upsert(self, topic_key: str, extractor: Callable) -> dict:
+        clauses = await self.tes_repo.get_clauses_by_topic_key(
+            topic_key=topic_key, union_key="kt"
+        )
+        created = updated = skipped = 0
+        for clause in clauses:
+            rates = extractor(clause.text_fi)
+            for rate in rates:
+                if (
+                    extractor == extract_kt_overtime
+                    or extractor == extract_kt_night_sunday
+                    or extractor == extract_kt_expense_reimbursement
+                ):
+                    rate["effective_from"] = clause.agreement.valid_from
+                status = await self._upsert_rate(clause, rate)
+                if status == "created":
+                    created += 1
+                elif status == "updated":
+                    updated += 1
+                else:
+                    skipped += 1
+        await self.session.commit()
+        logger.info(
+            "KT rates: %s created, %s updated, %s skipped",
+            created,
+            updated,
+            skipped,
+        )
+        return {"created": created, "updated": updated, "skipped": skipped}
+
+    async def extract_rates_for_kt(self):
+        return await self.extract_and_upsert("min_wage", extract_kt_min_wage)
+
+    async def extract_overtime_rates(self):
+        return await self.extract_and_upsert("overtime", extract_kt_overtime)
+
+    async def extract_night_sunday_rates(self):
+        return await self.extract_and_upsert(
+            "night_and_sunday_work", extract_kt_night_sunday
+        )
+
+    async def extract_expense_reimbursements(self):
+        return await self.extract_and_upsert(
+            "expense_reimbursement", extract_kt_expense_reimbursement
+        )
