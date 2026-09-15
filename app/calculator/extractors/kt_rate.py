@@ -67,16 +67,32 @@ _JAKSOTYO_TIER2_RE = re.compile(
 
 # Финские числительные, встречающиеся как словоформы порогов/периодов
 _FI_NUMBER_WORDS = {
-    "yksi": 1, "yhden": 1, "yhdeltä": 1,
-    "kaksi": 2, "kahden": 2, "kahdelta": 2,
-    "kolme": 3, "kolmen": 3, "kolmelta": 3,
-    "neljä": 4, "neljän": 4, "neljältä": 4,
-    "viisi": 5, "viiden": 5, "viideltä": 5,
-    "kuusi": 6, "kuuden": 6, "kuudelta": 6,
-    "seitsemän": 7, "seitsemältä": 7,
-    "kahdeksan": 8, "kahdeksalta": 8,
-    "yhdeksän": 9, "yhdeksältä": 9,
-    "kymmenen": 10, "kymmeneltä": 10,
+    "yksi": 1,
+    "yhden": 1,
+    "yhdeltä": 1,
+    "kaksi": 2,
+    "kahden": 2,
+    "kahdelta": 2,
+    "kolme": 3,
+    "kolmen": 3,
+    "kolmelta": 3,
+    "neljä": 4,
+    "neljän": 4,
+    "neljältä": 4,
+    "viisi": 5,
+    "viiden": 5,
+    "viideltä": 5,
+    "kuusi": 6,
+    "kuuden": 6,
+    "kuudelta": 6,
+    "seitsemän": 7,
+    "seitsemältä": 7,
+    "kahdeksan": 8,
+    "kahdeksalta": 8,
+    "yhdeksän": 9,
+    "yhdeksältä": 9,
+    "kymmenen": 10,
+    "kymmeneltä": 10,
 }
 
 # Альтернативный паттерн из ключей словаря — используется в _JAKSOTYO_PERIOD_RE,
@@ -126,6 +142,7 @@ KT_CLOTHING_MAINTENANCE_RE = re.compile(
     re.IGNORECASE,
 )
 
+
 def extract_kt_min_wage(text_fi: str) -> list[dict]:
     """
     Возвращает список {"value": ..., "unit": "eur_month", "effective_from": ..., "source_text": ...}
@@ -145,18 +162,20 @@ def extract_kt_min_wage(text_fi: str) -> list[dict]:
         start = match.start()
         end = match.end()
 
-        snippet = text_fi[max(0, start - 40): min(len(text_fi), end + 40)]
+        snippet = text_fi[max(0, start - 40) : min(len(text_fi), end + 40)]
         source_text = " ".join(snippet.split())
 
-        results.append({
-            "wage_group": None,
-            "rate_type_context": None,
-            "rate_type": RateType.MIN_WAGE.value,
-            "value": value,
-            "unit": "eur_month",
-            "effective_from": effective_from,
-            "source_text": source_text,
-        })
+        results.append(
+            {
+                "wage_group": None,
+                "rate_type_context": None,
+                "rate_type": RateType.MIN_WAGE.value,
+                "value": value,
+                "unit": "eur_month",
+                "effective_from": effective_from,
+                "source_text": source_text,
+            }
+        )
 
     return results
 
@@ -192,7 +211,7 @@ def _extract_daily_allowance(text_fi: str) -> list[dict]:
 
     for match in KT_DAILY_ALLOWANCE_RE.finditer(text_fi):
         start, end = match.start(), match.end()
-        snippet = text_fi[max(0, start - 40): min(len(text_fi), end + 40)]
+        snippet = text_fi[max(0, start - 40) : min(len(text_fi), end + 40)]
         source_text = " ".join(snippet.split())
 
         try:
@@ -223,7 +242,9 @@ def _extract_daily_allowance(text_fi: str) -> list[dict]:
         )
 
     if not results:
-        logger.debug("KT expense_reimbursement: no daily allowance (kokopäiväraha) match found")
+        logger.debug(
+            "KT expense_reimbursement: no daily allowance (kokopäiväraha) match found"
+        )
 
     return results
 
@@ -237,7 +258,7 @@ def _extract_night_travel_allowance(text_fi: str) -> list[dict]:
 
     for match in KT_NIGHT_TRAVEL_ALLOWANCE_RE.finditer(text_fi):
         start, end = match.start(), match.end()
-        snippet = text_fi[max(0, start - 40): min(len(text_fi), end + 40)]
+        snippet = text_fi[max(0, start - 40) : min(len(text_fi), end + 40)]
         source_text = " ".join(snippet.split())
 
         try:
@@ -259,7 +280,9 @@ def _extract_night_travel_allowance(text_fi: str) -> list[dict]:
         )
 
     if not results:
-        logger.debug("KT expense_reimbursement: no night travel allowance (yömatkaraha) match found")
+        logger.debug(
+            "KT expense_reimbursement: no night travel allowance (yömatkaraha) match found"
+        )
 
     return results
 
@@ -275,7 +298,7 @@ def _extract_meal_compensation(text_fi: str) -> list[dict]:
 
     for match in KT_MEAL_COMPENSATION_RE.finditer(text_fi):
         start, end = match.start(), match.end()
-        snippet = text_fi[max(0, start - 40): min(len(text_fi), end + 40)]
+        snippet = text_fi[max(0, start - 40) : min(len(text_fi), end + 40)]
         source_text = " ".join(snippet.split())
 
         tier1_amount_str = match.group("amt_tier1")
@@ -324,7 +347,9 @@ def _extract_meal_compensation(text_fi: str) -> list[dict]:
             )
 
     if not results:
-        logger.debug("KT expense_reimbursement: no meal compensation (ateriakorvaus) match found")
+        logger.debug(
+            "KT expense_reimbursement: no meal compensation (ateriakorvaus) match found"
+        )
 
     return results
 
@@ -339,7 +364,7 @@ def _extract_clothing_maintenance(text_fi: str) -> list[dict]:
 
     for match in KT_CLOTHING_MAINTENANCE_RE.finditer(text_fi):
         start, end = match.start(), match.end()
-        snippet = text_fi[max(0, start - 40): min(len(text_fi), end + 40)]
+        snippet = text_fi[max(0, start - 40) : min(len(text_fi), end + 40)]
         source_text = " ".join(snippet.split())
 
         try:
@@ -385,6 +410,7 @@ def extract_kt_expense_reimbursement(text_fi: str) -> list[dict]:
 
     return results
 
+
 def extract_kt_overtime(text_fi: str) -> list[dict]:
     """
     Возвращает список rate-словарей для сверхурочных ставок KT.
@@ -410,7 +436,6 @@ def extract_kt_overtime(text_fi: str) -> list[dict]:
     return results
 
 
-
 def extract_kt_night_sunday(text_fi: str) -> list[dict]:
     """
     Возвращает список rate-словарей для ставок KT при работе в ночную смену и в выходные.
@@ -434,6 +459,7 @@ def extract_kt_night_sunday(text_fi: str) -> list[dict]:
 
     return results
 
+
 def _detect_night_sunday_mode(title_text):
     lowered = title_text.lower()
     if "sunnuntai" in lowered:
@@ -449,7 +475,9 @@ def _detect_night_sunday_mode(title_text):
     return None
 
 
-def _build_night_sunday_row(rate_type_context: str, value: Decimal, source_text: str) -> dict:
+def _build_night_sunday_row(
+    rate_type_context: str, value: Decimal, source_text: str
+) -> dict:
     return {
         "wage_group": None,
         "rate_type": RateType.NIGHT_SUNDAY_RATE_PCT.value,
@@ -458,6 +486,7 @@ def _build_night_sunday_row(rate_type_context: str, value: Decimal, source_text:
         "unit": "pct",
         "source_text": source_text,
     }
+
 
 def _extract_night_sunday_rate(segment: str, rate_type_context: str) -> list[dict]:
     """Пробует явный процент, потом обе фиксированные фразы (=100%) по очереди."""
@@ -469,15 +498,20 @@ def _extract_night_sunday_rate(segment: str, rate_type_context: str) -> list[dic
         m = pattern.search(segment)
         if not m:
             continue
-        value = fixed_value if fixed_value is not None else _normalize_amount(m.group("pct"))
+        value = (
+            fixed_value
+            if fixed_value is not None
+            else _normalize_amount(m.group("pct"))
+        )
         start, end = m.start(), m.end()
-        snippet = segment[max(0, start - 40): min(len(segment), end + 40)]
+        snippet = segment[max(0, start - 40) : min(len(segment), end + 40)]
         source_text = " ".join(snippet.split())
         return [_build_night_sunday_row(rate_type_context, value, source_text)]
 
     logger.warning(
         "KT night/sunday: no rate found for mode '%s': %.120s",
-        rate_type_context, segment,
+        rate_type_context,
+        segment,
     )
     return []
 
@@ -490,7 +524,7 @@ def _extract_case1_tiers(segment: str, rate_type_context: str) -> list[dict]:
         start = match.start()
         end = match.end()
 
-        snippet = segment[max(0, start - 40): min(len(segment), end + 40)]
+        snippet = segment[max(0, start - 40) : min(len(segment), end + 40)]
         source_text = " ".join(snippet.split())
 
         results.extend(
@@ -534,7 +568,9 @@ def _extract_compact_segment(segment: str) -> list[dict]:
     return results
 
 
-def _build_tiers_from_compact_match(match: re.Match, mode: str, full_text: str) -> list[dict]:
+def _build_tiers_from_compact_match(
+    match: re.Match, mode: str, full_text: str
+) -> list[dict]:
     threshold = _word_to_number(match.group("threshold"))
     if threshold is None:
         logger.warning(
@@ -546,7 +582,7 @@ def _build_tiers_from_compact_match(match: re.Match, mode: str, full_text: str) 
 
     start = match.start()
     end = match.end()
-    snippet = full_text[max(0, start - 40): min(len(full_text), end + 40)]
+    snippet = full_text[max(0, start - 40) : min(len(full_text), end + 40)]
     source_text = " ".join(snippet.split())
 
     return _build_tier_rows(
@@ -569,7 +605,7 @@ def _extract_jaksotyo(segment: str) -> list[dict]:
     if not anchor:
         return []
 
-    zone = segment[anchor.start():]
+    zone = segment[anchor.start() :]
 
     tier1_match = _JAKSOTYO_TIER1_RE.search(zone)
     tier2_match = _JAKSOTYO_TIER2_RE.search(zone)
@@ -579,7 +615,10 @@ def _extract_jaksotyo(segment: str) -> list[dict]:
         logger.warning(
             "KT overtime: jaksotyö zone found but pattern incomplete "
             "(tier1=%s, tier2=%s, periods=%d): %.120s",
-            bool(tier1_match), bool(tier2_match), len(period_matches), zone,
+            bool(tier1_match),
+            bool(tier2_match),
+            len(period_matches),
+            zone,
         )
         return []
 
@@ -598,7 +637,7 @@ def _extract_jaksotyo(segment: str) -> list[dict]:
 
         start = m.start()
         end = m.end()
-        snippet = zone[max(0, start - 40): min(len(zone), end + 40)]
+        snippet = zone[max(0, start - 40) : min(len(zone), end + 40)]
         source_text = " ".join(snippet.split())
 
         results.extend(
@@ -615,7 +654,7 @@ def _extract_jaksotyo(segment: str) -> list[dict]:
 
 
 def _period_words_to_suffix(period_text: str) -> str | None:
-    """"kahden" -> "2vk"; "neljän ja kuuden" -> "4-6vk"."""
+    """ "kahden" -> "2vk"; "neljän ja kuuden" -> "4-6vk"."""
     numbers = []
     for word in period_text.split(" ja "):
         n = _word_to_number(word.strip())
@@ -640,21 +679,35 @@ def _build_tier_rows(
     source_text: str,
 ) -> list[dict]:
     """Три rate-строки (порог часов, tier1%, tier2%) для одного режима/контекста."""
-    common = {"wage_group": None, "rate_type_context": rate_type_context, "source_text": source_text}
+    common = {
+        "wage_group": None,
+        "rate_type_context": rate_type_context,
+        "source_text": source_text,
+    }
     return [
-        {**common, "rate_type": RateType.OVERTIME_RATE_TIER1_HOURS.value, "value": threshold_hours, "unit": "hours"},
-        {**common, "rate_type": RateType.OVERTIME_RATE_TIER1_PCT.value, "value": tier1_pct, "unit": "pct"},
-        {**common, "rate_type": RateType.OVERTIME_RATE_TIER2_PCT.value, "value": tier2_pct, "unit": "pct"},
+        {
+            **common,
+            "rate_type": RateType.OVERTIME_RATE_TIER1_HOURS.value,
+            "value": threshold_hours,
+            "unit": "hours",
+        },
+        {
+            **common,
+            "rate_type": RateType.OVERTIME_RATE_TIER1_PCT.value,
+            "value": tier1_pct,
+            "unit": "pct",
+        },
+        {
+            **common,
+            "rate_type": RateType.OVERTIME_RATE_TIER2_PCT.value,
+            "value": tier2_pct,
+            "unit": "pct",
+        },
     ]
 
 
 def _normalize_amount(amount_str: str) -> Decimal:
-    normalized = (
-        amount_str
-        .replace("\xa0", "")
-        .replace(" ", "")
-        .replace(",", ".")
-    )
+    normalized = amount_str.replace("\xa0", "").replace(" ", "").replace(",", ".")
     return Decimal(normalized.rstrip("."))
 
 
@@ -667,6 +720,7 @@ def _detect_mode(title_text: str) -> str | None:
         return "viikoittainen"
     return None
 
+
 def find_segments_by_mom_header(text_fi: str) -> list[tuple[str, str]]:
     """
     Разбивает текст клаузулы на сегменты по заголовкам "N mom. Title".
@@ -677,7 +731,9 @@ def find_segments_by_mom_header(text_fi: str) -> list[tuple[str, str]]:
     """
     matches_before = list(_MOM_HEADER_BEFORE_RE.finditer(text_fi))
     matches_after = list(_MOM_HEADER_AFTER_RE.finditer(text_fi))
-    matches = matches_before if len(matches_before) >= len(matches_after) else matches_after
+    matches = (
+        matches_before if len(matches_before) >= len(matches_after) else matches_after
+    )
 
     def nonempty_count(matches):
         return sum(1 for m in matches if m.group(1).strip())

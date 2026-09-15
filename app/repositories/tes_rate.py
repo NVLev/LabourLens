@@ -5,7 +5,7 @@ from sqlalchemy import null, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.database.models import TesRate, Agreement, Topic, Union
+from app.database.models import Agreement, TesRate, Topic, Union
 
 
 class TesRateRepository:
@@ -13,15 +13,15 @@ class TesRateRepository:
         self.session = session
 
     async def get_rate_by_topic(
-            self,
-            topic_key: str,
-            union_key: str | None = None,
+        self,
+        topic_key: str,
+        union_key: str | None = None,
     ) -> list[Any]:
         stmt = (
             select(TesRate)
             .options(
                 selectinload(TesRate.topic),
-                selectinload(TesRate.agreement).selectinload(Agreement.union)
+                selectinload(TesRate.agreement).selectinload(Agreement.union),
             )
             .join(TesRate.agreement)
             .join(TesRate.topic)

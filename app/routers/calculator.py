@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.calculator.service import TesRateService
 from app.database.db_helper import db_helper
 from app.repositories.tes_rate import TesRateRepository
-from app.calculator.service import TesRateService
 
 logger = logging.getLogger(__name__)
 
@@ -20,16 +20,21 @@ async def run_kt_min_wage_extraction(
     service = TesRateService(session)
     return await service.extract_rates_for_kt()
 
-@router.post("/extract/kt-overtime", summary="Extracts additional rates from KT overtime topics clauses")
+
+@router.post(
+    "/extract/kt-overtime",
+    summary="Extracts additional rates from KT overtime topics clauses",
+)
 async def run_kt_overtime_extraction(
     session: AsyncSession = Depends(db_helper.session_getter),
 ):
     service = TesRateService(session)
     return await service.extract_overtime_rates()
 
+
 @router.post(
     "/extract/kt-night-sunday",
-    summary="Extracts additional rates from KT night_sunday_work topics clauses"
+    summary="Extracts additional rates from KT night_sunday_work topics clauses",
 )
 async def run_kt_night_sunday_extraction(
     session: AsyncSession = Depends(db_helper.session_getter),
@@ -37,17 +42,21 @@ async def run_kt_night_sunday_extraction(
     service = TesRateService(session)
     return await service.extract_night_sunday_rates()
 
+
 @router.post(
     "/extract/kt-expense-reimbursement",
     summary="Extracts additional rates from KT expense reimbursement",
 )
 async def run_kt_expense_reimbursement_extraction(
-        session: AsyncSession = Depends(db_helper.session_getter),
+    session: AsyncSession = Depends(db_helper.session_getter),
 ):
     service = TesRateService(session)
     return await service.extract_expense_reimbursements()
 
-@router.get("/extract/{topic_key}", summary="Get TES Rates by topic and (optionally) by union")
+
+@router.get(
+    "/extract/{topic_key}", summary="Get TES Rates by topic and (optionally) by union"
+)
 async def get_rates_by_topic(
     topic_key: str,
     union_key: str | None = None,

@@ -19,8 +19,8 @@ from app.repositories.tes import TesRepository
 from app.translation.nllb import (
     MAX_CHUNK_CHARS,
     translate_batch_fi_en,
-    translate_fi_en,
     translate_batch_fi_ru,
+    translate_fi_en,
     translate_fi_ru,
 )
 

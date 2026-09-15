@@ -25,10 +25,10 @@ from bot.keyboards import (
     showing_result_fi_keyboard,
     showing_result_keyboard,
     showing_result_ru_keyboard,
-    tenure_keyboard,
     showing_tes_en_keyboard,
     showing_tes_fi_keyboard,
     showing_tes_ru_keyboard,
+    tenure_keyboard,
 )
 from bot.states import SituationStates
 

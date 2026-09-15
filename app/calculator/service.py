@@ -3,11 +3,15 @@ from typing import Any, Callable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models import TesRate, TesClause
+from app.calculator.extractors.kt_rate import (
+    extract_kt_expense_reimbursement,
+    extract_kt_min_wage,
+    extract_kt_night_sunday,
+    extract_kt_overtime,
+)
+from app.database.models import TesClause, TesRate
 from app.repositories.tes import TesRepository
 from app.repositories.tes_rate import TesRateRepository
-from app.calculator.extractors.kt_rate import extract_kt_min_wage, extract_kt_overtime, extract_kt_night_sunday, \
-    extract_kt_expense_reimbursement
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +36,7 @@ class TesRateService:
                 return "skipped"
             existing.clause_id = clause.id
             existing.value = rate["value"]
-            existing.topic_id=clause.topic_id
+            existing.topic_id = clause.topic_id
             logger.debug("Updated tes_rate for clause id '%s'", existing.clause_id)
             return "updated"
 
@@ -68,7 +72,11 @@ class TesRateService:
         for clause in clauses:
             rates = extractor(clause.text_fi)
             for rate in rates:
-                if extractor == extract_kt_overtime or extractor == extract_kt_night_sunday or extractor == extract_kt_expense_reimbursement:
+                if (
+                    extractor == extract_kt_overtime
+                    or extractor == extract_kt_night_sunday
+                    or extractor == extract_kt_expense_reimbursement
+                ):
                     rate["effective_from"] = clause.agreement.valid_from
                 status = await self._upsert_rate(clause, rate)
                 if status == "created":
@@ -85,6 +93,7 @@ class TesRateService:
             skipped,
         )
         return {"created": created, "updated": updated, "skipped": skipped}
+
     async def extract_rates_for_kt(self):
         return await self.extract_and_upsert("min_wage", extract_kt_min_wage)
 
@@ -92,7 +101,11 @@ class TesRateService:
         return await self.extract_and_upsert("overtime", extract_kt_overtime)
 
     async def extract_night_sunday_rates(self):
-        return await self.extract_and_upsert("night_and_sunday_work", extract_kt_night_sunday)
+        return await self.extract_and_upsert(
+            "night_and_sunday_work", extract_kt_night_sunday
+        )
 
     async def extract_expense_reimbursements(self):
-        return await self.extract_and_upsert("expense_reimbursement", extract_kt_expense_reimbursement)
+        return await self.extract_and_upsert(
+            "expense_reimbursement", extract_kt_expense_reimbursement
+        )
