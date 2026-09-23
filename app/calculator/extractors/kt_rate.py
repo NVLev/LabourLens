@@ -118,6 +118,7 @@ _FULL_RATE_PHRASE_RE = re.compile(r"\bkorottamaton\s+tuntipalkka\b", re.IGNORECA
 # паттерн - фиксированная фраза = 100%: "kaksinkertaisena"
 _DOUBLE_RATE_PHRASE_RE = re.compile(r"kaksinkertais\w*", re.IGNORECASE)
 
+#-----------------------topic - expense_reimbursement---------------------
 # паттерн - Kokopäiväraha + osapäiväraha
 KT_DAILY_ALLOWANCE_RE = re.compile(
     r"Kokopäiväraha\s+on\s+(?P<full>\d+(?:,\d+)?)\s*(?:euroa|€)"
@@ -141,7 +142,33 @@ KT_CLOTHING_MAINTENANCE_RE = re.compile(
     r"(?P<amt>\d+(?:,\d+)?)\s*euroa\s+kuukaudessa",
     re.IGNORECASE,
 )
+#--------------------topic - sick_leave----------------------
+KT_SICK_PAY_TIER_RE = re.compile(
+    r"varsinainen(?:\s+palkkansa|en\s+palkkansa)\s+enintään\s+(?P<tier1_days>\d+)\s*"
+    r"kalenteripäivän ajalta\s+ja\s+sen\s+jälkeen\s+kaksi\s+kolmasosaa\s*"
+    r"\(?⅔\)?\s*varsinaisesta\s+palkastaan\s+enintään\s+(?P<tier2_days>\d+)\s*"
+    r"kalenteripäivän ajalta",
+    re.IGNORECASE,
+)
 
+KT_SICK_PAY_SHORT_TENURE_RE = re.compile(
+    r"saada\s+sairauspoissaolon\s+ajalta\s+varsinainen\s+palkkansa\s+"
+    r"(?P<days>\d+)\s*kalenteripäivän\s+ajalta,\s*jonka\s+jälkeen\s+ei\s+suoriteta\s+mitään\s+palkkaetuja",
+    re.IGNORECASE,
+)
+
+KT_SICK_PAY_DISCRETIONARY_TIER_RE = re.compile(
+    r"Lisäksi\s+voidaan\s+harkinnan\s+mukaan\s+maksaa\s+kaksi\s+kolmasosaa\s+"
+    r"varsinaisesta\s+palkasta\s+enintään\s+(?P<days>\d+)\s*kalenteripäivän\s+ajalta",
+    re.IGNORECASE,
+)
+
+#паттерн для различения обычного больничного и больничного "по производственной травме"
+KT_SICK_LEAVE_ACCIDENT_KEYWORDS_RE = re.compile(
+    r"työtapaturma|ammattitauti|tapaturmavakuutuslainsäädännössä|"
+    r"työtehtävistä\s+johtuneesta\s+väkivallasta",
+    re.IGNORECASE,
+)
 
 def extract_kt_min_wage(text_fi: str) -> list[dict]:
     """
@@ -459,6 +486,196 @@ def extract_kt_night_sunday(text_fi: str) -> list[dict]:
 
     return results
 
+SICK_PAY_TIER2_FRACTION_PCT = Decimal("66.67")  # kaksi kolmasosaa (⅔) — нормализовано в pct
+
+
+def _build_sick_leave_row(
+    rate_type: str,
+    value: Decimal,
+    source_text: str,
+    unit: str,
+    rate_type_context: str,
+) -> dict:
+    """
+    Единая точка сборки rate-словаря для extractor'ов topic sick_leave.
+    rate_type_context обязателен (не Optional, как в _build_expense_row) —
+    для sick_leave не бывает строки без контекста general/work_accident.
+    """
+    return {
+        "wage_group": None,
+        "rate_type_context": rate_type_context,
+        "rate_type": rate_type,
+        "value": value,
+        "unit": unit,
+        "source_text": source_text,
+    }
+
+
+def _extract_sick_pay_tiers(text_fi: str, context: str) -> list[dict]:
+    """
+    Основная лестница: tier1 (N дней, всегда 100% — varsinainen palkkansa)
+    + tier2 (M дней, ⅔ от зарплаты). Один match даёт четыре rate-строки
+    сразу: обе группы (tier1_days/tier2_days) обязательны в самом regex
+    (альтернации нет), поэтому извлекаем их безусловно.
+    """
+    results = []
+
+    for match in KT_SICK_PAY_TIER_RE.finditer(text_fi):
+        start, end = match.start(), match.end()
+        snippet = text_fi[max(0, start - 40) : min(len(text_fi), end + 40)]
+        source_text = " ".join(snippet.split())
+
+        try:
+            tier1_days = _normalize_amount(match.group("tier1_days"))
+            tier2_days = _normalize_amount(match.group("tier2_days"))
+        except Exception:
+            logger.warning(
+                "KT sick_leave: failed to parse sick_pay_tiers days: %.120s",
+                source_text,
+            )
+            continue
+
+        results.append(
+            _build_sick_leave_row(
+                RateType.SICK_PAY_TIER1_DAYS.value,
+                tier1_days,
+                source_text,
+                "days",
+                context,
+            )
+        )
+        results.append(
+            _build_sick_leave_row(
+                RateType.SICK_PAY_TIER1_PCT.value,
+                Decimal(100),
+                source_text,
+                "pct",
+                context,
+            )
+        )
+        results.append(
+            _build_sick_leave_row(
+                RateType.SICK_PAY_TIER2_DAYS.value,
+                tier2_days,
+                source_text,
+                "days",
+                context,
+            )
+        )
+        results.append(
+            _build_sick_leave_row(
+                RateType.SICK_PAY_TIER2_PCT.value,
+                SICK_PAY_TIER2_FRACTION_PCT,
+                source_text,
+                "pct",
+                context,
+            )
+        )
+
+    if not results:
+        logger.debug(
+            "KT sick_leave: no sick pay tier match found (context=%s)", context
+        )
+
+    return results
+
+
+def _extract_short_tenure(text_fi, context) -> list[dict]:
+    results = []
+
+    for match in KT_SICK_PAY_SHORT_TENURE_RE.finditer(text_fi):
+        start, end = match.start(), match.end()
+        snippet = text_fi[max(0, start - 40): min(len(text_fi), end + 40)]
+        source_text = " ".join(snippet.split())
+        try:
+            value = _normalize_amount(match.group("days"))
+        except Exception:
+            logger.warning(
+                "KT sick_leave: failed to parse sick_pay_short_tenure: %.120s",
+                source_text,
+            )
+            continue
+        results.append(
+            _build_sick_leave_row(
+                RateType.SICK_PAY_SHORT_TENURE_DAYS.value,
+                value,
+                source_text,
+                "days",
+                context,
+            )
+        )
+        results.append(
+            _build_sick_leave_row(
+                RateType.SICK_PAY_SHORT_TENURE_PCT.value,
+                Decimal(100),
+                source_text,
+                "pct",
+                context,
+            )
+        )
+    return results
+
+
+
+def _extract_discretionary_tier(text_fi, context) -> list[dict]:
+    results = []
+
+    for match in KT_SICK_PAY_DISCRETIONARY_TIER_RE.finditer(text_fi):
+        start, end = match.start(), match.end()
+        snippet = text_fi[max(0, start - 40): min(len(text_fi), end + 40)]
+        source_text = " ".join(snippet.split())
+        try:
+            value = _normalize_amount(match.group("days"))
+        except Exception:
+            logger.warning(
+                "KT sick_leave: failed to parse sick_pay_discretionary_tier: %.120s",
+                source_text,
+            )
+            continue
+        results.append(
+            _build_sick_leave_row(
+                RateType.SICK_PAY_TIER3_DISCRETIONARY_DAYS.value,
+                value,
+                source_text,
+                "days",
+                context,
+            )
+        )
+    return results
+
+
+def extract_kt_sick_leave(text_fi: str) -> list[dict]:
+    """
+    Возвращает список rate-словарей для больничных KT: основная лестница
+    (tier1 дней full pay + tier2 дней ⅔), короткий стаж (единственный
+    tier, вместо лестницы), дискреционный tier3 (только work_accident,
+    только hyvtes). rate_type_context (general/work_accident) вычисляется
+    один раз на клаузулу и передаётся во все под-функции.
+    """
+    context = _detect_sick_leave_context(text_fi)
+
+    results = []
+    results.extend(_extract_sick_pay_tiers(text_fi, context))
+    results.extend(_extract_short_tenure(text_fi, context))
+    results.extend(_extract_discretionary_tier(text_fi, context))
+    return results
+
+
+
+def _detect_sick_leave_context(text_fi: str) -> str:
+    """
+    Определяет, обычный это больничный или больничный по производственной
+    травме — по ключевым словам в начале клаузулы (первый mom., где
+    указывается основание). Смотрим только на первые ~200 символов,
+    чтобы не словить упоминание травмы из перекрёстной ссылки на другой §
+    (пример: kt-ytes §89 ссылается на §90 по ходу текста).
+    """
+    lowered = text_fi.lower()
+    if KT_SICK_LEAVE_ACCIDENT_KEYWORDS_RE.search(lowered[:200]):
+        return "work_accident"
+    else:
+        return "general"
+
 
 def _detect_night_sunday_mode(title_text):
     lowered = title_text.lower()
@@ -515,7 +732,7 @@ def _extract_night_sunday_rate(segment: str, rate_type_context: str) -> list[dic
     )
     return []
 
-
+# overtime
 def _extract_case1_tiers(segment: str, rate_type_context: str) -> list[dict]:
     """Случай 1: заголовок уже назвал режим, ищем тройку (порог, tier1%, tier2%)."""
     results = []
