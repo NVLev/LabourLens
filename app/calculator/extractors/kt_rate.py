@@ -272,6 +272,45 @@ KT_SICK_LEAVE_ACCIDENT_KEYWORDS_RE = re.compile(
     re.IGNORECASE,
 )
 
+#------------------------- topic: annual_leave --------------------------------
+# KVTES: абзац c) -- "vähintään 10 vuotta, hänen lomansa pituus on 28
+# vuosilomapäivän sijasta 30 vuosilomapäivää edellyttäen, että hän ansaitsee
+# vuosilomaa 12 täydeltä lomanmääräytymiskuukaudelta"
+LEAVE_TEN_YEAR_PROSE_RE = re.compile(
+    r"vähintään\s+(?P<years>\d+)\s+vuotta,\s+hänen\s+lomansa\s+pituus\s+on\s+"
+    r"\d+\s+vuosilomapäivän\s+sijasta\s+(?P<days>\d+)\s+vuosilomapäivää\s+"
+    r"edellyttäen,\s+että\s+hän\s+ansaitsee\s+vuosilomaa\s+(?P<months>\d+)\s+täydeltä",
+    re.IGNORECASE,
+)
+
+# Минимум при болезни/реабилитации ("oikeus 20 vuosilomapäivään, jos ...
+# alittaa 20 vuosilomapäivää"); работает и для KVTES (4 mom.), и для YTES (5 mom.)
+LEAVE_MIN_DAYS_ILLNESS_RE = re.compile(
+    r"oikeus\s+(?P<days>\d+)\s+vuosilomapäivään,\s+jos\s+(?:hänen|työntekijän)\s+"
+    r"täydeltä\s+lomanmääräytymisvuodelta\s+ansaitsemansa\s+vuosiloma\s+alittaa\s+"
+    r"\d+\s+vuosilomapäivää",
+    re.IGNORECASE,
+)
+
+LEAVE_TEN_YEAR_INLINE_RE = re.compile(
+    r"(?P<years>\d+)\s+vuoden\s+palvelu\s+Täysiä[^\d]*?(?P<months>\d{1,2})\s+"
+    r"Vuosilomapäiv\w+(?:\s*\(työpäiviä\))?\s+(?P<days>\d{1,2})(?!\d)",
+    re.IGNORECASE,
+)
+
+# Таблица длины отпуска: слово-якорь "Vuosilomapäiv..." (KVTES: "Vuosilomapäivät",
+# YTES: "Vuosilomapäiviä (työpäiviä)") + ровно 12 чисел подряд (дни для 1..12
+# полных месяцев). Якорь на слове, а не на заголовке таблицы: в заголовке
+# бывают переносы ("loman-määräytymiskuukausia"). Условие "ровно 12 чисел"
+# отсекает числа из примеров расчёта в тексте.
+LEAVE_TABLE_RE = re.compile(
+    r"Vuosilomapäiv\w+(?:\s*\(työpäiviä\))?\s+((?:\d{1,2}\s+){11}\d{1,2})(?!\d)"
+)
+
+# Подпись таблицы "Taulukko 1/2/3" -- есть только у YTES/vuokra-tes. Это не
+# rate, а сверка порядка таблиц (см. _extract_length_tables).
+LEAVE_TABLE_LABEL_RE = re.compile(r"Taulukko\s+(\d)\s+Täysiä")
+
 def extract_kt_min_wage(text_fi: str) -> list[dict]:
     """
     Topic: min_wage. Возвращает список rate-словарей (RateType.MIN_WAGE,
@@ -827,6 +866,188 @@ def _detect_sick_leave_context(text_fi: str) -> str:
     else:
         return "general"
 
+
+def _leave_context(table_no: int, months: int, years: int | None = None) -> str:
+    """
+    Topic: annual_leave. Единая точка сборки rate_type_context, чтобы
+    формат не разошёлся между под-функциями:
+    "taulukko1_m07" (ячейка таблицы) / "taulukko2_10y_m12" (правило 10 лет).
+    """
+    if years is None:
+        return f"taulukko{table_no}_m{months:02d}"
+    return f"taulukko{table_no}_{years}y_m{months:02d}"
+
+
+def _build_annual_leave_row(
+    rate_type: str,
+    value: Decimal,
+    source_text: str,
+    rate_type_context: str | None = None,
+) -> dict:
+    """
+    Topic: annual_leave. Единая точка сборки rate-словаря. Единицы всегда
+    дни (unit="days"): месяцы/годы живут не в value, а в rate_type_context.
+    """
+    return {
+        "wage_group": None,
+        "rate_type_context": rate_type_context,
+        "rate_type": rate_type,
+        "value": value,
+        "unit": "days",
+        "source_text": source_text,
+    }
+
+
+def _extract_length_tables(text_fi: str) -> list[dict]:
+    """
+    Topic: annual_leave. Три таблицы "полных месяцев накопления -> дней
+    отпуска" (12 значений в каждой): таблица 1 (стаж 15+ лет), 2 (год
+    службы), 3 (остальные). Одна таблица = один match LEAVE_TABLE_RE
+    (12 чисел), даёт 12 строк; номер таблицы -- по порядковому номеру
+    match'а, месяц -- по позиции числа. У YTES/vuokra-tes таблицы подписаны
+    "Taulukko N": подписи используются только для сверки порядка.
+
+    Если таблиц не ровно 3 (или подписи не 1, 2, 3) -- warning и пустой
+    результат: частично извлечённая лестница хуже, чем её отсутствие.
+    """
+    matches = list(LEAVE_TABLE_RE.finditer(text_fi))
+    if not matches:
+        logger.debug("KT annual_leave: no length tables found")
+        return []
+
+    if len(matches) != 3:
+        logger.warning(
+            "KT annual_leave: expected 3 length tables, found %d: %.120s",
+            len(matches),
+            text_fi,
+        )
+        return []
+
+    labels = [int(n) for n in LEAVE_TABLE_LABEL_RE.findall(text_fi)]
+    if labels and labels != [1, 2, 3]:
+        logger.warning(
+            "KT annual_leave: table labels %s do not match positional order: %.120s",
+            labels,
+            text_fi,
+        )
+        return []
+
+    results = []
+    for table_no, match in enumerate(matches, start=1):
+        start, end = match.start(), match.end()
+        # окно "до" шире обычных 40 символов: строка заголовка с номерами
+        # месяцев ("Täysiä lomanmääräytymiskuukausia 1 2 ... 12") стоит перед
+        # числами дней, и без неё source_text нечитаем
+        snippet = text_fi[max(0, start - 100) : min(len(text_fi), end + 40)]
+        source_text = " ".join(snippet.split())
+
+        for month, days_str in enumerate(match.group(1).split(), start=1):
+            try:
+                value = _normalize_amount(days_str)
+            except Exception:
+                logger.warning(
+                    "KT annual_leave: failed to parse table %d month %d: %.120s",
+                    table_no,
+                    month,
+                    source_text,
+                )
+                continue
+            results.append(
+                _build_annual_leave_row(
+                    RateType.ANNUAL_LEAVE_DAYS.value,
+                    value,
+                    source_text,
+                    _leave_context(table_no, month),
+                )
+            )
+
+    return results
+
+
+def _extract_ten_year_rule(text_fi: str) -> list[dict]:
+    """
+    Topic: annual_leave. Правило "10+ лет стажа и 12 полных месяцев -> 30 дней"
+    (вместо 28 из таблицы 2). Два варианта записи, оба дают одну и ту же
+    строку: вставка внутри таблицы 2 (YTES/vuokra-tes, INLINE) и отдельный
+    абзац c) (KVTES/HYVTES/tuntipalkkaiset, PROSE). Годы и месяцы из
+    совпадения идут в rate_type_context, а не в value.
+    """
+    results = []
+
+    for pattern in (LEAVE_TEN_YEAR_INLINE_RE, LEAVE_TEN_YEAR_PROSE_RE):
+        for match in pattern.finditer(text_fi):
+            start, end = match.start(), match.end()
+            snippet = text_fi[max(0, start - 40) : min(len(text_fi), end + 40)]
+            source_text = " ".join(snippet.split())
+
+            try:
+                value = _normalize_amount(match.group("days"))
+                years = int(match.group("years"))
+                months = int(match.group("months"))
+            except Exception:
+                logger.warning(
+                    "KT annual_leave: failed to parse ten-year rule: %.120s",
+                    source_text,
+                )
+                continue
+
+            results.append(
+                _build_annual_leave_row(
+                    RateType.ANNUAL_LEAVE_DAYS.value,
+                    value,
+                    source_text,
+                    _leave_context(2, months, years),
+                )
+            )
+
+    if not results:
+        logger.debug("KT annual_leave: no ten-year rule match found")
+
+    return results
+
+
+def _extract_min_days_illness(text_fi: str) -> list[dict]:
+    """
+    Topic: annual_leave. Гарантированный минимум 20 дней отпуска, если из-за
+    болезни/травмы/реабилитации накоплено меньше (KVTES 4 mom., YTES 5 mom.).
+    Одно правило без вариантов, поэтому rate_type_context=None.
+    """
+    results = []
+
+    for match in LEAVE_MIN_DAYS_ILLNESS_RE.finditer(text_fi):
+        start, end = match.start(), match.end()
+        snippet = text_fi[max(0, start - 40) : min(len(text_fi), end + 40)]
+        source_text = " ".join(snippet.split())
+
+        try:
+            value = _normalize_amount(match.group("days"))
+        except Exception:
+            logger.warning(
+                "KT annual_leave: failed to parse min days (illness): %.120s",
+                source_text,
+            )
+            continue
+
+        results.append(
+            _build_annual_leave_row(
+                RateType.ANNUAL_LEAVE_MIN_DAYS_ILLNESS.value,
+                value,
+                source_text,
+            )
+        )
+
+    if not results:
+        logger.debug("KT annual_leave: no min-days-illness match found")
+
+    return results
+
+
+def extract_kt_annual_leave(text_fi: str) -> list[dict]:
+    results = []
+    results.extend(_extract_length_tables(text_fi))
+    results.extend(_extract_ten_year_rule(text_fi))
+    results.extend(_extract_min_days_illness(text_fi))
+    return results
 
 def _detect_night_sunday_mode(title_text):
     """

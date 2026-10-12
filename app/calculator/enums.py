@@ -51,3 +51,7 @@ class RateType(StrEnum):
     # альтернативный сценарий, который срабатывает вместо tier1/tier2, если стаж недостаточный
     SICK_PAY_SHORT_TENURE_DAYS = "sick_pay_short_tenure_days"  # unit="days", единственный tier, full pay
     SICK_PAY_SHORT_TENURE_PCT = "sick_pay_short_tenure_pct"  # тоже всегда 100%, пишем явно для консистентности
+
+    # annual_leave
+    ANNUAL_LEAVE_DAYS = "annual_leave_days"
+    ANNUAL_LEAVE_MIN_DAYS_ILLNESS = "annual_leave_min_days_illness"
