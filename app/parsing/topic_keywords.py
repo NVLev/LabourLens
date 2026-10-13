@@ -68,6 +68,7 @@ TOPIC_KEYWORDS: dict[str, list[str]] = {
         "lomanmääräytymisvuosi",
         "lomapäivä",
         "loma",
+        "vuosiloman pituus määräytyy",
     ],
     "holiday_pay": [
         "lomaraha",
