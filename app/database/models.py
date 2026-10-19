@@ -16,6 +16,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -285,6 +286,34 @@ class TesClause(Base):
     agreement: Mapped["Agreement"] = relationship(back_populates="clauses")
     topic: Mapped[Optional["Topic"]] = relationship(back_populates="tes_clauses")
     tes_rates: Mapped[list["TesRate"]] = relationship(back_populates="tes_clause")
+
+
+class TesClauseTopicOverride(Base):
+    """
+    Ручное закрепление топика за клаузой.
+
+    Ключ — (agreement_key, md5 текста), а не id клаузы: при смене хеша договора
+    клаузы пересоздаются, и id пропадает. topic_id = NULL означает
+    «у этой клаузы топика быть не должно».
+    """
+
+    __tablename__ = "tes_clause_topic_overrides"
+    __table_args__ = (
+        UniqueConstraint(
+            "agreement_key", "text_hash", name="uq_clause_override_key_hash"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    agreement_key: Mapped[str] = mapped_column(String(300), nullable=False, index=True)
+    text_hash: Mapped[str] = mapped_column(String(32), nullable=False)
+    topic_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("topics.id", ondelete="SET NULL"), nullable=True
+    )
+    note: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 # СЛОЙ APPLICATION
