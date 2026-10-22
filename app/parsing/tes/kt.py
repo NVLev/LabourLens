@@ -314,7 +314,7 @@ class KtParser:
 
         clauses: list[KtParsedClause] = []
         for i, header in enumerate(section_headers):
-            title_text = header.get_text(strip=True)
+            title_text = header.get_text(strip=True).replace("\xad", "")
             m = re.match(r"^(\d+)\s*§\s*(.*)$", title_text)
             section_ref = f"§ {m.group(1)}" if m else "§ ?"
             title_fi = m.group(2).strip() if m else title_text
@@ -333,7 +333,7 @@ class KtParser:
                 if text:
                     text_parts.append(text)
 
-            clause_text = "\n\n".join(text_parts).strip()
+            clause_text = "\n\n".join(text_parts).strip().replace("\xad", "")
             if len(clause_text) < 80:
                 continue  # слишком короткие — артефакты
 

@@ -25,13 +25,10 @@ TOPIC_KEYWORDS: dict[str, list[str]] = {
         "työvuorokausi",
         "työviikko",
         "hälytysluontoinen",
-        "lisätyö",  # additional work (below contract hours)
         "kolmivuorotyö",  # continuous 3-shift work
         "varallaolo",  # on-call duty
-        "joustovapaa",  # flex leave earned from overtime
         "työvuoroluettelo",
         "viikkolepo",
-        "kolmivuorotyö",
         "keskeytymätön työ",
     ],
     "working_hours_reduction": [
@@ -58,7 +55,6 @@ TOPIC_KEYWORDS: dict[str, list[str]] = {
         "pyhätyö",
         "sunnuntaikorotus",
         "arkipyhäkorvaus",
-        "arkipyhä",
     ],
     # ОТПУСК
     "annual_leave": [
@@ -108,7 +104,6 @@ TOPIC_KEYWORDS: dict[str, list[str]] = {
     "dismissal_grounds": [
         "irtisanominen",
         "työsopimuksen päättäminen",
-        "työsuhteen päättyminen",
         "irtisanomisperuste",
         "purkaminen",
         "takaisinottaminen",  # rehiring obligation after economic dismissal
