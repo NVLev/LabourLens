@@ -25,6 +25,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import date
+from collections import Counter
 
 import httpx
 from bs4 import BeautifulSoup
@@ -50,6 +51,9 @@ _VERSION_URL_RE = re.compile(
 )
 
 _VOIMASSA_RE = re.compile(r"voimassa\s+(\d{1,2})\.(\d{1,2})\.(\d{4})", re.IGNORECASE)
+
+_HEADER_TAGS = ["h2", "h3", "h4", "h5", "h6"]
+_SECTION_HEADING_RE = re.compile(r"^\d+\s*§\s*\S")
 
 _SLUG_SECTOR: dict[str, str] = {
     "kvtes": "Kunta-ala, yleinen",
@@ -284,8 +288,16 @@ class KtParser:
                     logger.error("KT: failed %s: %s", d.full_url, e)
         return results
 
-    # Извлечение клаузур
+    @staticmethod
+    def _is_section_header(tag) -> bool:
+        """h3 со знаком § (как раньше) или любой другой заголовок, чей текст
+        начинается с 'N §' (на части страниц, напр. ytes 73 §, это h4)."""
+        text = tag.get_text(" ", strip=True)
+        if tag.name == "h3":
+            return "§" in text
+        return len(text) < 150 and bool(_SECTION_HEADING_RE.match(text))
 
+    # Извлечение клаузур
     def _extract_clauses(self, html: str) -> list[KtParsedClause]:
         """
         Разбивает kokoteksti на клаузулы по <h3>N § Название</h3>.
@@ -307,7 +319,12 @@ class KtParser:
         soup = BeautifulSoup(html, "html.parser")
 
         # Все h3 с § в документе
-        section_headers = [h for h in soup.find_all("h3") if "§" in h.get_text()]
+        section_headers = [
+            h for h in soup.find_all(_HEADER_TAGS) if self._is_section_header(h)
+        ]
+        for div in soup.find_all("div", class_=False):
+            if any(self._is_section_header(h) for h in div.find_all(_HEADER_TAGS)):
+                div.unwrap()
         if not section_headers:
             logger.warning("KT: no § h3 headers found in page")
             return []
@@ -327,7 +344,7 @@ class KtParser:
             for sib in header.find_next_siblings():
                 if sib == next_header:
                     break
-                if sib.name == "h3" and "§" in sib.get_text():
+                if sib.name in _HEADER_TAGS and self._is_section_header(sib):
                     break
                 text = sib.get_text(separator=" ", strip=True)
                 if text:
