@@ -311,6 +311,62 @@ LEAVE_TABLE_RE = re.compile(
 # rate, а сверка порядка таблиц (см. _extract_length_tables).
 LEAVE_TABLE_LABEL_RE = re.compile(r"Taulukko\s+(\d)\s+Täysiä")
 
+# --- topic: min_wage (näyttelijät) ---
+KT_ACTOR_HEADER_RE = re.compile(
+    r"(?P<trained>koulutetun\s+)?näyttelijän\s*\((?P<code>\d{6,8})\)"
+    r"\s+vähimmäisperuspalkka\s+on",
+    re.IGNORECASE,
+)
+KT_ACTOR_AMOUNT_DATE_RE = re.compile(
+    r"(?P<amount>\d{1,3}(?:[ \xa0]\d{3})*,\d{2})\s*€\s*/\s*kk"
+    r"\s*\(\s*(?P<date>\d{1,2}\.\d{1,2}\.\d{4})\s*\)"
+)
+
+
+def extract_kt_actor_min_wage(text_fi: str) -> list[dict]:
+    """
+    Topic: min_wage, nayttelijat § 10. Формат "Näyttelijän (46440100)
+    vähimmäisperuspalkka on 2 240,54 €/kk (1.10.2025) ja 2 291,40 €/kk
+    (1.8.2026)" -- сумма идёт ПЕРЕД датой, поэтому KT_DATE_AMOUNT_RE не
+    подходит. На каждый заголовок "[Koulutetun] näyttelijän (код)
+    vähimmäisperuspalkka on" берётся отрезок до следующего заголовка, в нём
+    все пары "сумма €/kk (дата)". Таблица в конце клаузулы (без "€/kk")
+    не матчится, дублей нет. rate_type_context: nayttelija /
+    koulutettu_nayttelija.
+    """
+    results = []
+    headers = list(KT_ACTOR_HEADER_RE.finditer(text_fi))
+    for i, header in enumerate(headers):
+        seg_end = headers[i + 1].start() if i + 1 < len(headers) else len(text_fi)
+        segment = text_fi[header.end() : seg_end]
+        context = "koulutettu_nayttelija" if header.group("trained") else "nayttelija"
+
+        for m in KT_ACTOR_AMOUNT_DATE_RE.finditer(segment):
+            try:
+                day, month, year = map(int, m.group("date").split("."))
+                effective_from = date(year, month, day)
+                value = _normalize_amount(m.group("amount"))
+            except ValueError:
+                logger.warning("KT actor min wage: bad amount/date %r", m.group(0))
+                continue
+
+            source_text = " ".join(
+                text_fi[header.start() : header.end() + m.end()].split()
+            )
+            results.append(
+                {
+                    "wage_group": None,
+                    "rate_type": RateType.MIN_WAGE.value,
+                    "value": value,
+                    "unit": "eur_month",
+                    "effective_from": effective_from,
+                    "source_text": source_text,
+                    "rate_type_context": context,
+                }
+            )
+    return results
+
+
 def extract_kt_min_wage(text_fi: str) -> list[dict]:
     """
     Topic: min_wage. Возвращает список rate-словарей (RateType.MIN_WAGE,
@@ -338,18 +394,21 @@ def extract_kt_min_wage(text_fi: str) -> list[dict]:
         snippet = text_fi[max(0, start - 40) : min(len(text_fi), end + 40)]
         source_text = " ".join(snippet.split())
 
+        rate_type_context = "harjoittelija"
+
+
         results.append(
             {
                 "wage_group": None,
-                "rate_type_context": None,
                 "rate_type": RateType.MIN_WAGE.value,
                 "value": value,
                 "unit": "eur_month",
                 "effective_from": effective_from,
                 "source_text": source_text,
+                "rate_type_context": rate_type_context,
             }
         )
-
+    results.extend(extract_kt_actor_min_wage(text_fi))
     return results
 
 
