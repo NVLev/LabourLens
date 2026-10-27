@@ -1,5 +1,5 @@
-import logging
 import hashlib
+import logging
 from datetime import date, datetime, timezone
 
 from sqlalchemy import select, update
@@ -13,9 +13,11 @@ from app.repositories.topics import TopicRepository
 
 logger = logging.getLogger(__name__)
 
+
 def clause_text_hash(text: str) -> str:
     """Отпечаток текста клаузы для ручных переопределений топика."""
     return hashlib.md5(text.encode("utf-8"), usedforsecurity=False).hexdigest()
+
 
 class TesService:
     """
@@ -165,9 +167,7 @@ class TesService:
                     if topic:
                         topic_id = topic.id
                     else:
-                        logger.warning(
-                            "Topic not found for key '%s'", clause.topic_key
-                        )
+                        logger.warning("Topic not found for key '%s'", clause.topic_key)
 
             self.repo.add_clause(
                 TesClause(

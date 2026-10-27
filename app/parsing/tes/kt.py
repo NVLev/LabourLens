@@ -23,9 +23,9 @@ KT = Kunta- ja hyvinvointialuetyönantajat — работодательская 
 import hashlib
 import logging
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date
-from collections import Counter
 
 import httpx
 from bs4 import BeautifulSoup

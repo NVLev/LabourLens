@@ -85,8 +85,7 @@ async def list_agreements(
 
 @router.get("/agreements", summary="List all current agreements")
 async def list_agreements(
-    union_key: str | None =
-    None,
+    union_key: str | None = None,
     sector_fi: str | None = None,
     session: AsyncSession = Depends(db_helper.session_getter),
 ):
@@ -146,6 +145,7 @@ async def get_agreement(
             for c in agreement.clauses
         ],
     }
+
 
 @router.post("/relink-topics", summary="Reassign topic_id for all TES clauses")
 async def relink_tes_topics(

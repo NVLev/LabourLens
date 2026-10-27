@@ -253,8 +253,9 @@ class TesRepository:
     async def get_topic_overrides(self, agreement_key: str) -> dict[str, int | None]:
         """{text_hash: topic_id} для одного договора."""
         result = await self.session.execute(
-            select(TesClauseTopicOverride.text_hash, TesClauseTopicOverride.topic_id)
-            .where(TesClauseTopicOverride.agreement_key == agreement_key)
+            select(
+                TesClauseTopicOverride.text_hash, TesClauseTopicOverride.topic_id
+            ).where(TesClauseTopicOverride.agreement_key == agreement_key)
         )
         return {text_hash: topic_id for text_hash, topic_id in result.all()}
 
