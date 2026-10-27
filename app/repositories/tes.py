@@ -2,7 +2,13 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.database.models import Agreement, TesClause, Topic, Union
+from app.database.models import (
+    Agreement,
+    TesClause,
+    TesClauseTopicOverride,
+    Topic,
+    Union,
+)
 
 
 class TesRepository:
@@ -241,3 +247,39 @@ class TesRepository:
         await self.session.execute(
             delete(TesClause).where(TesClause.agreement_id == agreement_id)
         )
+
+    # Topic overrides / relink
+
+    async def get_topic_overrides(self, agreement_key: str) -> dict[str, int | None]:
+        """{text_hash: topic_id} для одного договора."""
+        result = await self.session.execute(
+            select(
+                TesClauseTopicOverride.text_hash, TesClauseTopicOverride.topic_id
+            ).where(TesClauseTopicOverride.agreement_key == agreement_key)
+        )
+        return {text_hash: topic_id for text_hash, topic_id in result.all()}
+
+    async def get_all_topic_overrides(self) -> dict[tuple[str, str], int | None]:
+        """{(agreement_key, text_hash): topic_id} для всех договоров."""
+        result = await self.session.execute(
+            select(
+                TesClauseTopicOverride.agreement_key,
+                TesClauseTopicOverride.text_hash,
+                TesClauseTopicOverride.topic_id,
+            )
+        )
+        return {(key, text_hash): topic_id for key, text_hash, topic_id in result.all()}
+
+    async def get_clauses_with_agreement_key(self) -> list[tuple[TesClause, str]]:
+        """Все клаузы вместе с ключом договора (join, без ленивой загрузки)."""
+        result = await self.session.execute(
+            select(TesClause, Agreement.key).join(
+                Agreement, TesClause.agreement_id == Agreement.id
+            )
+        )
+        return list(result.all())
+
+    async def get_topic_key_map(self) -> dict[int, str]:
+        """{topic_id: topic_key}."""
+        result = await self.session.execute(select(Topic.id, Topic.key))
+        return {topic_id: key for topic_id, key in result.all()}

@@ -4,10 +4,12 @@ from typing import Any, Callable
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.calculator.extractors.kt_rate import (
+    extract_kt_annual_leave,
     extract_kt_expense_reimbursement,
     extract_kt_min_wage,
     extract_kt_night_sunday,
     extract_kt_overtime,
+    extract_kt_sick_leave,
 )
 from app.database.models import TesClause, TesRate
 from app.repositories.tes import TesRepository
@@ -76,6 +78,8 @@ class TesRateService:
                     extractor == extract_kt_overtime
                     or extractor == extract_kt_night_sunday
                     or extractor == extract_kt_expense_reimbursement
+                    or extractor == extract_kt_sick_leave
+                    or extractor == extract_kt_annual_leave
                 ):
                     rate["effective_from"] = clause.agreement.valid_from
                 status = await self._upsert_rate(clause, rate)
@@ -109,3 +113,9 @@ class TesRateService:
         return await self.extract_and_upsert(
             "expense_reimbursement", extract_kt_expense_reimbursement
         )
+
+    async def extract_sick_leave(self):
+        return await self.extract_and_upsert("sick_leave", extract_kt_sick_leave)
+
+    async def extract_annual_leave(self):
+        return await self.extract_and_upsert("annual_leave", extract_kt_annual_leave)

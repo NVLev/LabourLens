@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -149,15 +149,19 @@ async def get_agreement(
 
 @router.post("/relink-topics", summary="Reassign topic_id for all TES clauses")
 async def relink_tes_topics(
+    dry_run: bool = Query(False, description="Только показать изменения, не писать"),
+    max_chars: int | None = Query(
+        None, ge=1, description="Смотреть только первые N символов текста клаузы"
+    ),
     session: AsyncSession = Depends(db_helper.session_getter),
 ):
     """
-    Переназначает topic_id для всех клауз по актуальному SECTION_TOPIC_MAP.
-    Запускать после обновления topic_map.py и пересева топиков.
-    Idempotent.
+    Переназначает topic_id для всех клауз по detect_topic().
+    Ручные переопределения (tes_clause_topic_overrides) главнее автодетекции.
+    Рекомендуется сначала запускать с dry_run=true.
     """
     service = TesService(session)
-    return await service.relink_topics()
+    return await service.relink_topics(dry_run=dry_run, max_chars=max_chars)
 
 
 @router.get("/agreements/{key}/unlinked", summary="Get unlinked clauses")

@@ -1,3 +1,38 @@
+"""
+KT (Kunta-ala / муниципальный сектор) — regex-based extractor'ы структурированных
+rate-данных (ставки, дни, проценты) из сырого текста клауз TES (text_fi).
+
+Порядок методов в файле
+На каждый topic — один публичный вход extract_kt_<topic>(text_fi) -> list[dict]
+(вызывается из service.py:TesRateService.extract_and_upsert). Он делегирует
+в приватные _extract_*() под-функции, каждая из которых использует один или
+несколько regex-паттернов, объявленных группой в начале файла под общим
+комментарием-разделителем "#---- topic: <name> ----". Если нужно поправить
+паттерн — сначала найди раздел по топику, а не ищи по всему файлу.
+
+Топики (в порядке появления в файле):
+  min_wage                  -> extract_kt_min_wage()
+  overtime                  -> extract_kt_overtime()
+  night_and_sunday_work     -> extract_kt_night_sunday()
+  expense_reimbursement     -> extract_kt_expense_reimbursement()
+  sick_leave                -> extract_kt_sick_leave()
+
+Общие для нескольких топиков утилиты (объявлены в конце файла):
+  _normalize_amount()           -- "1 746,00" / "54,00" -> Decimal, парсинг
+                                    чисел с nbsp/пробелами-разделителями и
+                                    запятой как десятичным разделителем
+  find_segments_by_mom_header() -- режет текст клаузулы на сегменты по "N mom."
+                                    заголовкам; используется overtime и
+                                    night_sunday, т.к. у них несколько режимов
+                                    внутри одной клаузулы
+
+Каждый rate-словарь, который возвращает extract_kt_*(), имеет форму
+{"rate_type", "rate_type_context", "value", "unit", "source_text", ...} --
+rate_type берётся из RateType (app/calculator/enums.py), rate_type_context
+различает несколько режимов ставки под одним rate_type (например,
+overtime: vuorokautinen/viikoittainen; sick_leave: general/work_accident).
+"""
+
 import logging
 import re
 from datetime import date
@@ -8,6 +43,10 @@ from app.calculator.enums import RateType
 
 logger = logging.getLogger(__name__)
 
+# ------------------------- topic: min_wage ---------------------------------
+# "1.6.2023 alkaen 1 746,00 euroa" -- дата вступления в силу + сумма; может
+# встречаться несколько раз в одной клаузуле (ступени повышения ставки за
+# время действия договора). Дата уходит в effective_from каждой строки.
 KT_DATE_AMOUNT_RE = re.compile(
     r"(\d{1,2}\.\d{1,2}\.\d{4})"
     r"\s+(?:alkaen|lukien)\s+"
@@ -16,7 +55,11 @@ KT_DATE_AMOUNT_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Случай 1: явные "N mom. Title" заголовки, режим назван прямо в заголовке.
+# ------------------------- topic: overtime ----------------------------------
+# Случай 1: явные "N mom. Title" заголовки, режим назван прямо в заголовке
+# (см. _detect_mode). "N ensimmäiseltä tunnilta ... X %:lla ... Y %:lla" --
+# порог часов (N) + две ставки повышения. Пример: "18 ensimmäiseltä
+# tunnilta 50 %:lla ja seuraavilta tunneilta 100 %:lla korotettu palkka."
 KT_OVERTIME_AMOUNT_RE = re.compile(
     r"(?P<threshold_hours>\d+)\s+ensimm(?:äi|ai)selt[äa]\s+"
     r"(?:ylityö)?tunni(?:lta|sta).{0,80}?"
@@ -26,10 +69,18 @@ KT_OVERTIME_AMOUNT_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Сегментация клаузулы по заголовкам "N mom. Title" -- используется и
+# overtime, и night_sunday (расположено здесь исторически, не специфично
+# для overtime). Два порядка слов ("N mom. Title" / "Title N mom."), какой
+# подходит -- решает find_segments_by_mom_header() внизу файла.
 _MOM_HEADER_BEFORE_RE = re.compile(r"\d+\s*mom\.[ \t]*([^\n]*)")
 _MOM_HEADER_AFTER_RE = re.compile(r"([^\n]*?)[ \t]+\d+\s*mom\.")
 
-# Случай 2 ("слитный" формат — mom.-заголовок пуст или не назван по режиму,
+# Случай 2 ("слитный" формат -- mom.-заголовок пуст или не назван по
+# режиму): режим vuorokautinen (посуточный) распознаётся по слову
+# "vuorokautis*" внутри самого текста, а не в заголовке. Пример:
+# "50 %:lla korotettu tuntipalkka kahdelta ensimmäiseltä vuorokautiselta
+#  ylityötunnilta ... 100 %:lla."
 _VUOROKAUTINEN_COMPACT_RE = re.compile(
     r"(?P<tier1_pct>\d+(?:,\d+)?)\s*%:lla\s+korotettu\s+\w+\s+"
     r"(?P<threshold>[a-zäöA-ZÄÖ]+|\d+)\s+ensimm(?:äi|ai)selt[äa]\s+vuorokautis\w*"
@@ -38,6 +89,8 @@ _VUOROKAUTINEN_COMPACT_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Случай 2, режим viikoittainen (недельный) -- тот же принцип, что у
+# vuorokautinen выше, но якорное слово "viikoittais*":
 # "50 %:lla korotettu tuntipalkka viikoittaisen ylityön 5 ensimmäiseltä tunnilta
 #  ja 100 %:lla korotettu palkka kultakin seuraavalta viikoittaiselta..."
 _VIIKOITTAINEN_COMPACT_RE = re.compile(
@@ -49,6 +102,9 @@ _VIIKOITTAINEN_COMPACT_RE = re.compile(
     re.IGNORECASE,
 )
 
+# jaksotyö (периодная/сменная работа) -- третий под-случай Случая 2: ставки
+# общие на всю зону, но порогов часов может быть несколько (по одному на
+# каждую длину периода -- 2/3/4-6 недель). См. _extract_jaksotyo() ниже.
 # Якорь начала jaksotyö-зоны внутри mom.-блока — дальше от него режем зону вручную.
 _JAKSOTYO_ANCHOR_RE = re.compile(r"jaksoty\w*", re.IGNORECASE)
 
@@ -65,7 +121,8 @@ _JAKSOTYO_TIER2_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Финские числительные, встречающиеся как словоформы порогов/периодов
+# Финские числительные словами -- нужны jaksotyö-периодам ниже, где число
+# недель пишется словом, а не цифрой ("kahden viikon työaikajakson...").
 _FI_NUMBER_WORDS = {
     "yksi": 1,
     "yhden": 1,
@@ -106,47 +163,219 @@ _JAKSOTYO_PERIOD_RE = re.compile(
     re.IGNORECASE,
 )
 
+# ------------------------- topic: night_and_sunday_work ---------------------
+# Режим (sunnuntai/lauantai/aatto/ilta/yo) определяется отдельно по
+# заголовку сегмента (_detect_night_sunday_mode), сюда попадает уже
+# нарезанный сегмент одного режима -- задача этих паттернов: найти саму
+# ставку внутри него. Три варианта записи ставки, пробуются по очереди
+# в _extract_night_sunday_rate() (первое совпадение побеждает):
 # паттерн - явный процент
 _NIGHT_SUNDAY_PCT_RE = re.compile(
     r"(?P<pct>\d+(?:,\d+)?)\s*(?:%(?::n)?|prosentin)",
     re.IGNORECASE,
 )
 
-# паттерн - фиксированная фраза = 100%: "korottamaton tuntipalkka"
+# паттерн - фиксированная фраза = 100% (неповышенная ставка): "korottamaton tuntipalkka"
 _FULL_RATE_PHRASE_RE = re.compile(r"\bkorottamaton\s+tuntipalkka\b", re.IGNORECASE)
 
-# паттерн - фиксированная фраза = 100%: "kaksinkertaisena"
+# паттерн - фиксированная фраза = 100% (двойная ставка формулируется как
+# "kaksinkertainen" -- считаем как +100% сверху, т.е. значение = 100):
 _DOUBLE_RATE_PHRASE_RE = re.compile(r"kaksinkertais\w*", re.IGNORECASE)
 
-# паттерн - Kokopäiväraha + osapäiväraha
+# ------------------------- topic: expense_reimbursement --------------------
+# Group A: чистые константы в евро, у каждой своя фраза-якорь, сегментация
+# по mom. не нужна -- все четыре паттерна сканируют text_fi целиком.
+# Kokopäiväraha (полная суточная) + osapäiväraha (частичная суточная) --
+# одно предложение, обе суммы всегда вместе:
+# "Kokopäiväraha on 54 euroa ja osapäiväraha 25 euroa ..."
 KT_DAILY_ALLOWANCE_RE = re.compile(
     r"Kokopäiväraha\s+on\s+(?P<full>\d+(?:,\d+)?)\s*(?:euroa|€)"
     r"\s+ja\s+osapäiväraha\s+(?P<part>\d+(?:,\d+)?)\s*(?:euroa|€)",
     re.IGNORECASE,
 )
 
+# Ateriakorvaus (компенсация питания) -- два разных tier'а через альтернацию:
+# "ateriakorvausta 13,50 euroa" (базовый) ИЛИ "2,02 euron suuruinen
+# ateriakorvaus" (усечённый случай hyvtes). В каждом match заполнена ровно
+# одна из групп -- см. _extract_meal_compensation() ниже.
 KT_MEAL_COMPENSATION_RE = re.compile(
     r"ateriakorvaus(?:ta)?\s+(?P<amt_tier1>\d+(?:,\d+)?)\s*(?:euroa|€)"
     r"|(?P<amt_tier2>\d+(?:,\d+)?)\s*euron\s+suuruinen\s+ateriakorvaus",
     re.IGNORECASE,
 )
 
+# Yömatkaraha (ночная дорожная надбавка): "16 euron yömatkaraha" /
+# "16,00 euron yömatkaraha".
 KT_NIGHT_TRAVEL_ALLOWANCE_RE = re.compile(
     r"(?P<amt>\d+(?:,\d+)?)\s*euron\s+yömatkaraha",
     re.IGNORECASE,
 )
 
+# Vaatetuksen/suojavaatetuksen huolto (обслуживание спецодежды) --
+# ежемесячная сумма: "huollosta aiheutuvista kustannuksista korvataan
+# 5 euroa kuukaudessa".
 KT_CLOTHING_MAINTENANCE_RE = re.compile(
     r"huollosta\s+aiheutuvista\s+kustannuksista\s+korvataan\s+"
     r"(?P<amt>\d+(?:,\d+)?)\s*euroa\s+kuukaudessa",
     re.IGNORECASE,
 )
 
+# ------------------------- topic: sick_leave --------------------------------
+# Только KVTES-семья (kt-ytes/hyvtes/kvtes/sote) -- kt-otes/tuntipalkkaiset
+# использует структурно другую таблицу (недели + стаж), сюда не входит.
+#
+# Основная лестница (обычный больничный ИЛИ производственная травма --
+# один и тот же regex для обоих, различие через rate_type_context, см.
+# _detect_sick_leave_context ниже): tier1 = N дней полной зарплаты
+# ("varsinainen palkkansa"), затем tier2 = M дней ⅔ зарплаты.
+# Пример: "varsinainen palkkansa enintään 60 kalenteripäivän ajalta ja
+# sen jälkeen kaksi kolmasosaa (⅔) varsinaisesta palkastaan enintään
+# 120 kalenteripäivän ajalta." (60/120 -- general; 120/120 -- work_accident)
+KT_SICK_PAY_TIER_RE = re.compile(
+    r"varsinainen(?:\s+palkkansa|en\s+palkkansa)\s+enintään\s+(?P<tier1_days>\d+)\s*"
+    r"kalenteripäivän ajalta\s+ja\s+sen\s+jälkeen\s+kaksi\s+kolmasosaa\s*"
+    r"\(?⅔\)?\s*varsinaisesta\s+palkastaan\s+enintään\s+(?P<tier2_days>\d+)\s*"
+    r"kalenteripäivän ajalta",
+    re.IGNORECASE,
+)
+
+# Короткий стаж: если стаж <60 дней до начала больничного -- вместо
+# лестницы выше действует единственный tier (обычно 14 дней, 100%), после
+# которого выплаты прекращаются совсем: "varsinainen palkkansa 14
+# kalenteripäivän ajalta, jonka jälkeen ei suoriteta mitään palkkaetuja."
+# Встречается только у context="general" (у work_accident условия по
+# стажу нет).
+KT_SICK_PAY_SHORT_TENURE_RE = re.compile(
+    r"saada\s+sairauspoissaolon\s+ajalta\s+varsinainen\s+palkkansa\s+"
+    r"(?P<days>\d+)\s*kalenteripäivän\s+ajalta,\s*jonka\s+jälkeen\s+ei\s+suoriteta\s+mitään\s+palkkaetuja",
+    re.IGNORECASE,
+)
+
+# Дискреционный tier3: только у hyvtes, только context="work_accident" --
+# после основной лестницы (120+120) работодатель МОЖЕТ (не обязан)
+# заплатить ещё до 125 дней той же ⅔-ставки, что и tier2 (отдельного
+# tier3_pct нет -- ставка берётся из tier2_pct). "Lisäksi voidaan
+# harkinnan mukaan maksaa kaksi kolmasosaa varsinaisesta palkasta
+# enintään 125 kalenteripäivän ajalta."
+KT_SICK_PAY_DISCRETIONARY_TIER_RE = re.compile(
+    r"Lisäksi\s+voidaan\s+harkinnan\s+mukaan\s+maksaa\s+kaksi\s+kolmasosaa\s+"
+    r"varsinaisesta\s+palkasta\s+enintään\s+(?P<days>\d+)\s*kalenteripäivän\s+ajalta",
+    re.IGNORECASE,
+)
+
+# Вспомогательный (не rate-паттерн!) -- определяет rate_type_context
+# general/work_accident по ключевым словам в начале клаузулы. Проверяется
+# через .search(), группы не используются -- см. _detect_sick_leave_context().
+KT_SICK_LEAVE_ACCIDENT_KEYWORDS_RE = re.compile(
+    r"työtapaturma|ammattitauti|tapaturmavakuutuslainsäädännössä|"
+    r"työtehtävistä\s+johtuneesta\s+väkivallasta",
+    re.IGNORECASE,
+)
+
+# ------------------------- topic: annual_leave --------------------------------
+# KVTES: абзац c) -- "vähintään 10 vuotta, hänen lomansa pituus on 28
+# vuosilomapäivän sijasta 30 vuosilomapäivää edellyttäen, että hän ansaitsee
+# vuosilomaa 12 täydeltä lomanmääräytymiskuukaudelta"
+LEAVE_TEN_YEAR_PROSE_RE = re.compile(
+    r"vähintään\s+(?P<years>\d+)\s+vuotta,\s+hänen\s+lomansa\s+pituus\s+on\s+"
+    r"\d+\s+vuosilomapäivän\s+sijasta\s+(?P<days>\d+)\s+vuosilomapäivää\s+"
+    r"edellyttäen,\s+että\s+hän\s+ansaitsee\s+vuosilomaa\s+(?P<months>\d+)\s+täydeltä",
+    re.IGNORECASE,
+)
+
+# Минимум при болезни/реабилитации ("oikeus 20 vuosilomapäivään, jos ...
+# alittaa 20 vuosilomapäivää"); работает и для KVTES (4 mom.), и для YTES (5 mom.)
+LEAVE_MIN_DAYS_ILLNESS_RE = re.compile(
+    r"oikeus\s+(?P<days>\d+)\s+vuosilomapäivään,\s+jos\s+(?:hänen|työntekijän)\s+"
+    r"täydeltä\s+lomanmääräytymisvuodelta\s+ansaitsemansa\s+vuosiloma\s+alittaa\s+"
+    r"\d+\s+vuosilomapäivää",
+    re.IGNORECASE,
+)
+
+LEAVE_TEN_YEAR_INLINE_RE = re.compile(
+    r"(?P<years>\d+)\s+vuoden\s+palvelu\s+Täysiä[^\d]*?(?P<months>\d{1,2})\s+"
+    r"Vuosilomapäiv\w+(?:\s*\(työpäiviä\))?\s+(?P<days>\d{1,2})(?!\d)",
+    re.IGNORECASE,
+)
+
+# Таблица длины отпуска: слово-якорь "Vuosilomapäiv..." (KVTES: "Vuosilomapäivät",
+# YTES: "Vuosilomapäiviä (työpäiviä)") + ровно 12 чисел подряд (дни для 1..12
+# полных месяцев). Якорь на слове, а не на заголовке таблицы: в заголовке
+# бывают переносы ("loman-määräytymiskuukausia"). Условие "ровно 12 чисел"
+# отсекает числа из примеров расчёта в тексте.
+LEAVE_TABLE_RE = re.compile(
+    r"Vuosilomapäiv\w+(?:\s*\(työpäiviä\))?\s+((?:\d{1,2}\s+){11}\d{1,2})(?!\d)"
+)
+
+# Подпись таблицы "Taulukko 1/2/3" -- есть только у YTES/vuokra-tes. Это не
+# rate, а сверка порядка таблиц (см. _extract_length_tables).
+LEAVE_TABLE_LABEL_RE = re.compile(r"Taulukko\s+(\d)\s+Täysiä")
+
+# --- topic: min_wage (näyttelijät) ---
+KT_ACTOR_HEADER_RE = re.compile(
+    r"(?P<trained>koulutetun\s+)?näyttelijän\s*\((?P<code>\d{6,8})\)"
+    r"\s+vähimmäisperuspalkka\s+on",
+    re.IGNORECASE,
+)
+KT_ACTOR_AMOUNT_DATE_RE = re.compile(
+    r"(?P<amount>\d{1,3}(?:[ \xa0]\d{3})*,\d{2})\s*€\s*/\s*kk"
+    r"\s*\(\s*(?P<date>\d{1,2}\.\d{1,2}\.\d{4})\s*\)"
+)
+
+
+def extract_kt_actor_min_wage(text_fi: str) -> list[dict]:
+    """
+    Topic: min_wage, nayttelijat § 10. Формат "Näyttelijän (46440100)
+    vähimmäisperuspalkka on 2 240,54 €/kk (1.10.2025) ja 2 291,40 €/kk
+    (1.8.2026)" -- сумма идёт ПЕРЕД датой, поэтому KT_DATE_AMOUNT_RE не
+    подходит. На каждый заголовок "[Koulutetun] näyttelijän (код)
+    vähimmäisperuspalkka on" берётся отрезок до следующего заголовка, в нём
+    все пары "сумма €/kk (дата)". Таблица в конце клаузулы (без "€/kk")
+    не матчится, дублей нет. rate_type_context: nayttelija /
+    koulutettu_nayttelija.
+    """
+    results = []
+    headers = list(KT_ACTOR_HEADER_RE.finditer(text_fi))
+    for i, header in enumerate(headers):
+        seg_end = headers[i + 1].start() if i + 1 < len(headers) else len(text_fi)
+        segment = text_fi[header.end() : seg_end]
+        context = "koulutettu_nayttelija" if header.group("trained") else "nayttelija"
+
+        for m in KT_ACTOR_AMOUNT_DATE_RE.finditer(segment):
+            try:
+                day, month, year = map(int, m.group("date").split("."))
+                effective_from = date(year, month, day)
+                value = _normalize_amount(m.group("amount"))
+            except ValueError:
+                logger.warning("KT actor min wage: bad amount/date %r", m.group(0))
+                continue
+
+            source_text = " ".join(
+                text_fi[header.start() : header.end() + m.end()].split()
+            )
+            results.append(
+                {
+                    "wage_group": None,
+                    "rate_type": RateType.MIN_WAGE.value,
+                    "value": value,
+                    "unit": "eur_month",
+                    "effective_from": effective_from,
+                    "source_text": source_text,
+                    "rate_type_context": context,
+                }
+            )
+    return results
+
 
 def extract_kt_min_wage(text_fi: str) -> list[dict]:
     """
-    Возвращает список {"value": ..., "unit": "eur_month", "effective_from": ..., "source_text": ...}
-    По одной записи на каждое найденное совпадение "дата + сумма" в тексте.
+    Topic: min_wage. Возвращает список rate-словарей (RateType.MIN_WAGE,
+    unit="eur_month") -- по одной записи на каждое найденное совпадение
+    "дата + сумма" в тексте (KT_DATE_AMOUNT_RE). Единственный extractor
+    в файле, где effective_from парсится прямо из текста клаузулы (а не
+    подставляется из agreement.valid_from, как у overtime/night_sunday/
+    expense_reimbursement/sick_leave) -- у min_wage могут быть несколько
+    ступеней повышения ставки за время действия одного договора.
     """
     results = []
 
@@ -165,18 +394,20 @@ def extract_kt_min_wage(text_fi: str) -> list[dict]:
         snippet = text_fi[max(0, start - 40) : min(len(text_fi), end + 40)]
         source_text = " ".join(snippet.split())
 
+        rate_type_context = "harjoittelija"
+
         results.append(
             {
                 "wage_group": None,
-                "rate_type_context": None,
                 "rate_type": RateType.MIN_WAGE.value,
                 "value": value,
                 "unit": "eur_month",
                 "effective_from": effective_from,
                 "source_text": source_text,
+                "rate_type_context": rate_type_context,
             }
         )
-
+    results.extend(extract_kt_actor_min_wage(text_fi))
     return results
 
 
@@ -187,7 +418,9 @@ def _build_expense_row(
     unit: str,
     rate_type_context: str | None = None,
 ) -> dict:
-    """Единая точка сборки rate-словаря для extractor'ов group A (expense_reimbursement)."""
+    """Topic: expense_reimbursement (group A). Единая точка сборки
+    rate-словаря; rate_type_context опционален (не нужен большинству
+    записей группы A, кроме meal_compensation tier1/tier2)."""
     return {
         "wage_group": None,
         "rate_type_context": rate_type_context,
@@ -200,6 +433,7 @@ def _build_expense_row(
 
 def _extract_daily_allowance(text_fi: str) -> list[dict]:
     """
+    Topic: expense_reimbursement (group A).
     Kokopäiväraha + osapäiväraha — одно предложение, две обязательные
     именованные группы (full/part): заполняются всегда вместе, либо
     весь regex не совпадает вовсе (альтернации тут нет).
@@ -251,6 +485,7 @@ def _extract_daily_allowance(text_fi: str) -> list[dict]:
 
 def _extract_night_travel_allowance(text_fi: str) -> list[dict]:
     """
+    Topic: expense_reimbursement (group A).
     Yömatkaraha — одна именованная группа (amt): "maksetaan 16 euron
     yömatkaraha" / "16,00 euron yömatkaraha".
     """
@@ -289,6 +524,7 @@ def _extract_night_travel_allowance(text_fi: str) -> list[dict]:
 
 def _extract_meal_compensation(text_fi: str) -> list[dict]:
     """
+    Topic: expense_reimbursement (group A).
     Ateriakorvaus — два разных tier'а (13,50 € базовый, 2,02 € усечённый
     случай hyvtes), выраженные разным порядком слов в одном regex через
     альтернацию. В каждом match заполнена ровно одна из двух именованных
@@ -356,6 +592,7 @@ def _extract_meal_compensation(text_fi: str) -> list[dict]:
 
 def _extract_clothing_maintenance(text_fi: str) -> list[dict]:
     """
+    Topic: expense_reimbursement (group A).
     Vaatetuksen/suojavaatetuksen huolto — фиксированная ежемесячная
     компенсация: "korvataan 5 euroa kuukaudessa". Unit "eur_month"
     (не разовая, а помесячная выплата — по аналогии с min_wage).
@@ -393,7 +630,8 @@ def _extract_clothing_maintenance(text_fi: str) -> list[dict]:
 
 def extract_kt_expense_reimbursement(text_fi: str) -> list[dict]:
     """
-    Возвращает список rate-словарей для компенсаций расходов KT (group A):
+    Topic: expense_reimbursement (group A). Возвращает список rate-словарей
+    для компенсаций расходов KT:
     kokopäiväraha/osapäiväraha, ateriakorvaus (2 tier'а), yömatkaraha,
     vaatetuksen huolto.
 
@@ -413,7 +651,9 @@ def extract_kt_expense_reimbursement(text_fi: str) -> list[dict]:
 
 def extract_kt_overtime(text_fi: str) -> list[dict]:
     """
-    Возвращает список rate-словарей для сверхурочных ставок KT.
+    Topic: overtime. Возвращает список rate-словарей (порог часов + tier1%
+    + tier2%, RateType.OVERTIME_RATE_TIER1_HOURS/TIER1_PCT/TIER2_PCT)
+    для сверхурочных ставок KT.
 
     Сегментирует клаузуру по "N mom." заголовкам (find_segments_overtime).
     Если заголовок явно называет режим (vuorokautinen/viikoittainen) —
@@ -438,9 +678,16 @@ def extract_kt_overtime(text_fi: str) -> list[dict]:
 
 def extract_kt_night_sunday(text_fi: str) -> list[dict]:
     """
-    Возвращает список rate-словарей для ставок KT при работе в ночную смену и в выходные.
-    :param text_fi:
-    :return:
+    Topic: night_and_sunday_work. Возвращает список rate-словарей
+    (RateType.NIGHT_SUNDAY_RATE_PCT) для ставок KT при работе в ночную
+    смену и в выходные.
+
+    Сегментирует клаузулу по "N mom." заголовкам (find_segments_by_mom_header,
+    тот же механизм, что и у overtime). Режим (sunnuntai/lauantai/aatto/
+    ilta/yo) определяется по заголовку сегмента (_detect_night_sunday_mode);
+    если распознать не удалось -- сегмент пропускается с warning (в отличие
+    от overtime, где для нераспознанного заголовка есть fallback "Случай 2" --
+    здесь такого fallback нет).
     """
     results = []
     segments = find_segments_by_mom_header(text_fi)
@@ -460,7 +707,416 @@ def extract_kt_night_sunday(text_fi: str) -> list[dict]:
     return results
 
 
+SICK_PAY_TIER2_FRACTION_PCT = Decimal(
+    "66.67"
+)  # kaksi kolmasosaa (⅔) — нормализовано в pct
+
+
+def _build_sick_leave_row(
+    rate_type: str,
+    value: Decimal,
+    source_text: str,
+    unit: str,
+    rate_type_context: str,
+) -> dict:
+    """
+    Topic: sick_leave. Единая точка сборки rate-словаря для extractor'ов
+    topic sick_leave.
+    rate_type_context обязателен (не Optional, как в _build_expense_row) —
+    для sick_leave не бывает строки без контекста general/work_accident.
+    """
+    return {
+        "wage_group": None,
+        "rate_type_context": rate_type_context,
+        "rate_type": rate_type,
+        "value": value,
+        "unit": unit,
+        "source_text": source_text,
+    }
+
+
+def _extract_sick_pay_tiers(text_fi: str, context: str) -> list[dict]:
+    """
+    Topic: sick_leave.
+    Основная лестница: tier1 (N дней, всегда 100% — varsinainen palkkansa)
+    + tier2 (M дней, ⅔ от зарплаты). Один match даёт четыре rate-строки
+    сразу: обе группы (tier1_days/tier2_days) обязательны в самом regex
+    (альтернации нет), поэтому извлекаем их безусловно.
+    """
+    results = []
+
+    for match in KT_SICK_PAY_TIER_RE.finditer(text_fi):
+        start, end = match.start(), match.end()
+        snippet = text_fi[max(0, start - 40) : min(len(text_fi), end + 40)]
+        source_text = " ".join(snippet.split())
+
+        try:
+            tier1_days = _normalize_amount(match.group("tier1_days"))
+            tier2_days = _normalize_amount(match.group("tier2_days"))
+        except Exception:
+            logger.warning(
+                "KT sick_leave: failed to parse sick_pay_tiers days: %.120s",
+                source_text,
+            )
+            continue
+
+        results.append(
+            _build_sick_leave_row(
+                RateType.SICK_PAY_TIER1_DAYS.value,
+                tier1_days,
+                source_text,
+                "days",
+                context,
+            )
+        )
+        results.append(
+            _build_sick_leave_row(
+                RateType.SICK_PAY_TIER1_PCT.value,
+                Decimal(100),
+                source_text,
+                "pct",
+                context,
+            )
+        )
+        results.append(
+            _build_sick_leave_row(
+                RateType.SICK_PAY_TIER2_DAYS.value,
+                tier2_days,
+                source_text,
+                "days",
+                context,
+            )
+        )
+        results.append(
+            _build_sick_leave_row(
+                RateType.SICK_PAY_TIER2_PCT.value,
+                SICK_PAY_TIER2_FRACTION_PCT,
+                source_text,
+                "pct",
+                context,
+            )
+        )
+
+    if not results:
+        logger.debug(
+            "KT sick_leave: no sick pay tier match found (context=%s)", context
+        )
+
+    return results
+
+
+def _extract_short_tenure(text_fi, context) -> list[dict]:
+    """
+    Topic: sick_leave. Альтернативный сценарий вместо основной лестницы
+    (_extract_sick_pay_tiers) — срабатывает, если стаж работника <60 дней
+    до начала больничного. Единственный tier (обычно 14 дней), всегда
+    100% (пишем явно как sick_pay_short_tenure_pct, в тексте это не число,
+    а слово "varsinainen palkkansa" — см. _extract_sick_pay_tiers для той
+    же логики у tier1). После этого периода выплат больше нет.
+    Встречается только при context="general" — у work_accident условия
+    по стажу нет; если увидишь context="work_accident" здесь на реальных
+    данных, это повод перепроверить _detect_sick_leave_context.
+    """
+    results = []
+
+    for match in KT_SICK_PAY_SHORT_TENURE_RE.finditer(text_fi):
+        start, end = match.start(), match.end()
+        snippet = text_fi[max(0, start - 40) : min(len(text_fi), end + 40)]
+        source_text = " ".join(snippet.split())
+        try:
+            value = _normalize_amount(match.group("days"))
+        except Exception:
+            logger.warning(
+                "KT sick_leave: failed to parse sick_pay_short_tenure: %.120s",
+                source_text,
+            )
+            continue
+        results.append(
+            _build_sick_leave_row(
+                RateType.SICK_PAY_SHORT_TENURE_DAYS.value,
+                value,
+                source_text,
+                "days",
+                context,
+            )
+        )
+        results.append(
+            _build_sick_leave_row(
+                RateType.SICK_PAY_SHORT_TENURE_PCT.value,
+                Decimal(100),
+                source_text,
+                "pct",
+                context,
+            )
+        )
+    return results
+
+
+def _extract_discretionary_tier(text_fi, context) -> list[dict]:
+    """
+    Topic: sick_leave. Третий, необязательный tier поверх основной
+    лестницы (_extract_sick_pay_tiers) — встречается только у hyvtes,
+    только при context="work_accident". Работодатель МОЖЕТ (не обязан,
+    "harkinnan mukaan") доплатить ещё до N дней (обычно 125) по той же
+    ⅔-ставке, что и tier2 — поэтому здесь нет отдельного _pct-значения,
+    ставка на слое 3 калькулятора должна браться из sick_pay_tier2_pct.
+    """
+    results = []
+
+    for match in KT_SICK_PAY_DISCRETIONARY_TIER_RE.finditer(text_fi):
+        start, end = match.start(), match.end()
+        snippet = text_fi[max(0, start - 40) : min(len(text_fi), end + 40)]
+        source_text = " ".join(snippet.split())
+        try:
+            value = _normalize_amount(match.group("days"))
+        except Exception:
+            logger.warning(
+                "KT sick_leave: failed to parse sick_pay_discretionary_tier: %.120s",
+                source_text,
+            )
+            continue
+        results.append(
+            _build_sick_leave_row(
+                RateType.SICK_PAY_TIER3_DISCRETIONARY_DAYS.value,
+                value,
+                source_text,
+                "days",
+                context,
+            )
+        )
+    return results
+
+
+def extract_kt_sick_leave(text_fi: str) -> list[dict]:
+    """
+    Topic: sick_leave. Единственный topic в файле, где применимость
+    ограничена подмножеством agreement'ов — только KVTES-семья
+    (kt-ytes/hyvtes/kvtes/sote); kt-otes/tuntipalkkaiset использует
+    структурно другую таблицу (недели + годы стажа) и этим extractor'ом
+    не покрывается.
+
+    Возвращает список rate-словарей для больничных KT: основная лестница
+    (tier1 дней full pay + tier2 дней ⅔), короткий стаж (единственный
+    tier, вместо лестницы), дискреционный tier3 (только work_accident,
+    только hyvtes). rate_type_context (general/work_accident) вычисляется
+    один раз на клаузулу и передаётся во все под-функции.
+    """
+    context = _detect_sick_leave_context(text_fi)
+
+    results = []
+    results.extend(_extract_sick_pay_tiers(text_fi, context))
+    results.extend(_extract_short_tenure(text_fi, context))
+    results.extend(_extract_discretionary_tier(text_fi, context))
+    return results
+
+
+def _detect_sick_leave_context(text_fi: str) -> str:
+    """
+    Topic: sick_leave.
+    Определяет, обычный это больничный или больничный по производственной
+    травме — по ключевым словам в начале клаузулы (первый mom., где
+    указывается основание). Смотрим только на первые ~200 символов,
+    чтобы не словить упоминание травмы из перекрёстной ссылки на другой §
+    (пример: kt-ytes §89 ссылается на §90 по ходу текста).
+    """
+    lowered = text_fi.lower()
+    if KT_SICK_LEAVE_ACCIDENT_KEYWORDS_RE.search(lowered[:200]):
+        return "work_accident"
+    else:
+        return "general"
+
+
+def _leave_context(table_no: int, months: int, years: int | None = None) -> str:
+    """
+    Topic: annual_leave. Единая точка сборки rate_type_context, чтобы
+    формат не разошёлся между под-функциями:
+    "taulukko1_m07" (ячейка таблицы) / "taulukko2_10y_m12" (правило 10 лет).
+    """
+    if years is None:
+        return f"taulukko{table_no}_m{months:02d}"
+    return f"taulukko{table_no}_{years}y_m{months:02d}"
+
+
+def _build_annual_leave_row(
+    rate_type: str,
+    value: Decimal,
+    source_text: str,
+    rate_type_context: str | None = None,
+) -> dict:
+    """
+    Topic: annual_leave. Единая точка сборки rate-словаря. Единицы всегда
+    дни (unit="days"): месяцы/годы живут не в value, а в rate_type_context.
+    """
+    return {
+        "wage_group": None,
+        "rate_type_context": rate_type_context,
+        "rate_type": rate_type,
+        "value": value,
+        "unit": "days",
+        "source_text": source_text,
+    }
+
+
+def _extract_length_tables(text_fi: str) -> list[dict]:
+    """
+    Topic: annual_leave. Три таблицы "полных месяцев накопления -> дней
+    отпуска" (12 значений в каждой): таблица 1 (стаж 15+ лет), 2 (год
+    службы), 3 (остальные). Одна таблица = один match LEAVE_TABLE_RE
+    (12 чисел), даёт 12 строк; номер таблицы -- по порядковому номеру
+    match'а, месяц -- по позиции числа. У YTES/vuokra-tes таблицы подписаны
+    "Taulukko N": подписи используются только для сверки порядка.
+
+    Если таблиц не ровно 3 (или подписи не 1, 2, 3) -- warning и пустой
+    результат: частично извлечённая лестница хуже, чем её отсутствие.
+    """
+    matches = list(LEAVE_TABLE_RE.finditer(text_fi))
+    if not matches:
+        logger.debug("KT annual_leave: no length tables found")
+        return []
+
+    if len(matches) != 3:
+        logger.warning(
+            "KT annual_leave: expected 3 length tables, found %d: %.120s",
+            len(matches),
+            text_fi,
+        )
+        return []
+
+    labels = [int(n) for n in LEAVE_TABLE_LABEL_RE.findall(text_fi)]
+    if labels and labels != [1, 2, 3]:
+        logger.warning(
+            "KT annual_leave: table labels %s do not match positional order: %.120s",
+            labels,
+            text_fi,
+        )
+        return []
+
+    results = []
+    for table_no, match in enumerate(matches, start=1):
+        start, end = match.start(), match.end()
+        # окно "до" шире обычных 40 символов: строка заголовка с номерами
+        # месяцев ("Täysiä lomanmääräytymiskuukausia 1 2 ... 12") стоит перед
+        # числами дней, и без неё source_text нечитаем
+        snippet = text_fi[max(0, start - 100) : min(len(text_fi), end + 40)]
+        source_text = " ".join(snippet.split())
+
+        for month, days_str in enumerate(match.group(1).split(), start=1):
+            try:
+                value = _normalize_amount(days_str)
+            except Exception:
+                logger.warning(
+                    "KT annual_leave: failed to parse table %d month %d: %.120s",
+                    table_no,
+                    month,
+                    source_text,
+                )
+                continue
+            results.append(
+                _build_annual_leave_row(
+                    RateType.ANNUAL_LEAVE_DAYS.value,
+                    value,
+                    source_text,
+                    _leave_context(table_no, month),
+                )
+            )
+
+    return results
+
+
+def _extract_ten_year_rule(text_fi: str) -> list[dict]:
+    """
+    Topic: annual_leave. Правило "10+ лет стажа и 12 полных месяцев -> 30 дней"
+    (вместо 28 из таблицы 2). Два варианта записи, оба дают одну и ту же
+    строку: вставка внутри таблицы 2 (YTES/vuokra-tes, INLINE) и отдельный
+    абзац c) (KVTES/HYVTES/tuntipalkkaiset, PROSE). Годы и месяцы из
+    совпадения идут в rate_type_context, а не в value.
+    """
+    results = []
+
+    for pattern in (LEAVE_TEN_YEAR_INLINE_RE, LEAVE_TEN_YEAR_PROSE_RE):
+        for match in pattern.finditer(text_fi):
+            start, end = match.start(), match.end()
+            snippet = text_fi[max(0, start - 40) : min(len(text_fi), end + 40)]
+            source_text = " ".join(snippet.split())
+
+            try:
+                value = _normalize_amount(match.group("days"))
+                years = int(match.group("years"))
+                months = int(match.group("months"))
+            except Exception:
+                logger.warning(
+                    "KT annual_leave: failed to parse ten-year rule: %.120s",
+                    source_text,
+                )
+                continue
+
+            results.append(
+                _build_annual_leave_row(
+                    RateType.ANNUAL_LEAVE_DAYS.value,
+                    value,
+                    source_text,
+                    _leave_context(2, months, years),
+                )
+            )
+
+    if not results:
+        logger.debug("KT annual_leave: no ten-year rule match found")
+
+    return results
+
+
+def _extract_min_days_illness(text_fi: str) -> list[dict]:
+    """
+    Topic: annual_leave. Гарантированный минимум 20 дней отпуска, если из-за
+    болезни/травмы/реабилитации накоплено меньше (KVTES 4 mom., YTES 5 mom.).
+    Одно правило без вариантов, поэтому rate_type_context=None.
+    """
+    results = []
+
+    for match in LEAVE_MIN_DAYS_ILLNESS_RE.finditer(text_fi):
+        start, end = match.start(), match.end()
+        snippet = text_fi[max(0, start - 40) : min(len(text_fi), end + 40)]
+        source_text = " ".join(snippet.split())
+
+        try:
+            value = _normalize_amount(match.group("days"))
+        except Exception:
+            logger.warning(
+                "KT annual_leave: failed to parse min days (illness): %.120s",
+                source_text,
+            )
+            continue
+
+        results.append(
+            _build_annual_leave_row(
+                RateType.ANNUAL_LEAVE_MIN_DAYS_ILLNESS.value,
+                value,
+                source_text,
+            )
+        )
+
+    if not results:
+        logger.debug("KT annual_leave: no min-days-illness match found")
+
+    return results
+
+
+def extract_kt_annual_leave(text_fi: str) -> list[dict]:
+    results = []
+    results.extend(_extract_length_tables(text_fi))
+    results.extend(_extract_ten_year_rule(text_fi))
+    results.extend(_extract_min_days_illness(text_fi))
+    return results
+
+
 def _detect_night_sunday_mode(title_text):
+    """
+    Topic: night_and_sunday_work. Канонизирует заголовок сегмента в
+    фиксированный ключ режима (rate_type_context): sunnuntai / lauantai /
+    aatto / ilta / yo. None, если ни одно ключевое слово не найдено --
+    вызывающий код (extract_kt_night_sunday) в этом случае логирует
+    warning и пропускает сегмент.
+    """
     lowered = title_text.lower()
     if "sunnuntai" in lowered:
         return "sunnuntai"
@@ -478,6 +1134,8 @@ def _detect_night_sunday_mode(title_text):
 def _build_night_sunday_row(
     rate_type_context: str, value: Decimal, source_text: str
 ) -> dict:
+    """Topic: night_and_sunday_work. Собирает единственную rate-строку
+    (RateType.NIGHT_SUNDAY_RATE_PCT) для одного режима/сегмента."""
     return {
         "wage_group": None,
         "rate_type": RateType.NIGHT_SUNDAY_RATE_PCT.value,
@@ -489,7 +1147,13 @@ def _build_night_sunday_row(
 
 
 def _extract_night_sunday_rate(segment: str, rate_type_context: str) -> list[dict]:
-    """Пробует явный процент, потом обе фиксированные фразы (=100%) по очереди."""
+    """
+    Topic: night_and_sunday_work. Пробует три паттерна по очереди --
+    явный процент (_NIGHT_SUNDAY_PCT_RE), потом обе фиксированные фразы,
+    означающие 100% (_FULL_RATE_PHRASE_RE, _DOUBLE_RATE_PHRASE_RE) --
+    первое совпадение побеждает и возвращается. Пустой список + warning,
+    если ни один из трёх не сработал.
+    """
     for pattern, fixed_value in (
         (_NIGHT_SUNDAY_PCT_RE, None),
         (_FULL_RATE_PHRASE_RE, Decimal(100)),
@@ -517,7 +1181,11 @@ def _extract_night_sunday_rate(segment: str, rate_type_context: str) -> list[dic
 
 
 def _extract_case1_tiers(segment: str, rate_type_context: str) -> list[dict]:
-    """Случай 1: заголовок уже назвал режим, ищем тройку (порог, tier1%, tier2%)."""
+    """
+    Topic: overtime, Случай 1. Заголовок уже назвал режим (vuorokautinen/
+    viikoittainen), ищем тройку (порог часов, tier1%, tier2%) через
+    KT_OVERTIME_AMOUNT_RE. Три rate-строки на match, см. _build_tier_rows.
+    """
     results = []
 
     for match in KT_OVERTIME_AMOUNT_RE.finditer(segment):
@@ -571,6 +1239,11 @@ def _extract_compact_segment(segment: str) -> list[dict]:
 def _build_tiers_from_compact_match(
     match: re.Match, mode: str, full_text: str
 ) -> list[dict]:
+    """
+    Topic: overtime, Случай 2 (vuorokautinen/viikoittainen). Переводит
+    порог из словоформы ("kahdelta" -> 2) через _word_to_number и собирает
+    три rate-строки тем же _build_tier_rows, что и Случай 1.
+    """
     threshold = _word_to_number(match.group("threshold"))
     if threshold is None:
         logger.warning(
@@ -654,7 +1327,12 @@ def _extract_jaksotyo(segment: str) -> list[dict]:
 
 
 def _period_words_to_suffix(period_text: str) -> str | None:
-    """ "kahden" -> "2vk"; "neljän ja kuuden" -> "4-6vk"."""
+    """
+    Topic: overtime, jaksotyö. Переводит период(ы), найденные
+    _JAKSOTYO_PERIOD_RE, в суффикс для rate_type_context:
+    "kahden" -> "2vk"; "neljän ja kuuden" -> "4-6vk". None, если хотя бы
+    одно слово не распознано (_word_to_number вернул None).
+    """
     numbers = []
     for word in period_text.split(" ja "):
         n = _word_to_number(word.strip())
@@ -665,6 +1343,9 @@ def _period_words_to_suffix(period_text: str) -> str | None:
 
 
 def _word_to_number(word: str) -> int | None:
+    """Финское числительное словом или цифрой -> int. None, если слово
+    не найдено в _FI_NUMBER_WORDS и не является цифрой. Используется
+    overtime (threshold в Случае 2, периоды jaksotyö)."""
     word = word.strip().lower()
     if word.isdigit():
         return int(word)
@@ -678,7 +1359,8 @@ def _build_tier_rows(
     tier2_pct: Decimal,
     source_text: str,
 ) -> list[dict]:
-    """Три rate-строки (порог часов, tier1%, tier2%) для одного режима/контекста."""
+    """Topic: overtime. Три rate-строки (порог часов, tier1%, tier2%) для
+    одного режима/контекста; используется обоими случаями (1 и 2)."""
     common = {
         "wage_group": None,
         "rate_type_context": rate_type_context,
@@ -707,12 +1389,22 @@ def _build_tier_rows(
 
 
 def _normalize_amount(amount_str: str) -> Decimal:
+    """
+    Общая утилита (используется всеми топиками). "1 746,00" / "54,00" /
+    "1\xa0746,00" -> Decimal. Убирает nbsp и обычные пробелы-разделители
+    тысяч, запятую меняет на точку (финский формат чисел).
+    """
     normalized = amount_str.replace("\xa0", "").replace(" ", "").replace(",", ".")
     return Decimal(normalized.rstrip("."))
 
 
 def _detect_mode(title_text: str) -> str | None:
-    """Канонизирует заголовок сегмента в фиксированный ключ режима."""
+    """
+    Topic: overtime. Канонизирует заголовок сегмента в фиксированный ключ
+    режима (rate_type_context): vuorokautinen / viikoittainen. None, если
+    заголовок пуст или не называет режим явно -- тогда extract_kt_overtime
+    уходит в fallback "Случай 2" (_extract_compact_segment).
+    """
     lowered = title_text.lower()
     if "vuorokautinen" in lowered or "vuorokautista" in lowered:
         return "vuorokautinen"
@@ -723,6 +1415,10 @@ def _detect_mode(title_text: str) -> str | None:
 
 def find_segments_by_mom_header(text_fi: str) -> list[tuple[str, str]]:
     """
+    Общая утилита -- используется overtime (extract_kt_overtime) И
+    night_and_sunday_work (extract_kt_night_sunday), не специфична для
+    overtime, несмотря на расположение рядом с overtime-хелперами.
+
     Разбивает текст клаузулы на сегменты по заголовкам "N mom. Title".
     Возвращает список (title_text, segment_text). Если заголовков нет
     вообще — возвращает весь текст одним сегментом с пустым title_text

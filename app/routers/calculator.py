@@ -54,6 +54,28 @@ async def run_kt_expense_reimbursement_extraction(
     return await service.extract_expense_reimbursements()
 
 
+@router.post(
+    "/extract/kt-sick-leave",
+    summary="Extracts additional rates from KT sick leave topic",
+)
+async def run_kt_sick_leave_extraction(
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    service = TesRateService(session)
+    return await service.extract_sick_leave()
+
+
+@router.post(
+    "/extract/kt-annual-leave",
+    summary="Extracts additional rates from KT annual leave topic",
+)
+async def run_kt_annual_leave_extraction(
+    session: AsyncSession = Depends(db_helper.session_getter),
+):
+    service = TesRateService(session)
+    return await service.extract_annual_leave()
+
+
 @router.get(
     "/extract/{topic_key}", summary="Get TES Rates by topic and (optionally) by union"
 )

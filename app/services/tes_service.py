@@ -1,3 +1,4 @@
+import hashlib
 import logging
 from datetime import date, datetime, timezone
 
@@ -11,6 +12,11 @@ from app.repositories.tes import TesRepository
 from app.repositories.topics import TopicRepository
 
 logger = logging.getLogger(__name__)
+
+
+def clause_text_hash(text: str) -> str:
+    """Отпечаток текста клаузы для ручных переопределений топика."""
+    return hashlib.md5(text.encode("utf-8"), usedforsecurity=False).hexdigest()
 
 
 class TesService:
@@ -43,7 +49,7 @@ class TesService:
         agreement, status = await self._upsert_agreement(
             parsed, union.id, sector_fi=sector_fi
         )
-        clause_stats = await self._upsert_clauses(parsed.clauses, agreement.id)
+        clause_stats = await self._upsert_clauses(parsed.clauses, agreement)
         await self.session.commit()
 
         logger.info(
@@ -143,22 +149,29 @@ class TesService:
     # Clauses
 
     async def _upsert_clauses(
-        self, clauses: list[ParsedTesClause], agreement_id: int
+        self, clauses: list[ParsedTesClause], agreement: Agreement
     ) -> dict:
-        linked = unlinked = 0
+        linked = unlinked = overridden = 0
+        overrides = await self.repo.get_topic_overrides(agreement.key)
 
         for clause in clauses:
-            topic_id = None
-            if clause.topic_key:
-                topic = await self.topic_repo.get_by_key(clause.topic_key)
-                if topic:
-                    topic_id = topic.id
-                else:
-                    logger.warning("Topic not found for key '%s'", clause.topic_key)
+            text_hash = clause_text_hash(clause.text_fi)
+            if text_hash in overrides:
+                # ручное закрепление важнее автодетекции (в т.ч. «топика нет»)
+                topic_id = overrides[text_hash]
+                overridden += 1
+            else:
+                topic_id = None
+                if clause.topic_key:
+                    topic = await self.topic_repo.get_by_key(clause.topic_key)
+                    if topic:
+                        topic_id = topic.id
+                    else:
+                        logger.warning("Topic not found for key '%s'", clause.topic_key)
 
             self.repo.add_clause(
                 TesClause(
-                    agreement_id=agreement_id,
+                    agreement_id=agreement.id,
                     topic_id=topic_id,
                     section_ref=clause.section_ref,
                     text_fi=clause.text_fi,
@@ -175,6 +188,7 @@ class TesService:
             "total": linked + unlinked,
             "linked": linked,
             "unlinked": unlinked,
+            "overridden": overridden,
         }
 
     async def upsert_clauses_for_agreement(
@@ -183,7 +197,7 @@ class TesService:
         clauses: list,
     ) -> dict:
         """Сохраняет клаузулы для уже существующего agreement."""
-        clause_stats = await self._upsert_clauses(clauses, agreement.id)
+        clause_stats = await self._upsert_clauses(clauses, agreement)
         logger.info(
             "Clauses saved for '%s': %d linked, %d unlinked",
             agreement.name_fi,
@@ -192,35 +206,82 @@ class TesService:
         )
         return clause_stats
 
-    async def relink_topics(self) -> dict:
-        result = await self.session.execute(select(TesClause))
-        clauses = result.scalars().all()
+    async def relink_topics(
+        self, dry_run: bool = False, max_chars: int | None = None
+    ) -> dict:
+        """
+        Пересчитывает topic_id для всех клауз.
+        - ручные переопределения (agreement_key + md5 текста) главнее detect_topic;
+        - dry_run=True: ничего не пишет, возвращает список изменений;
+        - max_chars: смотреть только первые N символов (как при парсинге, 500).
+        """
+        rows = await self.repo.get_clauses_with_agreement_key()
+        overrides = await self.repo.get_all_topic_overrides()
+        topic_key_by_id = await self.repo.get_topic_key_map()
+        topic_id_by_key = {key: id_ for id_, key in topic_key_by_id.items()}
 
-        linked = unlinked = skipped = 0
-        for clause in clauses:
-            topic_key = detect_topic(clause.text_fi)
+        linked = unlinked = skipped = overridden = 0
+        changes: list[dict] = []
+        transitions: dict[str, int] = {}
 
-            if topic_key is None:
-                if clause.topic_id is not None:
-                    clause.topic_id = None
-                    unlinked += 1
-                else:
-                    skipped += 1
-                continue
+        for clause, agreement_key in rows:
+            override_key = (agreement_key, clause_text_hash(clause.text_fi))
 
-            topic = await self.topic_repo.get_by_key(topic_key)
-            if topic is None:
-                skipped += 1
-                continue
-
-            if clause.topic_id != topic.id:
-                clause.topic_id = topic.id
-                linked += 1
+            if override_key in overrides:
+                new_topic_id = overrides[override_key]
+                overridden += 1
             else:
+                text = clause.text_fi[:max_chars] if max_chars else clause.text_fi
+                topic_key = detect_topic(text)
+                if topic_key is None:
+                    new_topic_id = None
+                else:
+                    new_topic_id = topic_id_by_key.get(topic_key)
+                    if new_topic_id is None:
+                        skipped += 1  # ключ есть в словаре, но нет в таблице topics
+                        continue
+
+            if clause.topic_id == new_topic_id:
                 skipped += 1
+                continue
+
+            old_key = topic_key_by_id.get(clause.topic_id)
+            new_key = topic_key_by_id.get(new_topic_id)
+            label = f"{old_key} -> {new_key}"
+            transitions[label] = transitions.get(label, 0) + 1
+            changes.append(
+                {
+                    "id": clause.id,
+                    "agreement_key": agreement_key,
+                    "section_ref": clause.section_ref,
+                    "old_topic": old_key,
+                    "new_topic": new_key,
+                }
+            )
+
+            if new_topic_id is None:
+                unlinked += 1
+            else:
+                linked += 1
+            if not dry_run:
+                clause.topic_id = new_topic_id
+
+        result = {
+            "dry_run": dry_run,
+            "linked": linked,
+            "unlinked": unlinked,
+            "skipped": skipped,
+            "overridden": overridden,
+        }
+        if dry_run:
+            result["transitions"] = dict(
+                sorted(transitions.items(), key=lambda kv: -kv[1])
+            )
+            result["changes"] = changes
+            return result
 
         await self.session.commit()
-        return {"linked": linked, "unlinked": unlinked, "skipped": skipped}
+        return result
 
     @staticmethod
     def _parse_date(date_str: str | None) -> date | None:
