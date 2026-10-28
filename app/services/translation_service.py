@@ -399,6 +399,29 @@ class TranslationService:
             "skipped": len(clauses) - translated,
         }
 
+    async def reset_translations_by_key(
+            self,
+            lang: str,
+            union_key: str | None = None,
+            agreement_key: str | None = None,
+            dry_run: bool = False,
+    ) -> dict:
+        affected = await self.repo.reset_translations(
+            lang=lang,
+            union_key=union_key,
+            agreement_key=agreement_key,
+            dry_run=dry_run,
+        )
+        if not dry_run:
+            await self.session.commit()
+        return {
+            "lang": lang,
+            "union_key": union_key,
+            "agreement_key": agreement_key,
+            "dry_run": dry_run,
+            "affected": affected,
+        }
+
     async def translate_sectors_en(self) -> dict:
         """
         NLLB fi→en для sector_fi во всех agreements.
