@@ -343,3 +343,9 @@ class TesRepository:
         """{topic_id: topic_key}."""
         result = await self.session.execute(select(Topic.id, Topic.key))
         return {topic_id: key for topic_id, key in result.all()}
+
+    async def count_clauses_for_agreement(self, agreement_id):
+        result = await self.session.execute(
+            select(func.count()).select_from(TesClause).where(TesClause.agreement_id == agreement_id),
+        )
+        return result.scalar_one()
