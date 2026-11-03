@@ -23,6 +23,7 @@ async def lifespan(app: FastAPI):
             logging.FileHandler("logs/app.log", encoding="utf-8"),
         ],
     )
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
     logger.info("🚀 Приложение запущено. Подключение к БД готово.")
     logger.info("Loading translation models...")
     from app.translation.nllb import _load_model
