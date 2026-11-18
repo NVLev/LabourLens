@@ -182,6 +182,10 @@ _FULL_RATE_PHRASE_RE = re.compile(r"\bkorottamaton\s+tuntipalkka\b", re.IGNORECA
 # "kaksinkertainen" -- считаем как +100% сверху, т.е. значение = 100):
 _DOUBLE_RATE_PHRASE_RE = re.compile(r"kaksinkertais\w*", re.IGNORECASE)
 
+_MOM_HEADER_ABOVE_RE = re.compile(
+    r"(?m)^(?P<title>[^\n.,]{3,40}?)[ \t]*\n[ \t]*\n(?P<num>\d+)[ \t]*mom\.[ \t]*$"
+)
+
 # ------------------------- topic: expense_reimbursement --------------------
 # Group A: чистые константы в евро, у каждой своя фраза-якорь, сегментация
 # по mom. не нужна -- все четыре паттерна сканируют text_fi целиком.
@@ -1427,18 +1431,13 @@ def find_segments_by_mom_header(text_fi: str) -> list[tuple[str, str]]:
     """
     matches_before = list(_MOM_HEADER_BEFORE_RE.finditer(text_fi))
     matches_after = list(_MOM_HEADER_AFTER_RE.finditer(text_fi))
-    matches = (
-        matches_before if len(matches_before) >= len(matches_after) else matches_after
-    )
+    matches_above = list(_MOM_HEADER_ABOVE_RE.finditer(text_fi))
 
     def nonempty_count(matches):
         return sum(1 for m in matches if m.group(1).strip())
 
-    matches = (
-        matches_before
-        if nonempty_count(matches_before) >= nonempty_count(matches_after)
-        else matches_after
-    )
+    candidates = [matches_before, matches_after, matches_above]
+    matches = max(candidates, key=nonempty_count)
 
     if not matches:
         return [("", text_fi)]

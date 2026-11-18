@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from typing import Any, Callable
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,11 +35,16 @@ class TesRateService:
             rate_type_context=rate.get("rate_type_context"),
         )
         if existing is not None:
+            if existing.clause_id is None:
+                existing.clause_id = clause.id
+            if existing.topic_id is None:
+                existing.topic_id = clause.topic_id
             if existing.value == rate["value"]:
                 return "skipped"
-            existing.clause_id = clause.id
             existing.value = rate["value"]
-            existing.topic_id = clause.topic_id
+            existing.clause_id = clause.id
+            existing.extracted_at = datetime.now(timezone.utc)
+            existing.source_text = rate["source_text"]
             logger.debug("Updated tes_rate for clause id '%s'", existing.clause_id)
             return "updated"
 
@@ -54,6 +60,7 @@ class TesRateService:
                 effective_from=rate["effective_from"],
                 rate_type_context=rate.get("rate_type_context"),
                 source_text=rate["source_text"],
+                extracted_at=datetime.now(timezone.utc),
             )
         )
         await self.session.flush()

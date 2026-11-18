@@ -1,4 +1,4 @@
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, select, update, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -235,6 +235,66 @@ class TesRepository:
         )
         return [row[0] for row in result.all()]
 
+    async def reset_translations(
+            self,
+            lang: str,
+            union_key: str | None = None,
+            agreement_key: str | None = None,
+            dry_run: bool = False
+        ) -> int:
+        """Сброс перевода"""
+
+        agreement_subquery = (
+            select(Agreement.id)
+            .join(Union, Agreement.union_id == Union.id)
+        )
+        if union_key:
+            agreement_subquery = agreement_subquery.where(Union.key == union_key)
+        if agreement_key:
+            agreement_subquery = agreement_subquery.where(Agreement.key == agreement_key)
+        conditions = [TesClause.agreement_id.in_(agreement_subquery)]
+        values_to_update = {}
+        if lang == "en":
+            conditions.append(TesClause.text_en.is_not(None))
+            values_to_update = {
+                TesClause.text_en: None,
+                TesClause.translated_at: None
+            }
+        elif lang == "ru":
+            conditions.append(TesClause.text_ru.is_not(None))
+            values_to_update = {
+                TesClause.text_ru: None,
+                TesClause.translated_ru_at: None
+            }
+        elif lang == "all":
+            conditions.append(or_(TesClause.text_en.is_not(None), TesClause.text_ru.is_not(None)))
+            values_to_update = {
+                TesClause.text_en: None,
+                TesClause.translated_at: None,
+                TesClause.text_ru: None,
+                TesClause.translated_ru_at: None
+            }
+        else:
+            raise ValueError(f"Unsupported language: {lang}")
+
+        if dry_run:
+            count_stmt = (
+                select(func.count())
+                .select_from(TesClause)
+                .where(*conditions)
+            )
+            count_result = await self.session.execute(count_stmt)
+            return count_result.scalar_one()
+
+        stmt = (
+            update(TesClause)
+            .where(*conditions)
+            .values(values_to_update)
+            .execution_options(synchronize_session=False)
+        )
+        result = await self.session.execute(stmt)
+        return result.rowcount
+
     async def set_sector_en(self, sector_fi: str, sector_en: str) -> None:
         """Заполняет sector_en для всех agreements с данным sector_fi."""
         await self.session.execute(
@@ -283,3 +343,9 @@ class TesRepository:
         """{topic_id: topic_key}."""
         result = await self.session.execute(select(Topic.id, Topic.key))
         return {topic_id: key for topic_id, key in result.all()}
+
+    async def count_clauses_for_agreement(self, agreement_id):
+        result = await self.session.execute(
+            select(func.count()).select_from(TesClause).where(TesClause.agreement_id == agreement_id),
+        )
+        return result.scalar_one()

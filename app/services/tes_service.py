@@ -49,6 +49,16 @@ class TesService:
         agreement, status = await self._upsert_agreement(
             parsed, union.id, sector_fi=sector_fi
         )
+        count = await self.repo.count_clauses_for_agreement(agreement.id)
+        if count > 0:
+            await self.session.commit()
+            return {
+            "agreement": parsed.name_fi,
+            "status": status,
+            "total": count,
+            "linked": 0,
+            "unlinked": 0,
+        }
         clause_stats = await self._upsert_clauses(parsed.clauses, agreement)
         await self.session.commit()
 
@@ -145,6 +155,7 @@ class TesService:
         await self.session.flush()
 
         return agreement, status
+
 
     # Clauses
 

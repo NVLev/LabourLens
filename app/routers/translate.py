@@ -1,5 +1,6 @@
 import logging
 import time
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -250,6 +251,25 @@ async def translate_tes_by_union_ru(
 ):
     return await service.translate_tes_ru_by_union(union_key)
 
+@router.post(
+    "/tes/reset", summary="Reset translation of particular TES or union"
+)
+async def reset_tes_translation(
+    lang: Literal["en", "ru", "all"],
+    union_key: str | None = None,
+    agreement_key: str | None = None,
+    all_: bool = False,
+    dry_run: bool = False,
+    service: TranslationService = Depends(get_translation_service),
+):
+    if not (union_key or agreement_key or all_):
+        raise HTTPException(400, "Specify union_key, agreement_key or all_=true")
+    return await service.reset_translations_by_key(
+        lang=lang,
+        union_key=union_key,
+        agreement_key=agreement_key,
+        dry_run=dry_run,
+    )
 
 @router.get(
     "/tes/{union_key}/status", summary="List of untranslated agreemnts by union"
