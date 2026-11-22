@@ -1,7 +1,7 @@
 import os
 from typing import Annotated, List, Tuple
 
-from pydantic import BaseModel, Field, PostgresDsn, field_validator
+from pydantic import BaseModel, Field, PostgresDsn, field_validator, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -36,6 +36,62 @@ class ParserConfig(BaseModel):
     tyosuojelu_base_url: str = "https://www.tyosuojelu.fi"
     playwright_timeout_ms: int = 30000
 
+class TranslationConfig(BaseModel):
+    api_key: SecretStr = Field(
+        default=SecretStr(""),
+        description="Genai Token")
+    models: list[str] = Field(
+        default=[
+            "gemini-3.1-flash-lite",
+            "gemini-3.5-flash-lite",
+        ],
+        description="List of models to use",
+    )
+    request_delay: float = Field(
+        default=4.0,
+        ge=0.0,
+        description="Delay between requests (to prevent 429 Too Many Requests error)",
+    )
+    max_tokens: int = Field(
+        default=16384,
+        gt=0,
+        description="Max number of tokens allowed in each request",
+    )
+    chunk_size_limit: int = Field(
+        default=12000,
+        gt=100,
+        description="Maximum length of each chunk",
+    )
+    daily_request_limit: int = Field(
+        default=480,
+        gt=0,
+        description="Daily request limit",
+    )
+    max_attempts: int = Field(
+        default=3,
+        gt=0,
+        description="Max number of attempts allowed in each answer",
+    )
+    timeout_seconds: int = Field(
+        default=240_000,
+        gt=0,
+        description="Timeout for each request in seconds",
+    )
+
+    @field_validator("api_key")
+    @classmethod
+    def validate_api_key(cls, v: SecretStr) -> SecretStr:
+        raw_key = v.get_secret_value().strip()
+        if raw_key and len(raw_key) < 10:
+            raise ValueError("API_KEY для переводчика должен быть валидной строкой")
+        return v
+
+    @field_validator("models")
+    @classmethod
+    def validate_models(cls, v: list[str]) -> list[str]:
+        if not v:
+            raise ValueError("Список моделей не может быть пустым")
+        return v
 
 class PaginationConfig(BaseModel):
     page_size: int = 10
@@ -56,6 +112,7 @@ class Settings(BaseSettings):
     db: DatabaseConfig = Field(default_factory=DatabaseConfig)
     bot: Annotated[BotConfig, Field()]
     parser: ParserConfig = Field(default_factory=ParserConfig)
+    translation: TranslationConfig = Field(default_factory=TranslationConfig)
     pagination: PaginationConfig = Field(default_factory=PaginationConfig)
 
 
