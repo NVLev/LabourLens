@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
+from sqlalchemy import Computed
 
 from sqlalchemy import (
     TIMESTAMP,
@@ -20,6 +21,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.sql.functions import now
 
 
 class Base(DeclarativeBase):
@@ -27,8 +29,6 @@ class Base(DeclarativeBase):
 
 
 # СЛОЙ ЗАКОНОВ
-
-
 class Act(Base):
     """Закон целиком — Työsopimuslaki, Vuosilomalaki и т.д."""
 
@@ -119,8 +119,6 @@ class SectionParagraph(Base):
 
 
 # СЛОЙ ТЕМ
-
-
 class Topic(Base):
     """
     Тематический якорь: 'dismissal', 'overtime', 'sick_leave'.
@@ -159,8 +157,6 @@ class TopicSection(Base):
 
 
 # СЛОЙ ИНТЕРПРЕТАЦИЙ
-
-
 class Interpretation(Base):
     """Объяснение от Työsuojelu или профсоюза."""
 
@@ -188,8 +184,6 @@ class Interpretation(Base):
 
 
 # СЛОЙ TES
-
-
 class Union(Base):
     """Профсоюз."""
 
@@ -283,6 +277,13 @@ class TesClause(Base):
     priority_note: Mapped[Optional[str]] = mapped_column(Text)
     # объяснение почему TES лучше закона
 
+    # для перевода
+    text_hash: Mapped[Optional[str]] = mapped_column(
+        String(32), Computed("md5(text_fi)", persisted=True), index=True
+    )
+    translation_model: Mapped[Optional[str]] = mapped_column(String(64))
+
+    # relationship
     agreement: Mapped["Agreement"] = relationship(back_populates="clauses")
     topic: Mapped[Optional["Topic"]] = relationship(back_populates="tes_clauses")
     tes_rates: Mapped[list["TesRate"]] = relationship(back_populates="tes_clause")
@@ -317,8 +318,6 @@ class TesClauseTopicOverride(Base):
 
 
 # СЛОЙ APPLICATION
-
-
 class FaqRule(Base):
     """Rule-based FAQ: условия → готовый ответ со ссылками."""
 
@@ -357,8 +356,6 @@ class FaqSectionRef(Base):
 
 
 # СЛОЙ ПОЛЬЗОВАТЕЛЕЙ
-
-
 class User(Base):
     """Telegram-пользователь."""
 
@@ -442,3 +439,24 @@ class TesRate(Base):
     agreement: Mapped["Agreement"] = relationship(back_populates="tes_rates")
     topic: Mapped[Optional["Topic"]] = relationship(back_populates="tes_rates")
     tes_clause: Mapped[Optional["TesClause"]] = relationship(back_populates="tes_rates")
+
+# СЛОЙ ПЕРЕВОДА
+class Translation(Base):
+    __tablename__ = "translations"
+    __table_args__ = (UniqueConstraint("text_hash", name="uq_translations_text_hash"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    text_hash: Mapped[str] = mapped_column(String(32), nullable=False)
+    text_ru: Mapped[Optional[str]] = mapped_column(Text)
+    text_en: Mapped[Optional[str]] = mapped_column(Text)
+    model: Mapped[str] = mapped_column(String(64), nullable=False)
+    glossary_version: Mapped[Optional[str]] = mapped_column(String(16))
+    attempts: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0, server_default="0")
+    last_error:Mapped[Optional[str]] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False
+    )
+
